@@ -48,6 +48,32 @@ function main() {
     }
   }
 
+  // Deploy CoE installer to parent folder (Center of Excellence (CoE)/)
+  const coeInstallerSrc = join(ROOT, "coe-installer");
+  const parentFolder = dirname(deployPath);
+  
+  if (existsSync(coeInstallerSrc)) {
+    console.log("Deploying CoE installer to:", parentFolder);
+    
+    // Copy install script
+    const installScriptSrc = join(coeInstallerSrc, "install-ado-testforge.mjs");
+    if (existsSync(installScriptSrc)) {
+      copyFileSync(installScriptSrc, join(parentFolder, "install-ado-testforge.mjs"));
+    }
+    
+    // Copy .cursor/rules
+    const rulesSrc = join(coeInstallerSrc, ".cursor", "rules");
+    if (existsSync(rulesSrc)) {
+      const rulesDestDir = join(parentFolder, ".cursor", "rules");
+      mkdirSync(rulesDestDir, { recursive: true });
+      for (const rule of readdirSync(rulesSrc)) {
+        copyFileSync(join(rulesSrc, rule), join(rulesDestDir, rule));
+      }
+    }
+    
+    console.log("CoE installer deployed.");
+  }
+
   console.log("Deploy complete. Google Drive folder updated.");
 }
 
