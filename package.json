@@ -16,7 +16,7 @@
     "test-cases",
     "qa"
   ],
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "dotenv": "^17.3.1",

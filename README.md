@@ -1,5 +1,7 @@
 # MARS ADO MCP — Azure DevOps Test Case Automation
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 A Model Context Protocol (MCP) server that integrates Azure DevOps with Cursor IDE for streamlined QA test case management. Draft, review, and push test cases directly from Cursor's AI chat—with automatic User Story enrichment and Confluence Solution Design integration.
 
 ---
@@ -143,7 +145,7 @@ Configure the deploy path via `.deploy-path` or `GDRIVE_DEPLOY_PATH` environment
 
 ## License
 
-ISC
+MIT © [Kavita Badgujar](https://github.com/badgujar-kavita)
 
 ---
 
