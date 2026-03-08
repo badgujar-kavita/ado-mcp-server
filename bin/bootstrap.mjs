@@ -194,6 +194,22 @@ function runInstallerServer() {
     if (!existsSync(CREDENTIALS_DIR)) {
       mkdirSync(CREDENTIALS_DIR, { recursive: true });
     }
+
+    // Migrate from old mars-ado-mcp path if it exists
+    const oldCredentialsDir = join(homedir(), ".mars-ado-mcp");
+    const oldCredentialsFile = join(oldCredentialsDir, "credentials.json");
+    let migrated = false;
+
+    if (!existsSync(CREDENTIALS_FILE) && existsSync(oldCredentialsFile)) {
+      try {
+        const oldCreds = readFileSync(oldCredentialsFile, "utf-8");
+        writeFileSync(CREDENTIALS_FILE, oldCreds, "utf-8");
+        migrated = true;
+      } catch {
+        // Fall through to create template
+      }
+    }
+
     if (!existsSync(CREDENTIALS_FILE)) {
       const template = {
         ado_pat: "your-personal-access-token",
@@ -206,7 +222,8 @@ function runInstallerServer() {
       };
       writeFileSync(CREDENTIALS_FILE, JSON.stringify(template, null, 2) + "\n", "utf-8");
     }
-    return CREDENTIALS_FILE;
+
+    return { path: CREDENTIALS_FILE, migrated };
   }
 
   const installTool = {
@@ -364,13 +381,16 @@ function runInstallerServer() {
           steps.push("npm dependencies already installed.");
         }
 
-        // 5. Credentials template
+        // 5. Credentials template (with migration from old mars-ado-mcp path)
         if (!hasErr) {
-          const credPath = createCredentialsTemplate();
+          const credResult = createCredentialsTemplate();
+          if (credResult.migrated) {
+            steps.push(`[MIGRATED] Credentials migrated from ~/.mars-ado-mcp/ to: ${credResult.path}`);
+          }
           if (hasValidCredentials()) {
-            steps.push(`Credentials already configured at: ${credPath}`);
+            steps.push(`Credentials configured at: ${credResult.path}`);
           } else {
-            steps.push(`Credentials template created at: ${credPath}`);
+            steps.push(`Credentials template created at: ${credResult.path}`);
             steps.push("");
             steps.push("NEXT: Open the file above and fill in:");
             steps.push("  - ado_pat: Your Azure DevOps Personal Access Token");
