@@ -55,18 +55,20 @@ function main() {
   if (existsSync(coeInstallerSrc)) {
     console.log("Deploying CoE installer to:", parentFolder);
     
-    // Copy setup MCP server script
-    const setupMcpSrc = join(coeInstallerSrc, "setup-mcp.mjs");
-    if (existsSync(setupMcpSrc)) {
-      copyFileSync(setupMcpSrc, join(parentFolder, "setup-mcp.mjs"));
+    // Copy install script
+    const installScriptSrc = join(coeInstallerSrc, "install-ado-testforge.mjs");
+    if (existsSync(installScriptSrc)) {
+      copyFileSync(installScriptSrc, join(parentFolder, "install-ado-testforge.mjs"));
     }
     
-    // Copy .cursor/mcp.json for the setup server
-    const mcpJsonSrc = join(coeInstallerSrc, ".cursor", "mcp.json");
-    if (existsSync(mcpJsonSrc)) {
-      const cursorDestDir = join(parentFolder, ".cursor");
-      mkdirSync(cursorDestDir, { recursive: true });
-      copyFileSync(mcpJsonSrc, join(cursorDestDir, "mcp.json"));
+    // Copy .cursor/commands for the slash command
+    const commandsSrc = join(coeInstallerSrc, ".cursor", "commands");
+    if (existsSync(commandsSrc)) {
+      const commandsDestDir = join(parentFolder, ".cursor", "commands");
+      mkdirSync(commandsDestDir, { recursive: true });
+      for (const cmd of readdirSync(commandsSrc)) {
+        copyFileSync(join(commandsSrc, cmd), join(commandsDestDir, cmd));
+      }
     }
     
     console.log("CoE installer deployed.");
