@@ -8,8 +8,8 @@
  */
 
 import { execSync } from "child_process";
-import { copyFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from "fs";
-import { join, dirname } from "path";
+import { copyFileSync, mkdirSync, existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -47,6 +47,28 @@ function main() {
       copyFileSync(srcPath, destPath);
     }
   }
+
+  // Create .cursor/mcp.json at parent CoE folder level so MCP is available
+  // when users add the CoE folder (not just MCP Servers subfolder) to workspace
+  const parentFolder = dirname(deployPath);
+  const mcpServersFolderName = basename(deployPath);
+  const parentCursorDir = join(parentFolder, ".cursor");
+  mkdirSync(parentCursorDir, { recursive: true });
+
+  const parentMcpConfig = {
+    mcpServers: {
+      "ado-testforge": {
+        command: "node",
+        args: [join(mcpServersFolderName, "bin", "bootstrap.mjs")],
+      },
+    },
+  };
+  writeFileSync(
+    join(parentCursorDir, "mcp.json"),
+    JSON.stringify(parentMcpConfig, null, 2) + "\n",
+    "utf-8"
+  );
+  console.log("Created parent folder MCP config at:", join(parentCursorDir, "mcp.json"));
 
   console.log("Deploy complete. Google Drive folder updated.");
 }
