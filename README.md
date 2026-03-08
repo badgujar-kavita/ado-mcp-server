@@ -25,18 +25,30 @@ MARS ADO MCP enables QA teams to automate test case creation and management work
 
 ## Architecture
 
-```
-┌─────────────────┐     stdio      ┌─────────────────┐     REST + PAT     ┌─────────────────────────────────┐
-│   Cursor IDE    │ ◄─────────────► │   MCP Server     │ ◄────────────────► │   Azure DevOps                  │
-│   (MCP Host)    │   JSON-RPC      │   (Node.js)      │                    │   • Work Item Tracking            │
-└─────────────────┘                 └────────┬────────┘                    │   • Test Plans & Suites           │
-                                             │                             └─────────────────────────────────┘
-                                             │ REST + API Token
-                                             ▼
-                                    ┌─────────────────┐
-                                    │   Confluence     │
-                                    │   (Solution Design)│
-                                    └─────────────────┘
+```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e3a5f', 'primaryTextColor':'#e2e8f0', 'primaryBorderColor':'#334155', 'lineColor':'#64748b', 'secondaryColor':'#0f172a', 'tertiaryColor':'#1e293b'}}}%%
+flowchart TB
+    subgraph local["Local"]
+        Cursor["Cursor IDE<br/><i>MCP Host</i>"]
+    end
+
+    subgraph mcp["MCP Server"]
+        Server["mars-ado<br/><i>Node.js</i>"]
+    end
+
+    subgraph ado["Azure DevOps"]
+        WIT["Work Item Tracking"]
+        TP["Test Plans & Suites"]
+    end
+
+    subgraph confluence["Confluence Cloud"]
+        SD["Solution Design"]
+    end
+
+    Cursor <-->|"stdio · JSON-RPC"| Server
+    Server -->|"REST + PAT"| WIT
+    Server -->|"REST + PAT"| TP
+    Server -.->|"REST + API Token"| SD
 ```
 
 ---
