@@ -4,16 +4,29 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
-## 2026-03-08 — Rename to ADO TestForge
+## 2026-03-08 — Consolidated Installer and Rename
+
+### Single MCP Entry
+
+- **Consolidated:** `setup-ado-testforge` merged into `ado-testforge`. Now there's only one MCP entry.
+- **Install command:** `/ado-testforge/install` (was `/setup-ado-testforge/install`)
+- **Smart mode detection:** Server shows install command when not ready, full tools when ready.
+
+### Enhanced Prerequisite Checks
+
+The install command now checks:
+- Google Drive desktop app (warning if not detected)
+- Node.js v18+ (required)
+- Folder structure validity (required)
 
 ### Breaking: Server and Credentials Rename
 
-- **MCP servers:** `mars-ado` → `ado-testforge`, `setup-mars-ado` → `setup-ado-testforge`
+- **MCP servers:** `mars-ado` → `ado-testforge` (single entry, no separate installer)
 - **Slash commands:** `/mars-ado/*` → `/ado-testforge/*`
 - **Credentials path:** `~/.mars-ado-mcp/` → `~/.ado-testforge-mcp/`
 - **Package name:** `mars-ado-mcp` → `ado-testforge-mcp`
 
-**Migration for existing users:** Copy your credentials to the new path, or run `/setup-ado-testforge/install` to create a fresh template and re-enter your PAT/org/project. Restart Cursor or reload MCP after migration.
+**Migration for existing users:** Copy your credentials to the new path, or run `/ado-testforge/install` to create a fresh template and re-enter your PAT/org/project. Restart Cursor or reload MCP after migration.
 
 ---
 

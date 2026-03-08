@@ -13,7 +13,7 @@ async function main() {
 
   const credentials = loadCredentials();
   if (!credentials) {
-    console.error("No valid credentials found. Run /setup-ado-testforge/install first.");
+    console.error("No valid credentials found. Run /ado-testforge/install first.");
     process.exit(1);
   }
 

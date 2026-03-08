@@ -14,12 +14,11 @@ Welcome to the ADO TestForge MCP server. This guide walks you through the comple
 
 2. **Run the installer**  
    - Open Cursor's **AI chat** (Cmd+L / Ctrl+L)  
-   - Type `/setup-ado-testforge` and select **install**
+   - Type `/ado-testforge/install` and run the command
 
 3. **Follow the prompts**  
    The installer will:
-   - Check prerequisites (Node.js v18+)
-   - Install npm dependencies
+   - Check prerequisites (Google Drive app, Node.js v18+, folder structure)
    - Create a credentials template at `~/.ado-testforge-mcp/credentials.json`
    - **Register ADO TestForge MCP globally** so it works in any project folder
 
@@ -115,18 +114,17 @@ This is only relevant for production/shared deployments. For individual use, PAT
 3. Go to **File > Add Folder to Workspace** (or **Open Folder** if starting a new session)
 4. Select the `ADO TestForge MCP` folder
 
-As soon as the folder is in your workspace, the **setup-ado-testforge** command becomes available. You can verify in **Cursor Settings > MCP** — you should see **setup-ado-testforge** (and possibly **ado-testforge**) listed.
+As soon as the folder is in your workspace, the **ado-testforge** MCP server becomes available. You can verify in **Cursor Settings > MCP** — you should see **ado-testforge** listed.
 
 ---
 
 ## Step 3: Run the Installer
 
 1. Open Cursor's **AI chat** (Cmd+L on Mac, Ctrl+L on Windows)
-2. Type `/setup-ado-testforge` and select **install** from the dropdown
+2. Type `/ado-testforge/install` and run the command
 
 The installer will automatically:
-- **Check prerequisites** (Node.js v18+)
-- Run `npm install` to download all required dependencies
+- **Check prerequisites** (Google Drive app, Node.js v18+, folder structure)
 - Create a credentials template file at `~/.ado-testforge-mcp/credentials.json`
 - **Register ADO TestForge MCP globally** in `~/.cursor/mcp.json` so it works in any project folder
 
@@ -366,21 +364,19 @@ See [docs/test-case-writing-style-reference.md](docs/test-case-writing-style-ref
 
 ## Troubleshooting
 
-### I don't see `/setup-ado-testforge` in the chat
+### I don't see `/ado-testforge/install` in the chat
 
 Add the ADO TestForge MCP folder to your workspace first: **File > Add Folder to Workspace** and select the folder. The install command is available only when that folder is part of your workspace.
 
 ### "ado-testforge" shows a red dot
 
-The main server can't start because setup isn't complete. Run `/setup-ado-testforge/install` first, then configure your credentials (Steps 3-5 above).
-
-### "setup-ado-testforge" shows a red dot
-
-Node.js may not be installed or not in your PATH. Run `node -v` in a terminal to verify. If it's not found, install Node.js from [https://nodejs.org](https://nodejs.org).
+The server can't start. Common causes:
+- Node.js is not installed or not in your PATH. Run `node -v` to verify.
+- The folder structure is invalid. Ensure you're using the CoE/MCP Servers folder.
 
 ### ADO TestForge MCP doesn't appear when I open a different project folder
 
-Run `/setup-ado-testforge/install` again (with the ADO TestForge MCP folder in your workspace) — it registers ado-testforge globally. If you've already run it, restart Cursor to reload the global MCP config.
+Run `/ado-testforge/install` again (with the ADO TestForge MCP folder in your workspace) — it registers ado-testforge globally. If you've already run it, restart Cursor to reload the global MCP config.
 
 ### npm install fails
 
@@ -432,11 +428,11 @@ When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when f
 
 ## How Global Registration Works
 
-The installer adds **ado-testforge** (the main server) to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths. The **setup-ado-testforge** installer stays project-scoped — it's only available when the ADO TestForge MCP folder is in your workspace. That means:
+The installer adds **ado-testforge** to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths. That means:
 
 - **ado-testforge** is available in **any project folder** you open — use `/ado-testforge` for all ADO commands
-- **setup-ado-testforge** is only for installation — add the ADO TestForge MCP folder to workspace if you need to re-run setup
-- If you move the ADO TestForge MCP folder, add it to workspace and run `/setup-ado-testforge/install` again to update the paths
+- The install command (`/ado-testforge/install`) is available when the ADO TestForge MCP folder is in your workspace
+- If you move the ADO TestForge MCP folder, add it to workspace and run `/ado-testforge/install` again to update the paths
 
 ---
 
@@ -449,4 +445,4 @@ Your credentials are stored at `~/.ado-testforge-mcp/credentials.json` in your *
 - Each team member has their own separate credentials
 - Deleting or re-sharing the project folder does not affect your credentials
 
-To update your credentials at any time, edit the file directly or run `/setup-ado-testforge/install` again.
+To update your credentials at any time, edit the file directly or run `/ado-testforge/install` again.

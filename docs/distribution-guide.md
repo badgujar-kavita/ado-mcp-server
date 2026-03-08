@@ -30,7 +30,7 @@ If you're okay with users having access to the source, share only these:
 | `src/` | **Yes** | Server code (runs via `npx tsx`) |
 | `package.json` | **Yes** | Dependencies |
 | `package-lock.json` | **Yes** | Locked versions for reproducible installs |
-| `.cursor/mcp.json` | **Yes** | Defines setup-ado-testforge for the install flow |
+| `.cursor/mcp.json` | **Yes** | Defines ado-testforge MCP entry for the install flow |
 | `docs/setup-guide.md` | **Yes** | User instructions |
 | `conventions.config.json` | **Yes** | Test case naming conventions |
 
@@ -63,7 +63,7 @@ This creates a `dist-package/` folder containing:
 Upload the entire `dist-package/` folder. Users:
 1. Download/sync the folder
 2. Add it to Cursor workspace
-3. Run `/setup-ado-testforge` → install (no `npm install` needed)
+3. Run `/ado-testforge/install` (no `npm install` needed)
 4. Configure credentials at `~/.ado-testforge-mcp/credentials.json`
 
 **No `src/` folder = no source code exposed.**

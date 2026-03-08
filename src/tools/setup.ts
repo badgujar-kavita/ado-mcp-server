@@ -87,7 +87,7 @@ export function registerSetupTools(server: McpServer) {
         checks.push("Status: READY -- all tools and commands are available.");
       } else {
         checks.push("");
-        checks.push("Status: SETUP REQUIRED -- run /setup-ado-testforge/install to get started.");
+        checks.push("Status: SETUP REQUIRED -- run /ado-testforge/install to get started.");
       }
 
       return {

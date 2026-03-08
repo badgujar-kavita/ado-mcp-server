@@ -35,9 +35,9 @@ The MCP server is self-installing. If you received the `ADO TestForge MCP` folde
 **Steps:**
 
 1. Open the `ADO TestForge MCP` folder in **Cursor IDE**
-2. Go to **Cursor Settings > MCP** -- you should see two servers: `setup-ado-testforge` and `ado-testforge`
-3. In Cursor's AI chat, type `/setup-ado-testforge/install` and select the command
-4. The installer runs `npm install` and creates a credentials template file
+2. Go to **Cursor Settings > MCP** -- you should see `ado-testforge` listed
+3. In Cursor's AI chat, type `/ado-testforge/install` and run the command
+4. The installer checks prerequisites and creates a credentials template file
 5. Open the credentials file shown in the chat response (`~/.ado-testforge-mcp/credentials.json`)
 6. Fill in your **ADO PAT**, **organization name**, and **project name** -- save the file
 7. Restart the `ado-testforge` MCP server in **Cursor Settings > MCP**
@@ -76,17 +76,18 @@ The MCP server uses a bootstrap system that handles installation automatically.
 
 ### How It Works
 
-When Cursor opens the `ADO TestForge MCP` folder, it reads `.cursor/mcp.json` and starts two MCP servers:
+When Cursor opens the `ADO TestForge MCP` folder, it reads `.cursor/mcp.json` and starts the `ado-testforge` MCP server.
 
-- **`setup-ado-testforge`** -- A lightweight, always-available installer (zero npm dependencies). Exposes only the `/setup-ado-testforge/install` command to run `npm install` and create the credentials template.
-- **`ado-testforge`** -- The full ADO server. If setup isn't complete yet, it shows only a `check_setup_status` tool pointing to the installer. Once configured, it exposes all tools and commands.
+- **Not ready (first time):** Shows `/ado-testforge/install` command with prerequisite checks (Google Drive, Node.js, folder structure). Registers the server globally after install.
+- **Ready:** Shows full ADO tools (`/ado-testforge/get_user_story`, `/ado-testforge/draft_test_cases`, etc.)
 
 ### Running Setup
 
-1. Type `/setup-ado-testforge/install` in Cursor's AI chat
+1. Type `/ado-testforge/install` in Cursor's AI chat
 2. The installer will:
-   - Run `npm install` to install all dependencies
+   - Check prerequisites (Google Drive app, Node.js v18+, folder structure)
    - Create `~/.ado-testforge-mcp/credentials.json` with a template
+   - Register `ado-testforge` globally in `~/.cursor/mcp.json`
 3. Open the credentials file and fill in:
    - `ado_pat`: Your Azure DevOps Personal Access Token
    - `ado_org`: Organization name (from `https://dev.azure.com/{org}`)
@@ -106,17 +107,18 @@ Use `/ado-testforge/check_status` to verify your setup is complete. It checks fo
 
 ## 4. Using Slash Commands
 
-Two MCP servers register **slash commands** (MCP prompts) that provide a quick way to invoke tools. Type `/` in Cursor's chat to see all available commands.
+The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that provide a quick way to invoke tools. Type `/` in Cursor's chat to see all available commands.
 
 ### Available Commands
 
-**Installer** (`setup-ado-testforge`):
+**Before setup (installer mode):**
 
 | Command | Description |
 |---|---|
-| `install` | Install npm dependencies and create credentials template |
+| `install` | Check prerequisites, create credentials template, register globally |
+| `check_setup_status` | Check what is needed to complete setup |
 
-**ADO server** (`ado-testforge`, available after setup):
+**After setup (full server):
 
 | Command | Description |
 |---|---|

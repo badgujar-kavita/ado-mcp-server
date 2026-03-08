@@ -3,15 +3,11 @@
 /**
  * ADO TestForge MCP Bootstrap
  *
- * Three modes driven by CLI flags and system state:
+ * Two modes based on system state:
  *
- *   --installer  : Always run the zero-dep INSTALLER MCP server
- *                  (used by the "setup-ado-testforge" entry in mcp.json).
- *                  Exposes only the "install" prompt and "install_and_setup" tool.
- *
- *   (no flag, ready)    : Proxy stdio to the full MCP server (npx tsx src/index.ts).
- *   (no flag, NOT ready): Run a tiny "not ready" MCP server that tells the user
- *                          to run /setup-ado-testforge/install first.
+ *   (ready)    : Proxy stdio to the full MCP server (dist/index.js or npx tsx src/index.ts).
+ *   (NOT ready): Run installer MCP server with /ado-testforge/install command.
+ *                Checks prerequisites, creates credentials template, registers globally.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
@@ -72,6 +68,29 @@ function checkNodeVersion() {
   return { ok: major >= 18, version: process.version, major };
 }
 
+function checkGoogleDrive() {
+  const pathLower = PROJECT_ROOT.toLowerCase();
+  const hasGoogleDrive =
+    pathLower.includes("cloudstorage/googledrive") ||
+    pathLower.includes("google drive") ||
+    pathLower.includes("googledrive");
+  return {
+    ok: hasGoogleDrive,
+    path: PROJECT_ROOT,
+  };
+}
+
+function checkFolderStructure() {
+  const hasBootstrap = existsSync(join(PROJECT_ROOT, "bin", "bootstrap.mjs"));
+  const hasDistOrSrc = hasDist() || existsSync(join(PROJECT_ROOT, "src", "index.ts"));
+  return {
+    ok: hasBootstrap && hasDistOrSrc,
+    hasBootstrap,
+    hasDist: hasDist(),
+    hasSrc: existsSync(join(PROJECT_ROOT, "src", "index.ts")),
+  };
+}
+
 // ── Global MCP config registration ──
 
 function addToGlobalMcpConfig() {
@@ -99,7 +118,6 @@ function addToGlobalMcpConfig() {
   }
 
   const merged = { ...config.mcpServers, ...adoTestforgeServers };
-  delete merged["setup-ado-testforge"];
   config.mcpServers = merged;
   writeFileSync(CURSOR_MCP_CONFIG, JSON.stringify(config, null, 2) + "\n", "utf-8");
   return CURSOR_MCP_CONFIG;
@@ -157,7 +175,7 @@ function launchFullServer() {
   process.on("SIGTERM", () => child.kill("SIGTERM"));
 }
 
-// ── Installer MCP server (zero npm dependencies) ──
+// ── Installer MCP server (shown when not ready) ──
 
 function runInstallerServer() {
   const rl = createInterface({ input: process.stdin, terminal: false });
@@ -191,178 +209,24 @@ function runInstallerServer() {
     return CREDENTIALS_FILE;
   }
 
-  const toolDef = {
-    name: "install_and_setup",
+  const installTool = {
+    name: "install",
     description:
-      "Check prerequisites, install npm dependencies, create credentials template, " +
-      "and register ADO TestForge MCP globally so it works in any workspace. Run this for first-time setup.",
+      "Check prerequisites (Google Drive, Node.js, folder structure), create credentials template, " +
+      "and register ADO TestForge MCP globally. Run this for first-time setup.",
     inputSchema: { type: "object", properties: {} },
   };
 
-  const promptDef = {
-    name: "install",
-    title: "Install ADO TestForge MCP",
-    description: "Install dependencies and configure credentials for the ADO TestForge MCP server",
-  };
-
-  rl.on("line", (line) => {
-    let msg;
-    try {
-      msg = JSON.parse(line);
-    } catch {
-      return;
-    }
-
-    const { id, method, params } = msg;
-
-    if (method === "initialize") {
-      send(makeResponse(id, {
-        protocolVersion: "2025-03-26",
-        capabilities: {
-          tools: { listChanged: false },
-          prompts: { listChanged: false },
-        },
-        serverInfo: { name: "setup-ado-testforge", version: "1.0.0" },
-      }));
-      return;
-    }
-
-    if (method === "notifications/initialized") return;
-    if (method === "ping") { send(makeResponse(id, {})); return; }
-
-    if (method === "tools/list") {
-      send(makeResponse(id, { tools: [toolDef] }));
-      return;
-    }
-
-    if (method === "tools/call") {
-      const toolName = params?.name;
-      if (toolName !== "install_and_setup") {
-        send(makeError(id, -32602, `Unknown tool: ${toolName}`));
-        return;
-      }
-
-      const steps = [];
-      let hasErr = false;
-
-      // 1. Check prerequisites
-      const nodeCheck = checkNodeVersion();
-      if (!nodeCheck.ok) {
-        steps.push(`Node.js v18+ is required. Found: ${nodeCheck.version}`);
-        steps.push("Install from https://nodejs.org (LTS recommended), then run this command again.");
-        hasErr = true;
-      } else {
-        steps.push(`Prerequisites OK (Node.js ${nodeCheck.version})`);
-      }
-
-      // 2. npm install (skip if using pre-built dist - no deps needed)
-      if (!hasErr && !hasDist() && !hasNodeModules()) {
-        try {
-          steps.push("Installing npm dependencies... this may take a minute.");
-          runNpmInstall();
-          steps.push("npm install completed successfully.");
-        } catch (err) {
-          steps.push(`npm install failed: ${err.message}`);
-          steps.push("Check your internet connection and try again.");
-          hasErr = true;
-        }
-      } else if (!hasErr) {
-        steps.push(hasDist() ? "Using pre-built distribution. Skipping npm install." : "npm dependencies already installed. Skipping.");
-      }
-
-      // 3. Credentials template
-      if (!hasErr) {
-        const credPath = createCredentialsTemplate();
-        if (hasValidCredentials()) {
-          steps.push(`Credentials already configured at: ${credPath}`);
-        } else {
-          steps.push(`Credentials template created at: ${credPath}`);
-          steps.push("");
-          steps.push("NEXT: Open the file above and fill in:");
-          steps.push("  - ado_pat: Your Azure DevOps Personal Access Token");
-          steps.push("  - ado_org: Your ADO organization name (from https://dev.azure.com/{org})");
-          steps.push("  - ado_project: Your ADO project name");
-        }
-      }
-
-      // 4. Register globally so MCP works in any workspace
-      if (!hasErr) {
-        try {
-          const mcpPath = addToGlobalMcpConfig();
-          steps.push("");
-          steps.push(`ADO TestForge MCP registered globally at: ${mcpPath}`);
-          steps.push("The ado-testforge server will now appear in all workspaces.");
-        } catch (err) {
-          steps.push("");
-          steps.push(`Warning: Could not update global MCP config: ${err.message}`);
-          steps.push("You may need to add the ado-testforge server manually to ~/.cursor/mcp.json");
-        }
-      }
-
-      if (!hasErr) {
-        steps.push("");
-        steps.push("Restart Cursor (or reload MCP in Settings > MCP) to apply changes.");
-        if (!hasValidCredentials()) {
-          steps.push("After filling in credentials, restart the ado-testforge server to activate all tools.");
-        }
-      }
-
-      send(makeResponse(id, {
-        content: [{ type: "text", text: steps.join("\n") }],
-        isError: hasErr,
-      }));
-      return;
-    }
-
-    if (method === "prompts/list") {
-      send(makeResponse(id, { prompts: [promptDef] }));
-      return;
-    }
-
-    if (method === "prompts/get") {
-      if (params?.name !== "install") {
-        send(makeError(id, -32602, `Unknown prompt: ${params?.name}`));
-        return;
-      }
-      send(makeResponse(id, {
-        description: "Install and set up the ADO TestForge MCP server",
-        messages: [{
-          role: "user",
-          content: {
-            type: "text",
-            text: [
-              "I want to set up the ADO TestForge MCP server.",
-              "",
-              "Please call the install_and_setup tool to install dependencies and create the credentials file.",
-              "Then guide me through the remaining steps.",
-            ].join("\n"),
-          },
-        }],
-      }));
-      return;
-    }
-
-    if (id !== undefined) {
-      send(makeError(id, -32601, `Method not found: ${method}`));
-    }
-  });
-
-  rl.on("close", () => process.exit(0));
-}
-
-// ── "Not ready" MCP server (ado-testforge before setup is done) ──
-
-function runNotReadyServer() {
-  const rl = createInterface({ input: process.stdin, terminal: false });
-
-  const missing = [];
-  if (!hasNodeModules() && !hasDist()) missing.push("npm dependencies not installed (or use pre-built dist)");
-  if (!hasValidCredentials()) missing.push("credentials not configured");
-
-  const statusTool = {
+  const checkStatusTool = {
     name: "check_setup_status",
     description: "Check what is needed to complete ADO TestForge MCP setup",
     inputSchema: { type: "object", properties: {} },
+  };
+
+  const installPrompt = {
+    name: "install",
+    title: "Install ADO TestForge MCP",
+    description: "Check prerequisites, create credentials, and register ADO TestForge MCP globally",
   };
 
   rl.on("line", (line) => {
@@ -391,39 +255,191 @@ function runNotReadyServer() {
     if (method === "ping") { send(makeResponse(id, {})); return; }
 
     if (method === "tools/list") {
-      send(makeResponse(id, { tools: [statusTool] }));
+      send(makeResponse(id, { tools: [installTool, checkStatusTool] }));
       return;
     }
 
     if (method === "tools/call") {
-      if (params?.name !== "check_setup_status") {
-        send(makeError(id, -32602, `Unknown tool: ${params?.name}`));
+      const toolName = params?.name;
+
+      // ── check_setup_status tool ──
+      if (toolName === "check_setup_status") {
+        const missing = [];
+        if (!hasNodeModules() && !hasDist()) missing.push("Distribution or node_modules not found");
+        if (!hasValidCredentials()) missing.push("Credentials not configured");
+
+        const lines = [
+          "ADO TestForge MCP Setup Status",
+          "",
+          missing.length === 0
+            ? "All prerequisites met. Server is ready."
+            : "Missing:",
+          ...missing.map((m) => `  - ${m}`),
+          "",
+          missing.length > 0
+            ? "Run /ado-testforge/install to complete setup."
+            : "Restart Cursor to load the full server.",
+        ];
+
+        send(makeResponse(id, {
+          content: [{ type: "text", text: lines.join("\n") }],
+        }));
         return;
       }
 
-      const lines = [
-        "ADO TestForge MCP is not fully set up yet.",
-        "",
-        "Missing:",
-        ...missing.map((m) => `  - ${m}`),
-        "",
-        "To complete setup, run the /setup-ado-testforge/install command.",
-        "After setup, restart the ado-testforge MCP server in Cursor Settings > MCP.",
-      ];
+      // ── install tool ──
+      if (toolName === "install") {
+        const steps = [];
+        let hasErr = false;
 
-      send(makeResponse(id, {
-        content: [{ type: "text", text: lines.join("\n") }],
-      }));
+        steps.push("Checking prerequisites...");
+        steps.push("");
+
+        // 1. Google Drive check
+        const gdriveCheck = checkGoogleDrive();
+        if (gdriveCheck.ok) {
+          steps.push("[PASS] Google Drive desktop app detected");
+        } else {
+          steps.push("[WARN] Google Drive path not detected");
+          steps.push("       Path: " + gdriveCheck.path);
+          steps.push("       If using Google Drive, ensure the desktop app is installed.");
+          steps.push("       Download: https://www.google.com/drive/download/");
+          steps.push("       (Continuing anyway - this is a warning, not an error)");
+        }
+
+        // 2. Node.js check
+        const nodeCheck = checkNodeVersion();
+        if (nodeCheck.ok) {
+          steps.push(`[PASS] Node.js ${nodeCheck.version} (v18+ required)`);
+        } else {
+          steps.push(`[FAIL] Node.js v18+ required. Found: ${nodeCheck.version}`);
+          steps.push("       Install from https://nodejs.org (LTS recommended)");
+          hasErr = true;
+        }
+
+        // 3. Folder structure check
+        const folderCheck = checkFolderStructure();
+        if (folderCheck.ok) {
+          if (folderCheck.hasDist) {
+            steps.push("[PASS] Distribution package found (dist/index.js)");
+          } else {
+            steps.push("[PASS] Source files found (src/index.ts)");
+          }
+        } else {
+          steps.push("[FAIL] Invalid folder structure");
+          steps.push("       Missing: " + (!folderCheck.hasBootstrap ? "bin/bootstrap.mjs " : "") +
+            (!folderCheck.hasDist && !folderCheck.hasSrc ? "dist/index.js or src/index.ts" : ""));
+          steps.push("       Ensure you're using the CoE/MCP Servers folder.");
+          hasErr = true;
+        }
+
+        steps.push("");
+
+        if (hasErr) {
+          steps.push("Installation cannot proceed. Fix the issues above and try again.");
+          send(makeResponse(id, {
+            content: [{ type: "text", text: steps.join("\n") }],
+            isError: true,
+          }));
+          return;
+        }
+
+        steps.push("Proceeding with installation...");
+        steps.push("");
+
+        // 4. npm install (skip if using pre-built dist)
+        if (!hasDist() && !hasNodeModules()) {
+          try {
+            steps.push("Installing npm dependencies... this may take a minute.");
+            runNpmInstall();
+            steps.push("npm install completed successfully.");
+          } catch (err) {
+            steps.push(`npm install failed: ${err.message}`);
+            steps.push("Check your internet connection and try again.");
+            hasErr = true;
+          }
+        } else if (hasDist()) {
+          steps.push("Using pre-built distribution. No npm install needed.");
+        } else {
+          steps.push("npm dependencies already installed.");
+        }
+
+        // 5. Credentials template
+        if (!hasErr) {
+          const credPath = createCredentialsTemplate();
+          if (hasValidCredentials()) {
+            steps.push(`Credentials already configured at: ${credPath}`);
+          } else {
+            steps.push(`Credentials template created at: ${credPath}`);
+            steps.push("");
+            steps.push("NEXT: Open the file above and fill in:");
+            steps.push("  - ado_pat: Your Azure DevOps Personal Access Token");
+            steps.push("  - ado_org: Your ADO organization name (from https://dev.azure.com/{org})");
+            steps.push("  - ado_project: Your ADO project name");
+          }
+        }
+
+        // 6. Register globally
+        if (!hasErr) {
+          try {
+            const mcpPath = addToGlobalMcpConfig();
+            steps.push("");
+            steps.push(`ADO TestForge MCP registered globally at: ${mcpPath}`);
+            steps.push("The ado-testforge server will now appear in all workspaces.");
+          } catch (err) {
+            steps.push("");
+            steps.push(`Warning: Could not update global MCP config: ${err.message}`);
+            steps.push("You may need to add ado-testforge manually to ~/.cursor/mcp.json");
+          }
+        }
+
+        if (!hasErr) {
+          steps.push("");
+          steps.push("─────────────────────────────────────────────────────");
+          steps.push("Installation complete!");
+          steps.push("");
+          steps.push("Restart Cursor (or reload MCP in Settings > MCP) to apply changes.");
+          if (!hasValidCredentials()) {
+            steps.push("After filling in credentials, restart to activate all tools.");
+          }
+        }
+
+        send(makeResponse(id, {
+          content: [{ type: "text", text: steps.join("\n") }],
+          isError: hasErr,
+        }));
+        return;
+      }
+
+      send(makeError(id, -32602, `Unknown tool: ${toolName}`));
       return;
     }
 
     if (method === "prompts/list") {
-      send(makeResponse(id, { prompts: [] }));
+      send(makeResponse(id, { prompts: [installPrompt] }));
       return;
     }
 
     if (method === "prompts/get") {
-      send(makeError(id, -32602, `Unknown prompt: ${params?.name}`));
+      if (params?.name !== "install") {
+        send(makeError(id, -32602, `Unknown prompt: ${params?.name}`));
+        return;
+      }
+      send(makeResponse(id, {
+        description: "Install and set up the ADO TestForge MCP server",
+        messages: [{
+          role: "user",
+          content: {
+            type: "text",
+            text: [
+              "I want to install the ADO TestForge MCP server.",
+              "",
+              "Please call the install tool to check prerequisites and complete the setup.",
+              "Then guide me through filling in my credentials.",
+            ].join("\n"),
+          },
+        }],
+      }));
       return;
     }
 
@@ -437,12 +453,8 @@ function runNotReadyServer() {
 
 // ── Entry point ──
 
-const isInstallerMode = process.argv.includes("--installer");
-
-if (isInstallerMode) {
-  runInstallerServer();
-} else if (isReady()) {
+if (isReady()) {
   launchFullServer();
 } else {
-  runNotReadyServer();
+  runInstallerServer();
 }

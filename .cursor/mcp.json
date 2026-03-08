@@ -1,1 +1,1 @@
-{"mcpServers":{"setup-ado-testforge":{"command":"node","args":["bin/bootstrap.mjs","--installer"]}}}
+{"mcpServers":{"ado-testforge":{"command":"node","args":["bin/bootstrap.mjs"]}}}

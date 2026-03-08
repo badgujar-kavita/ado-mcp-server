@@ -71,7 +71,7 @@ flowchart TB
 
 2. **Run the installer**  
    - Open Cursor's AI chat (Cmd+L / Ctrl+L)  
-   - Type `/setup-ado-testforge` and select **install**
+   - Type `/ado-testforge/install` and run the command
 
 3. **Configure credentials**  
    - Edit `~/.ado-testforge-mcp/credentials.json` (created by installer)  
