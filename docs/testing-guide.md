@@ -1,4 +1,4 @@
-# MARS ADO MCP -- Step-by-Step Testing Guide
+# ADO TestForge MCP -- Step-by-Step Testing Guide
 
 **Documentation index:** [docs/README.md](README.md) | **Changelog:** [docs/changelog.md](changelog.md)
 
@@ -28,22 +28,22 @@ This guide walks you through setting up, running, and testing the MCP server end
 
 ## 1. For New Team Members (Quick Start)
 
-The MCP server is self-installing. If you received the `MARS ADO MCP` folder (via Google Drive or otherwise), here's all you need:
+The MCP server is self-installing. If you received the `ADO TestForge MCP` folder (via Google Drive or otherwise), here's all you need:
 
 **Prerequisites:** Node.js v18+ installed (`node -v` to check)
 
 **Steps:**
 
-1. Open the `MARS ADO MCP` folder in **Cursor IDE**
-2. Go to **Cursor Settings > MCP** -- you should see two servers: `setup-mars-ado` and `mars-ado`
-3. In Cursor's AI chat, type `/setup-mars-ado/install` and select the command
+1. Open the `ADO TestForge MCP` folder in **Cursor IDE**
+2. Go to **Cursor Settings > MCP** -- you should see two servers: `setup-ado-testforge` and `ado-testforge`
+3. In Cursor's AI chat, type `/setup-ado-testforge/install` and select the command
 4. The installer runs `npm install` and creates a credentials template file
-5. Open the credentials file shown in the chat response (`~/.mars-ado-mcp/credentials.json`)
+5. Open the credentials file shown in the chat response (`~/.ado-testforge-mcp/credentials.json`)
 6. Fill in your **ADO PAT**, **organization name**, and **project name** -- save the file
-7. Restart the `mars-ado` MCP server in **Cursor Settings > MCP**
-8. Done -- all tools and slash commands are now available under `mars-ado`
+7. Restart the `ado-testforge` MCP server in **Cursor Settings > MCP**
+8. Done -- all tools and slash commands are now available under `ado-testforge`
 
-Your credentials are stored locally at `~/.mars-ado-mcp/credentials.json` and are **never shared** with the team folder.
+Your credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` and are **never shared** with the team folder.
 
 ---
 
@@ -76,31 +76,31 @@ The MCP server uses a bootstrap system that handles installation automatically.
 
 ### How It Works
 
-When Cursor opens the `MARS ADO MCP` folder, it reads `.cursor/mcp.json` and starts two MCP servers:
+When Cursor opens the `ADO TestForge MCP` folder, it reads `.cursor/mcp.json` and starts two MCP servers:
 
-- **`setup-mars-ado`** -- A lightweight, always-available installer (zero npm dependencies). Exposes only the `/setup-mars-ado/install` command to run `npm install` and create the credentials template.
-- **`mars-ado`** -- The full ADO server. If setup isn't complete yet, it shows only a `check_setup_status` tool pointing to the installer. Once configured, it exposes all tools and commands.
+- **`setup-ado-testforge`** -- A lightweight, always-available installer (zero npm dependencies). Exposes only the `/setup-ado-testforge/install` command to run `npm install` and create the credentials template.
+- **`ado-testforge`** -- The full ADO server. If setup isn't complete yet, it shows only a `check_setup_status` tool pointing to the installer. Once configured, it exposes all tools and commands.
 
 ### Running Setup
 
-1. Type `/setup-mars-ado/install` in Cursor's AI chat
+1. Type `/setup-ado-testforge/install` in Cursor's AI chat
 2. The installer will:
    - Run `npm install` to install all dependencies
-   - Create `~/.mars-ado-mcp/credentials.json` with a template
+   - Create `~/.ado-testforge-mcp/credentials.json` with a template
 3. Open the credentials file and fill in:
    - `ado_pat`: Your Azure DevOps Personal Access Token
    - `ado_org`: Organization name (from `https://dev.azure.com/{org}`)
    - `ado_project`: Project name
    - Confluence fields are optional
-4. Save the file and restart the `mars-ado` MCP server in Cursor Settings > MCP
+4. Save the file and restart the `ado-testforge` MCP server in Cursor Settings > MCP
 
 ### Credential Storage
 
-Credentials are stored per-user at `~/.mars-ado-mcp/credentials.json` (your home directory). They are **never stored in the shared project folder** and never appear in chat. This ensures PATs stay private even when the project is shared via Google Drive.
+Credentials are stored per-user at `~/.ado-testforge-mcp/credentials.json` (your home directory). They are **never stored in the shared project folder** and never appear in chat. This ensures PATs stay private even when the project is shared via Google Drive.
 
 ### Checking Status
 
-Use `/mars-ado/check_status` to verify your setup is complete. It checks for the credentials file and validates that all required fields are filled in.
+Use `/ado-testforge/check_status` to verify your setup is complete. It checks for the credentials file and validates that all required fields are filled in.
 
 ---
 
@@ -110,13 +110,13 @@ Two MCP servers register **slash commands** (MCP prompts) that provide a quick w
 
 ### Available Commands
 
-**Installer** (`setup-mars-ado`):
+**Installer** (`setup-ado-testforge`):
 
 | Command | Description |
 |---|---|
 | `install` | Install npm dependencies and create credentials template |
 
-**ADO server** (`mars-ado`, available after setup):
+**ADO server** (`ado-testforge`, available after setup):
 
 | Command | Description |
 |---|---|
@@ -143,7 +143,7 @@ Two MCP servers register **slash commands** (MCP prompts) that provide a quick w
 
 ### How to Use
 
-1. In Cursor's AI chat (Agent mode), type `/mars-ado`
+1. In Cursor's AI chat (Agent mode), type `/ado-testforge`
 2. A dropdown list appears showing all available commands
 3. Select the command -- it fires immediately
 4. The AI asks for any required inputs (work item IDs, plan IDs, etc.) in the chat
@@ -152,14 +152,14 @@ Two MCP servers register **slash commands** (MCP prompts) that provide a quick w
 ### Examples
 
 **Quick lookup:**
-- Select `mars-ado / list_test_plans` -- results appear immediately
+- Select `ado-testforge / list_test_plans` -- results appear immediately
 
 **Fetch a User Story:**
-- Select `mars-ado / get_user_story`
+- Select `ado-testforge / get_user_story`
 - AI asks for the work item ID -- type it in chat (e.g., `1273966`)
 
 **Create test cases interactively:**
-- Select `mars-ado / create_test_case`
+- Select `ado-testforge / create_test_case`
 - AI asks for plan ID and US ID, fetches context, suggests test cases, asks for confirmation
 
 ### Slash Commands vs Natural Language
@@ -168,7 +168,7 @@ Both approaches work. Use whichever is more convenient:
 
 | Approach | When to Use |
 |---|---|
-| **Slash commands** (`mars-ado / *`) | Quick, structured lookups; sharing with teammates who want a guided experience |
+| **Slash commands** (`ado-testforge / *`) | Quick, structured lookups; sharing with teammates who want a guided experience |
 | **Natural language** | Complex requests, combining multiple steps, or when you want full control over the prompt |
 
 ---
@@ -366,7 +366,7 @@ Update test case {TC_WORK_ITEM_ID}: change priority to 1 and add a new step:
 
 **Purpose:** Test both the standalone Confluence page reader and the automatic Solution Design enrichment on User Stories.
 
-**Pre-requisite:** Configure the Confluence credentials in `~/.mars-ado-mcp/credentials.json`:
+**Pre-requisite:** Configure the Confluence credentials in `~/.ado-testforge-mcp/credentials.json`:
 ```json
 {
   "confluence_base_url": "https://yoursite.atlassian.net/wiki",
@@ -425,7 +425,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 
 | Symptom | Fix |
 |---|---|
-| `Missing required environment variables` | Check `~/.mars-ado-mcp/credentials.json` has `ado_pat`, `ado_org`, `ado_project` set correctly |
+| `Missing required environment variables` | Check `~/.ado-testforge-mcp/credentials.json` has `ado_pat`, `ado_org`, `ado_project` set correctly |
 | `Cannot find module` | Run `npm install` again |
 | `SyntaxError` or TypeScript errors | Run `npx tsc --noEmit` to see compilation errors |
 | Red dot persists | Check Cursor MCP logs: **Cursor Settings > MCP > Click the server name > View logs** |

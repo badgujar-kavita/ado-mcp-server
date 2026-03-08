@@ -3,13 +3,13 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("check_status", {
     title: "Check Setup Status",
-    description: "Check if the MARS ADO MCP server is fully configured",
+    description: "Check if the ADO TestForge MCP server is fully configured",
   }, async () => ({
     messages: [{
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "Check if the MARS ADO MCP server is fully configured using the check_setup_status tool. Show the status of each component.",
+        text: "Check if the ADO TestForge MCP server is fully configured using the check_setup_status tool. Show the status of each component.",
       },
     }],
   }));
@@ -185,7 +185,7 @@ export function registerAllPrompts(server: McpServer) {
           "   - Use <br> between numbered items in steps/expected results (e.g., \"Fields to validate:<br>1. X<br>2. Y\").",
           "6. Based on ALL available context (description, acceptance criteria, and Solution Design), propose test cases.",
           "7. Call save_tc_draft to create the markdown and JSON. ALWAYS pass workspaceRoot (the open folder path) or draftsPath (when user specifies a location). If user has a folder open, use workspaceRoot so drafts go to <folder>/tc-drafts/ (created if missing). If user says 'save to X' or 'create under folder Y', use draftsPath. No hardcoded path.",
-          "8. Tell me: 'Review the draft at the path shown above. Provide feedback for revisions, or run /mars-ado/create_test_cases when ready to push to ADO.'",
+          "8. Tell me: 'Review the draft at the path shown above. Provide feedback for revisions, or run /ado-testforge/create_test_cases when ready to push to ADO.'",
           "9. On feedback, revise and call save_tc_draft again (increment version).",
           "10. NEVER call push_tc_draft_to_ado from this prompt — that is only via create_test_cases.",
         ].join("\n"),

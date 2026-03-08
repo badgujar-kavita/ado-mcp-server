@@ -33,8 +33,8 @@ isProject: false
 
 | Command                       | Purpose                                                                                           |
 | ----------------------------- | ------------------------------------------------------------------------------------------------- |
-| `/mars-ado/draft_test_cases`  | Generate test case draft (markdown) for review. Never creates in ADO.                             |
-| `/mars-ado/create_test_cases` | Create test cases in ADO. **Always** requires prior review and explicit confirmation before push. |
+| `/ado-testforge/draft_test_cases`  | Generate test case draft (markdown) for review. Never creates in ADO.                             |
+| `/ado-testforge/create_test_cases` | Create test cases in ADO. **Always** requires prior review and explicit confirmation before push. |
 
 
 ## Golden Rule
@@ -45,7 +45,7 @@ isProject: false
 
 ```mermaid
 flowchart TD
-    subgraph create_cmd ["/mars-ado/create_test_cases"]
+    subgraph create_cmd ["/ado-testforge/create_test_cases"]
         A["User runs create_test_cases"] --> B{"Draft exists for this US\nand user has reviewed?"}
         B -->|No draft| C["Do NOT create in ADO"]
         C --> D["Tell user: Run draft_test_cases first,\nreview the markdown, then return"]
@@ -75,7 +75,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start["User: /mars-ado/draft_test_cases"] --> AskUS["AI asks for Plan ID and US ID"]
+    Start["User: /ado-testforge/draft_test_cases"] --> AskUS["AI asks for Plan ID and US ID"]
     AskUS --> FetchUS["AI fetches US + Solution Design via get_user_story"]
     FetchUS --> Propose["AI proposes test cases based on AC + SD"]
     Propose --> SaveDraft["AI calls save_tc_draft tool"]
@@ -166,7 +166,7 @@ Instructs the AI to:
 2. Fetch the US via `get_user_story` (includes Solution Design if linked)
 3. Analyze acceptance criteria and Solution Design; propose test cases
 4. Call `save_tc_draft` to create the markdown
-5. Tell the user: "Review `tc-drafts/US_xxx_test_cases.md`. Provide feedback for revisions, or run `/mars-ado/create_test_cases` when ready to push to ADO."
+5. Tell the user: "Review `tc-drafts/US_xxx_test_cases.md`. Provide feedback for revisions, or run `/ado-testforge/create_test_cases` when ready to push to ADO."
 6. On feedback, revise and call `save_tc_draft` again (increment version)
 7. **Never** call `push_tc_draft_to_ado` from this prompt -- that is only via `create_test_cases`
 

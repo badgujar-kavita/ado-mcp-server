@@ -420,7 +420,7 @@ The tool composes the title automatically:
 ## Project Structure
 
 ```
-MARS ADO MCP/
+ADO TestForge MCP/
 ├── src/
 │   ├── index.ts                  # Entry point, MCP server setup + stdio transport
 │   ├── config.ts                 # Loads + validates conventions.config.json with Zod
@@ -558,7 +558,7 @@ Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-
   - API: `GET /rest/api/content/{pageId}?expand=body.storage`
   - Auth: Atlassian email + API token (Basic Auth)
   - Returns: Page title + body content (stripped HTML to readable text)
-  - Enabled only when `confluence_base_url`, `confluence_email`, and `confluence_api_token` are set in `~/.mars-ado-mcp/credentials.json`
+  - Enabled only when `confluence_base_url`, `confluence_email`, and `confluence_api_token` are set in `~/.ado-testforge-mcp/credentials.json`
 
 **Note:** In most workflows, you don't need to call `get_confluence_page` directly. The `get_user_story` tool auto-fetches Solution Design content from the "Technical Solution" field when a Confluence URL is present.
 
@@ -606,7 +606,7 @@ class ConfluenceClient {
 }
 ```
 
-Enabled only when all three credential fields are present: `confluence_base_url`, `confluence_email`, `confluence_api_token` in `~/.mars-ado-mcp/credentials.json`.
+Enabled only when all three credential fields are present: `confluence_base_url`, `confluence_email`, `confluence_api_token` in `~/.ado-testforge-mcp/credentials.json`.
 
 **Required Atlassian permissions:** The user account needs "Can view" on the Confluence space(s) containing Solution Design pages. API tokens inherit the user's permissions -- no granular scope configuration needed.
 
@@ -621,7 +621,7 @@ The parser handles all three formats and returns the numeric page ID.
 
 ---
 
-## Credentials Configuration (`~/.mars-ado-mcp/credentials.json`)
+## Credentials Configuration (`~/.ado-testforge-mcp/credentials.json`)
 
 ```json
 {
@@ -647,10 +647,10 @@ Add to `.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "ado-test-manager": {
+    "ado-testforge": {
       "command": "npx",
       "args": ["tsx", "src/index.ts"],
-      "cwd": "/Users/kavita.badgujar/MARS ADO MCP",
+      "cwd": "/Users/kavita.badgujar/ADO TestForge MCP",
       "env": {
         "ADO_PAT": "your-pat",
         "ADO_ORG": "your-org",

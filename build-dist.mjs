@@ -62,7 +62,7 @@ alwaysApply: true
 **Do not modify tools, rules, skills, or docs in this folder.**
 
 - **Why:** Edits here are untracked, undocumented, and overwrite each other. No way to know who changed what.
-- **How updates work:** Changes are pushed from the main project (MARS ADO MCP). When you receive updates (e.g. via Google Drive sync), **restart the MCP server** to pick them up.
+- **How updates work:** Changes are pushed from the main project (ADO TestForge MCP). When you receive updates (e.g. via Google Drive sync), **restart the MCP server** to pick them up.
 - **Need a change?** Ask the main project owner. Do not edit here.
 `
   );

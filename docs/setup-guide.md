@@ -1,34 +1,34 @@
-# MARS ADO MCP -- Setup Guide
+# ADO TestForge MCP -- Setup Guide
 
 **Documentation index:** [docs/README.md](README.md) | **Changelog:** [docs/changelog.md](changelog.md)
 
-Welcome to the MARS ADO MCP server. This guide walks you through the complete setup process so you can start using ADO tools directly from Cursor's AI chat.
+Welcome to the ADO TestForge MCP server. This guide walks you through the complete setup process so you can start using ADO tools directly from Cursor's AI chat.
 
 ---
 
 ## Quick Start: Add Folder and Run Install
 
-1. **Add the MARS ADO MCP folder to your workspace**  
+1. **Add the ADO TestForge MCP folder to your workspace**  
    - Open Cursor → **File > Add Folder to Workspace** (or **Open Folder** if starting fresh)  
-   - Select the `MARS ADO MCP` folder (e.g., from Google Drive or your team share)
+   - Select the `ADO TestForge MCP` folder (e.g., from Google Drive or your team share)
 
 2. **Run the installer**  
    - Open Cursor's **AI chat** (Cmd+L / Ctrl+L)  
-   - Type `/setup-mars-ado` and select **install**
+   - Type `/setup-ado-testforge` and select **install**
 
 3. **Follow the prompts**  
    The installer will:
    - Check prerequisites (Node.js v18+)
    - Install npm dependencies
-   - Create a credentials template at `~/.mars-ado-mcp/credentials.json`
-   - **Register MARS ADO MCP globally** so it works in any project folder
+   - Create a credentials template at `~/.ado-testforge-mcp/credentials.json`
+   - **Register ADO TestForge MCP globally** so it works in any project folder
 
 4. **Configure credentials**  
-   - Open `~/.mars-ado-mcp/credentials.json` and fill in your ADO PAT, org, and project (see [Step 4](#step-4-configure-your-credentials))
+   - Open `~/.ado-testforge-mcp/credentials.json` and fill in your ADO PAT, org, and project (see [Step 4](#step-4-configure-your-credentials))
 
 5. **Restart Cursor** (or reload MCP in Settings > MCP)
 
-After setup, MARS ADO MCP is available in **all workspaces** — you don't need to have the MARS ADO MCP folder open.
+After setup, ADO TestForge MCP is available in **all workspaces** — you don't need to have the ADO TestForge MCP folder open.
 
 ---
 
@@ -110,25 +110,25 @@ This is only relevant for production/shared deployments. For individual use, PAT
 
 ## Step 2: Add the Folder to Your Workspace
 
-1. Locate the `MARS ADO MCP` folder (shared via Google Drive or provided by your team)
+1. Locate the `ADO TestForge MCP` folder (shared via Google Drive or provided by your team)
 2. Open **Cursor IDE**
 3. Go to **File > Add Folder to Workspace** (or **Open Folder** if starting a new session)
-4. Select the `MARS ADO MCP` folder
+4. Select the `ADO TestForge MCP` folder
 
-As soon as the folder is in your workspace, the **setup-mars-ado** command becomes available. You can verify in **Cursor Settings > MCP** — you should see **setup-mars-ado** (and possibly **mars-ado**) listed.
+As soon as the folder is in your workspace, the **setup-ado-testforge** command becomes available. You can verify in **Cursor Settings > MCP** — you should see **setup-ado-testforge** (and possibly **ado-testforge**) listed.
 
 ---
 
 ## Step 3: Run the Installer
 
 1. Open Cursor's **AI chat** (Cmd+L on Mac, Ctrl+L on Windows)
-2. Type `/setup-mars-ado` and select **install** from the dropdown
+2. Type `/setup-ado-testforge` and select **install** from the dropdown
 
 The installer will automatically:
 - **Check prerequisites** (Node.js v18+)
 - Run `npm install` to download all required dependencies
-- Create a credentials template file at `~/.mars-ado-mcp/credentials.json`
-- **Register MARS ADO MCP globally** in `~/.cursor/mcp.json` so it works in any project folder
+- Create a credentials template file at `~/.ado-testforge-mcp/credentials.json`
+- **Register ADO TestForge MCP globally** in `~/.cursor/mcp.json` so it works in any project folder
 
 You'll see progress messages in the chat. Wait for it to complete.
 
@@ -143,13 +143,13 @@ The installer created a template file. Now you need to fill in your actual value
 **Mac:**
 
 ```bash
-open ~/.mars-ado-mcp/credentials.json
+open ~/.ado-testforge-mcp/credentials.json
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-notepad "$env:USERPROFILE\.mars-ado-mcp\credentials.json"
+notepad "$env:USERPROFILE\.ado-testforge-mcp\credentials.json"
 ```
 
 2. The file looks like this:
@@ -176,7 +176,7 @@ notepad "$env:USERPROFILE\.mars-ado-mcp\credentials.json"
 
 The Confluence fields are **optional** -- leave them empty if you don't use Confluence. See [Step 4b](#step-4b-configure-confluence-optional) for Confluence setup.
 
-**TC Drafts path** (`tc_drafts_path`): Test case drafts are saved to a user-local folder, never in the shared workspace. Default: `~/.mars-ado-mcp/tc-drafts`. To use a different folder (e.g. your local project), set the absolute path: `"/Users/you/projects/my-tcs/tc-drafts"`.
+**TC Drafts path** (`tc_drafts_path`): Test case drafts are saved to a user-local folder, never in the shared workspace. Default: `~/.ado-testforge-mcp/tc-drafts`. To use a different folder (e.g. your local project), set the absolute path: `"/Users/you/projects/my-tcs/tc-drafts"`.
 
 4. **Save the file**
 
@@ -222,7 +222,7 @@ That's it -- **read-only access to page content only**.
 
 #### Fill in the Credentials
 
-Open `~/.mars-ado-mcp/credentials.json` and fill in the three Confluence fields:
+Open `~/.ado-testforge-mcp/credentials.json` and fill in the three Confluence fields:
 
 | Field | What to Enter | Example |
 |---|---|---|
@@ -272,7 +272,7 @@ If Confluence is not configured or the field is empty, `solutionDesignUrl` and `
 ## Step 5: Restart the MCP Server
 
 1. Go to **Cursor Settings > MCP**
-2. Find **mars-ado** in the list
+2. Find **ado-testforge** in the list
 3. Click the **refresh/restart** button next to it
 4. Wait for the green dot to appear
 
@@ -280,7 +280,7 @@ If Confluence is not configured or the field is empty, `solutionDesignUrl` and `
 
 ## Step 6: Verify Everything Works
 
-In Cursor's AI chat, type `/mars-ado` and select **check_status**. You should see:
+In Cursor's AI chat, type `/ado-testforge` and select **check_status**. You should see:
 
 ```
 Credentials file: EXISTS
@@ -299,38 +299,38 @@ If you see **READY**, setup is complete.
 After deployment, verify:
 
 - **21 tools** total (including `list_work_item_fields`, `delete_test_case`)
-- **Commands:** `/mars-ado/delete_test_cases` (batch delete), `/mars-ado/update_test_case`, `/mars-ado/list_work_item_fields`
+- **Commands:** `/ado-testforge/delete_test_cases` (batch delete), `/ado-testforge/update_test_case`, `/ado-testforge/list_work_item_fields`
 - **Title limit:** Test case titles ≤ 256 characters (ADO constraint)
 
 ---
 
 ## You're All Set
 
-You can now use any of the available commands. Type `/mars-ado` in the chat to see the full list:
+You can now use any of the available commands. Type `/ado-testforge` in the chat to see the full list:
 
 | Command | What It Does |
 |---|---|
-| `/mars-ado/check_status` | Verify your setup |
-| `/mars-ado/list_test_plans` | List all test plans in your project |
-| `/mars-ado/get_user_story` | Fetch a User Story with full context |
-| `/mars-ado/get_test_plan` | Get test plan details |
-| `/mars-ado/list_test_suites` | List all suites in a test plan |
-| `/mars-ado/get_test_suite` | Get test suite details |
-| `/mars-ado/create_test_suite` | Create test suite structure — asks only User Story ID (derives plan and sprint from US) |
-| `/mars-ado/update_test_suite` | Ensure or update test suite structure — asks only User Story ID |
-| `/mars-ado/ensure_suite_hierarchy_for_us` | Same as create — ensures folder structure from User Story ID only |
-| `/mars-ado/delete_test_suite` | Delete a test suite (test cases remain, only suite association removed) |
-| `/mars-ado/ensure_suite_hierarchy` | Build the test suite folder structure |
-| `/mars-ado/draft_test_cases` | Generate a test case draft for review (never creates in ADO) |
-| `/mars-ado/create_test_cases` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
-| `/mars-ado/list_test_cases` | List test cases in a suite |
-| `/mars-ado/get_test_case` | View a test case by ID |
-| `/mars-ado/update_test_case` | Update one or more fields of an existing test case (partial or full) |
-| `/mars-ado/list_work_item_fields` | List all work item field definitions (reference names, types) |
-| `/mars-ado/delete_test_case` | Delete a test case (Recycle Bin by default) |
-| `/mars-ado/delete_test_cases` | Delete multiple test cases by ID (Recycle Bin by default) |
-| `/mars-ado/get_confluence_page` | Read a Confluence page for reference |
-| `/mars-ado/clone_and_enhance_test_cases` | Clone TCs from source US to target US — analyzes target + Solution Design, classifies impact, preview → APPROVED creates in ADO |
+| `/ado-testforge/check_status` | Verify your setup |
+| `/ado-testforge/list_test_plans` | List all test plans in your project |
+| `/ado-testforge/get_user_story` | Fetch a User Story with full context |
+| `/ado-testforge/get_test_plan` | Get test plan details |
+| `/ado-testforge/list_test_suites` | List all suites in a test plan |
+| `/ado-testforge/get_test_suite` | Get test suite details |
+| `/ado-testforge/create_test_suite` | Create test suite structure — asks only User Story ID (derives plan and sprint from US) |
+| `/ado-testforge/update_test_suite` | Ensure or update test suite structure — asks only User Story ID |
+| `/ado-testforge/ensure_suite_hierarchy_for_us` | Same as create — ensures folder structure from User Story ID only |
+| `/ado-testforge/delete_test_suite` | Delete a test suite (test cases remain, only suite association removed) |
+| `/ado-testforge/ensure_suite_hierarchy` | Build the test suite folder structure |
+| `/ado-testforge/draft_test_cases` | Generate a test case draft for review (never creates in ADO) |
+| `/ado-testforge/create_test_cases` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
+| `/ado-testforge/list_test_cases` | List test cases in a suite |
+| `/ado-testforge/get_test_case` | View a test case by ID |
+| `/ado-testforge/update_test_case` | Update one or more fields of an existing test case (partial or full) |
+| `/ado-testforge/list_work_item_fields` | List all work item field definitions (reference names, types) |
+| `/ado-testforge/delete_test_case` | Delete a test case (Recycle Bin by default) |
+| `/ado-testforge/delete_test_cases` | Delete multiple test cases by ID (Recycle Bin by default) |
+| `/ado-testforge/get_confluence_page` | Read a Confluence page for reference |
+| `/ado-testforge/clone_and_enhance_test_cases` | Clone TCs from source US to target US — analyzes target + Solution Design, classifies impact, preview → APPROVED creates in ADO |
 
 You can also use natural language instead of commands. For example, type "Fetch user story 1273966 from ADO" and the AI will call the right tool.
 
@@ -355,7 +355,7 @@ See [docs/test-case-writing-style-reference.md](docs/test-case-writing-style-ref
 |--------|-------------|
 | **workspaceRoot** | Open a folder in your workspace. The AI passes `workspaceRoot`; drafts go to `workspaceRoot/tc-drafts/` (created if missing). |
 | **draftsPath** | When you say "save to X" or "create under folder Y", the AI passes `draftsPath` with your chosen location. |
-| **tc_drafts_path** | Set in `~/.mars-ado-mcp/credentials.json` for a fixed path. Optional. |
+| **tc_drafts_path** | Set in `~/.ado-testforge-mcp/credentials.json` for a fixed path. Optional. |
 | **TC_DRAFTS_PATH** | Environment variable. Optional. |
 
 **Behavior:** If you open a fresh folder and ask to draft TCs, the command creates `tc-drafts/` under that folder and saves there. If you add a folder to workspace and ask to create TCs under it, drafts go to that folder (or its `tc-drafts/` subfolder).
@@ -366,33 +366,33 @@ See [docs/test-case-writing-style-reference.md](docs/test-case-writing-style-ref
 
 ## Troubleshooting
 
-### I don't see `/setup-mars-ado` in the chat
+### I don't see `/setup-ado-testforge` in the chat
 
-Add the MARS ADO MCP folder to your workspace first: **File > Add Folder to Workspace** and select the folder. The install command is available only when that folder is part of your workspace.
+Add the ADO TestForge MCP folder to your workspace first: **File > Add Folder to Workspace** and select the folder. The install command is available only when that folder is part of your workspace.
 
-### "mars-ado" shows a red dot
+### "ado-testforge" shows a red dot
 
-The main server can't start because setup isn't complete. Run `/setup-mars-ado/install` first, then configure your credentials (Steps 3-5 above).
+The main server can't start because setup isn't complete. Run `/setup-ado-testforge/install` first, then configure your credentials (Steps 3-5 above).
 
-### "setup-mars-ado" shows a red dot
+### "setup-ado-testforge" shows a red dot
 
 Node.js may not be installed or not in your PATH. Run `node -v` in a terminal to verify. If it's not found, install Node.js from [https://nodejs.org](https://nodejs.org).
 
-### MARS ADO MCP doesn't appear when I open a different project folder
+### ADO TestForge MCP doesn't appear when I open a different project folder
 
-Run `/setup-mars-ado/install` again (with the MARS ADO MCP folder in your workspace) — it registers mars-ado globally. If you've already run it, restart Cursor to reload the global MCP config.
+Run `/setup-ado-testforge/install` again (with the ADO TestForge MCP folder in your workspace) — it registers ado-testforge globally. If you've already run it, restart Cursor to reload the global MCP config.
 
 ### npm install fails
 
 - Check your internet connection
 - Make sure you're not behind a corporate proxy that blocks npm
-- Try running `npm install` manually in a terminal from the `MARS ADO MCP` folder
+- Try running `npm install` manually in a terminal from the `ADO TestForge MCP` folder
 
 ### "No valid credentials found" after restart
 
-- Open `~/.mars-ado-mcp/credentials.json` and verify you replaced all placeholder values
+- Open `~/.ado-testforge-mcp/credentials.json` and verify you replaced all placeholder values
 - Make sure the `ado_pat`, `ado_org`, and `ado_project` fields are not empty
-- Run `/mars-ado/check_status` to see which field is missing
+- Run `/ado-testforge/check_status` to see which field is missing
 
 ### PAT authentication errors (401)
 
@@ -413,7 +413,7 @@ When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when f
 
 4. **Space permissions** — Your account must have **Can view** on the Confluence space (e.g., GCTP). Check Space Settings > Permissions.
 
-5. **Credentials location** — Add to `~/.mars-ado-mcp/credentials.json`:
+5. **Credentials location** — Add to `~/.ado-testforge-mcp/credentials.json`:
    ```json
    "confluence_base_url": "https://marsaoh.atlassian.net/wiki",
    "confluence_email": "your.email@company.com",
@@ -421,7 +421,7 @@ When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when f
    ```
    Or use env vars: `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`.
 
-6. **Restart** — After changing credentials, restart the MCP server (Cursor Settings > MCP > refresh mars-ado).
+6. **Restart** — After changing credentials, restart the MCP server (Cursor Settings > MCP > refresh ado-testforge).
 
 ### Tools return "Resource not found" (404)
 
@@ -432,21 +432,21 @@ When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when f
 
 ## How Global Registration Works
 
-The installer adds **mars-ado** (the main server) to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths. The **setup-mars-ado** installer stays project-scoped — it's only available when the MARS ADO MCP folder is in your workspace. That means:
+The installer adds **ado-testforge** (the main server) to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths. The **setup-ado-testforge** installer stays project-scoped — it's only available when the ADO TestForge MCP folder is in your workspace. That means:
 
-- **mars-ado** is available in **any project folder** you open — use `/mars-ado` for all ADO commands
-- **setup-mars-ado** is only for installation — add the MARS ADO MCP folder to workspace if you need to re-run setup
-- If you move the MARS ADO MCP folder, add it to workspace and run `/setup-mars-ado/install` again to update the paths
+- **ado-testforge** is available in **any project folder** you open — use `/ado-testforge` for all ADO commands
+- **setup-ado-testforge** is only for installation — add the ADO TestForge MCP folder to workspace if you need to re-run setup
+- If you move the ADO TestForge MCP folder, add it to workspace and run `/setup-ado-testforge/install` again to update the paths
 
 ---
 
 ## Credential Security
 
-Your credentials are stored at `~/.mars-ado-mcp/credentials.json` in your **home directory** -- not in the shared project folder. This means:
+Your credentials are stored at `~/.ado-testforge-mcp/credentials.json` in your **home directory** -- not in the shared project folder. This means:
 
 - Your PAT is never synced to Google Drive
 - Your PAT never appears in Cursor's chat history
 - Each team member has their own separate credentials
 - Deleting or re-sharing the project folder does not affect your credentials
 
-To update your credentials at any time, edit the file directly or run `/setup-mars-ado/install` again.
+To update your credentials at any time, edit the file directly or run `/setup-ado-testforge/install` again.

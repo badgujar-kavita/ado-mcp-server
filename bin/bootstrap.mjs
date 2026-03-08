@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * MARS ADO MCP Bootstrap
+ * ADO TestForge MCP Bootstrap
  *
  * Three modes driven by CLI flags and system state:
  *
  *   --installer  : Always run the zero-dep INSTALLER MCP server
- *                  (used by the "setup-mars-ado" entry in mcp.json).
+ *                  (used by the "setup-ado-testforge" entry in mcp.json).
  *                  Exposes only the "install" prompt and "install_and_setup" tool.
  *
  *   (no flag, ready)    : Proxy stdio to the full MCP server (npx tsx src/index.ts).
  *   (no flag, NOT ready): Run a tiny "not ready" MCP server that tells the user
- *                          to run /setup-mars-ado/install first.
+ *                          to run /setup-ado-testforge/install first.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
@@ -25,7 +25,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, "..");
 
-const CREDENTIALS_DIR = join(homedir(), ".mars-ado-mcp");
+const CREDENTIALS_DIR = join(homedir(), ".ado-testforge-mcp");
 const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
 const CURSOR_MCP_CONFIG = join(homedir(), ".cursor", "mcp.json");
 
@@ -76,8 +76,8 @@ function checkNodeVersion() {
 
 function addToGlobalMcpConfig() {
   const bootstrapPath = join(PROJECT_ROOT, "bin", "bootstrap.mjs");
-  const marsAdoServers = {
-    "mars-ado": {
+  const adoTestforgeServers = {
+    "ado-testforge": {
       command: "node",
       args: [bootstrapPath],
     },
@@ -98,8 +98,8 @@ function addToGlobalMcpConfig() {
     }
   }
 
-  const merged = { ...config.mcpServers, ...marsAdoServers };
-  delete merged["setup-mars-ado"];
+  const merged = { ...config.mcpServers, ...adoTestforgeServers };
+  delete merged["setup-ado-testforge"];
   config.mcpServers = merged;
   writeFileSync(CURSOR_MCP_CONFIG, JSON.stringify(config, null, 2) + "\n", "utf-8");
   return CURSOR_MCP_CONFIG;
@@ -195,14 +195,14 @@ function runInstallerServer() {
     name: "install_and_setup",
     description:
       "Check prerequisites, install npm dependencies, create credentials template, " +
-      "and register MARS ADO MCP globally so it works in any workspace. Run this for first-time setup.",
+      "and register ADO TestForge MCP globally so it works in any workspace. Run this for first-time setup.",
     inputSchema: { type: "object", properties: {} },
   };
 
   const promptDef = {
     name: "install",
-    title: "Install MARS ADO MCP",
-    description: "Install dependencies and configure credentials for the MARS ADO MCP server",
+    title: "Install ADO TestForge MCP",
+    description: "Install dependencies and configure credentials for the ADO TestForge MCP server",
   };
 
   rl.on("line", (line) => {
@@ -222,7 +222,7 @@ function runInstallerServer() {
           tools: { listChanged: false },
           prompts: { listChanged: false },
         },
-        serverInfo: { name: "setup-mars-ado", version: "1.0.0" },
+        serverInfo: { name: "setup-ado-testforge", version: "1.0.0" },
       }));
       return;
     }
@@ -290,12 +290,12 @@ function runInstallerServer() {
         try {
           const mcpPath = addToGlobalMcpConfig();
           steps.push("");
-          steps.push(`MARS ADO MCP registered globally at: ${mcpPath}`);
-          steps.push("The mars-ado server will now appear in all workspaces.");
+          steps.push(`ADO TestForge MCP registered globally at: ${mcpPath}`);
+          steps.push("The ado-testforge server will now appear in all workspaces.");
         } catch (err) {
           steps.push("");
           steps.push(`Warning: Could not update global MCP config: ${err.message}`);
-          steps.push("You may need to add the servers manually to ~/.cursor/mcp.json");
+          steps.push("You may need to add the ado-testforge server manually to ~/.cursor/mcp.json");
         }
       }
 
@@ -303,7 +303,7 @@ function runInstallerServer() {
         steps.push("");
         steps.push("Restart Cursor (or reload MCP in Settings > MCP) to apply changes.");
         if (!hasValidCredentials()) {
-          steps.push("After filling in credentials, restart the mars-ado server to activate all tools.");
+          steps.push("After filling in credentials, restart the ado-testforge server to activate all tools.");
         }
       }
 
@@ -325,13 +325,13 @@ function runInstallerServer() {
         return;
       }
       send(makeResponse(id, {
-        description: "Install and set up the MARS ADO MCP server",
+        description: "Install and set up the ADO TestForge MCP server",
         messages: [{
           role: "user",
           content: {
             type: "text",
             text: [
-              "I want to set up the MARS ADO MCP server.",
+              "I want to set up the ADO TestForge MCP server.",
               "",
               "Please call the install_and_setup tool to install dependencies and create the credentials file.",
               "Then guide me through the remaining steps.",
@@ -350,7 +350,7 @@ function runInstallerServer() {
   rl.on("close", () => process.exit(0));
 }
 
-// ── "Not ready" MCP server (mars-ado before setup is done) ──
+// ── "Not ready" MCP server (ado-testforge before setup is done) ──
 
 function runNotReadyServer() {
   const rl = createInterface({ input: process.stdin, terminal: false });
@@ -361,7 +361,7 @@ function runNotReadyServer() {
 
   const statusTool = {
     name: "check_setup_status",
-    description: "Check what is needed to complete MARS ADO MCP setup",
+    description: "Check what is needed to complete ADO TestForge MCP setup",
     inputSchema: { type: "object", properties: {} },
   };
 
@@ -382,7 +382,7 @@ function runNotReadyServer() {
           tools: { listChanged: false },
           prompts: { listChanged: false },
         },
-        serverInfo: { name: "mars-ado", version: "1.0.0" },
+        serverInfo: { name: "ado-testforge", version: "1.0.0" },
       }));
       return;
     }
@@ -402,13 +402,13 @@ function runNotReadyServer() {
       }
 
       const lines = [
-        "MARS ADO MCP is not fully set up yet.",
+        "ADO TestForge MCP is not fully set up yet.",
         "",
         "Missing:",
         ...missing.map((m) => `  - ${m}`),
         "",
-        "To complete setup, run the /setup-mars-ado/install command.",
-        "After setup, restart the mars-ado MCP server in Cursor Settings > MCP.",
+        "To complete setup, run the /setup-ado-testforge/install command.",
+        "After setup, restart the ado-testforge MCP server in Cursor Settings > MCP.",
       ];
 
       send(makeResponse(id, {

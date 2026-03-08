@@ -1,4 +1,4 @@
-# MARS ADO MCP — Distribution Guide for Google Drive
+# ADO TestForge MCP — Distribution Guide for Google Drive
 
 This guide explains what to share on Google Drive so team members can install and use the MCP. **Option B hides your source code.**
 
@@ -6,7 +6,7 @@ This guide explains what to share on Google Drive so team members can install an
 
 ## ⚠️ Deploy After Any Changes (Required)
 
-**One-way flow only:** Changes flow Main Project (MARS ADO MCP) → Deployment folder. Never the reverse. The deployment folder (e.g. Center of Excellence (CoE)/MCP Servers) is read-only; users must make changes in the main project.
+**One-way flow only:** Changes flow Main Project (ADO TestForge MCP) → Deployment folder. Never the reverse. The deployment folder (e.g. Center of Excellence (CoE)/MCP Servers) is read-only; users must make changes in the main project.
 
 **After making ANY changes to commands, tools, or enhancements**, run from the main project:
 
@@ -30,7 +30,7 @@ If you're okay with users having access to the source, share only these:
 | `src/` | **Yes** | Server code (runs via `npx tsx`) |
 | `package.json` | **Yes** | Dependencies |
 | `package-lock.json` | **Yes** | Locked versions for reproducible installs |
-| `.cursor/mcp.json` | **Yes** | Defines setup-mars-ado for the install flow |
+| `.cursor/mcp.json` | **Yes** | Defines setup-ado-testforge for the install flow |
 | `docs/setup-guide.md` | **Yes** | User instructions |
 | `conventions.config.json` | **Yes** | Test case naming conventions |
 
@@ -44,7 +44,7 @@ Share a pre-built package so users never see your code.
 
 ### Step 1: Build the distribution package
 
-From the MARS ADO MCP folder, run:
+From the ADO TestForge MCP folder, run:
 
 ```bash
 npm run build:dist
@@ -63,8 +63,8 @@ This creates a `dist-package/` folder containing:
 Upload the entire `dist-package/` folder. Users:
 1. Download/sync the folder
 2. Add it to Cursor workspace
-3. Run `/setup-mars-ado` → install (no `npm install` needed)
-4. Configure credentials at `~/.mars-ado-mcp/credentials.json`
+3. Run `/setup-ado-testforge` → install (no `npm install` needed)
+4. Configure credentials at `~/.ado-testforge-mcp/credentials.json`
 
 **No `src/` folder = no source code exposed.**
 
@@ -81,14 +81,14 @@ Regardless of Option A or B, users need:
 | **ADO PAT** | They create their own (never share yours) |
 | **Internet** | For `npm install` |
 
-Credentials are stored in each user's home directory (`~/.mars-ado-mcp/credentials.json`) — never in the shared folder.
+Credentials are stored in each user's home directory (`~/.ado-testforge-mcp/credentials.json`) — never in the shared folder.
 
 ---
 
 ## Folder Structure for Google Drive
 
 ```
-MARS ADO MCP/          ← Share this folder
+ADO TestForge MCP/      ← Share this folder
 ├── bin/
 │   └── bootstrap.mjs
 ├── src/               ← Omit in Option B (use dist/ instead)
@@ -107,6 +107,6 @@ MARS ADO MCP/          ← Share this folder
 
 ## Security Notes
 
-- **Never share** `.env` or `~/.mars-ado-mcp/credentials.json` — they contain PATs
+- **Never share** `.env` or `~/.ado-testforge-mcp/credentials.json` — they contain PATs
 - Each user creates their own ADO PAT with their account
 - The shared folder contains no secrets; credentials are local to each machine

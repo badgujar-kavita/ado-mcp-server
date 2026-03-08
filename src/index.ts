@@ -13,7 +13,7 @@ async function main() {
 
   const credentials = loadCredentials();
   if (!credentials) {
-    console.error("No valid credentials found. Run /setup-mars-ado/install first.");
+    console.error("No valid credentials found. Run /setup-ado-testforge/install first.");
     process.exit(1);
   }
 
@@ -31,7 +31,7 @@ async function main() {
       : null;
 
   const server = new McpServer({
-    name: "mars-ado",
+    name: "ado-testforge",
     version: "1.0.0",
   });
 

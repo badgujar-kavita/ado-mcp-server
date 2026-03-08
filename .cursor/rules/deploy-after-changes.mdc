@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Deploy to Google Drive After Changes
 
-**One-way flow only:** Changes flow Main Project (MARS ADO MCP) → Deployment (Center of Excellence (CoE)/MCP Servers). Never the reverse.
+**One-way flow only:** Changes flow Main Project (ADO TestForge MCP) → Deployment (Center of Excellence (CoE)/MCP Servers). Never the reverse.
 
 **REQUIRED:** After making any changes to MCP commands, tools, prompts, bootstrap, or enhancements, you MUST deploy the updated files to the Google Drive folder.
 

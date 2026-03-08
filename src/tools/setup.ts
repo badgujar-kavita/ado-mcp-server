@@ -10,7 +10,7 @@ import {
 export function registerSetupTools(server: McpServer) {
   server.tool(
     "setup_credentials",
-    "Create the credentials template file at ~/.mars-ado-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat.",
+    "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat.",
     {},
     async () => {
       const credPath = createCredentialsTemplate();
@@ -47,7 +47,7 @@ export function registerSetupTools(server: McpServer) {
 
   server.tool(
     "check_setup_status",
-    "Check if the MARS ADO MCP server is fully configured and ready to use",
+    "Check if the ADO TestForge MCP server is fully configured and ready to use",
     {},
     async () => {
       const checks: string[] = [];
@@ -87,7 +87,7 @@ export function registerSetupTools(server: McpServer) {
         checks.push("Status: READY -- all tools and commands are available.");
       } else {
         checks.push("");
-        checks.push("Status: SETUP REQUIRED -- run /mars-ado/setup to get started.");
+        checks.push("Status: SETUP REQUIRED -- run /setup-ado-testforge/install to get started.");
       }
 
       return {

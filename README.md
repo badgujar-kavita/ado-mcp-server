@@ -1,4 +1,4 @@
-# MARS ADO MCP — Azure DevOps Test Case Automation
+# ADO TestForge MCP — Azure DevOps Test Case Automation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
@@ -8,7 +8,7 @@ A Model Context Protocol (MCP) server that integrates Azure DevOps with Cursor I
 
 ## Overview
 
-MARS ADO MCP enables QA teams to automate test case creation and management workflows directly within Cursor. Use natural language prompts and slash commands to fetch User Stories, generate test case drafts from acceptance criteria and Solution Design, and push validated test cases to Azure DevOps—all without leaving your IDE.
+ADO TestForge MCP enables QA teams to automate test case creation and management workflows directly within Cursor. Use natural language prompts and slash commands to fetch User Stories, generate test case drafts from acceptance criteria and Solution Design, and push validated test cases to Azure DevOps—all without leaving your IDE.
 
 ---
 
@@ -35,7 +35,7 @@ flowchart TB
     end
 
     subgraph mcp["MCP Server"]
-        Server["mars-ado<br/><i>Node.js</i>"]
+        Server["ado-testforge<br/><i>Node.js</i>"]
     end
 
     subgraph ado["Azure DevOps"]
@@ -71,15 +71,15 @@ flowchart TB
 
 2. **Run the installer**  
    - Open Cursor's AI chat (Cmd+L / Ctrl+L)  
-   - Type `/setup-mars-ado` and select **install**
+   - Type `/setup-ado-testforge` and select **install**
 
 3. **Configure credentials**  
-   - Edit `~/.mars-ado-mcp/credentials.json` (created by installer)  
+   - Edit `~/.ado-testforge-mcp/credentials.json` (created by installer)  
    - Add your ADO PAT, organization name, and project name
 
 4. **Restart Cursor** (or reload MCP in Settings > MCP)
 
-After setup, MARS ADO MCP is available globally in all workspaces.
+After setup, ADO TestForge MCP is available globally in all workspaces.
 
 ---
 
@@ -87,15 +87,15 @@ After setup, MARS ADO MCP is available globally in all workspaces.
 
 | Command | Purpose |
 |---------|---------|
-| `/mars-ado/check_status` | Verify setup and credentials |
-| `/mars-ado/get_user_story` | Fetch User Story with acceptance criteria and Solution Design |
-| `/mars-ado/draft_test_cases` | Generate test case draft for review (no ADO write) |
-| `/mars-ado/create_test_cases` | Push draft to ADO (create test cases) |
-| `/mars-ado/update_test_case` | Update existing test case (prerequisites, steps, etc.) |
-| `/mars-ado/delete_test_case` | Delete a single test case |
-| `/mars-ado/delete_test_cases` | Delete multiple test cases |
-| `/mars-ado/list_test_plans` | List test plans in the project |
-| `/mars-ado/list_work_item_fields` | List ADO field definitions |
+| `/ado-testforge/check_status` | Verify setup and credentials |
+| `/ado-testforge/get_user_story` | Fetch User Story with acceptance criteria and Solution Design |
+| `/ado-testforge/draft_test_cases` | Generate test case draft for review (no ADO write) |
+| `/ado-testforge/create_test_cases` | Push draft to ADO (create test cases) |
+| `/ado-testforge/update_test_case` | Update existing test case (prerequisites, steps, etc.) |
+| `/ado-testforge/delete_test_case` | Delete a single test case |
+| `/ado-testforge/delete_test_cases` | Delete multiple test cases |
+| `/ado-testforge/list_test_plans` | List test plans in the project |
+| `/ado-testforge/list_work_item_fields` | List ADO field definitions |
 
 ---
 

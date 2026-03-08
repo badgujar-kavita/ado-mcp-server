@@ -1,6 +1,19 @@
 # Changelog
 
-All notable changes to the MARS ADO MCP server are documented here.
+All notable changes to the ADO TestForge MCP server are documented here.
+
+---
+
+## 2026-03-08 — Rename to ADO TestForge
+
+### Breaking: Server and Credentials Rename
+
+- **MCP servers:** `mars-ado` → `ado-testforge`, `setup-mars-ado` → `setup-ado-testforge`
+- **Slash commands:** `/mars-ado/*` → `/ado-testforge/*`
+- **Credentials path:** `~/.mars-ado-mcp/` → `~/.ado-testforge-mcp/`
+- **Package name:** `mars-ado-mcp` → `ado-testforge-mcp`
+
+**Migration for existing users:** Copy your credentials to the new path, or run `/setup-ado-testforge/install` to create a fresh template and re-enter your PAT/org/project. Restart Cursor or reload MCP after migration.
 
 ---
 
@@ -8,7 +21,7 @@ All notable changes to the MARS ADO MCP server are documented here.
 
 ### New Command and Tools
 
-- **`/mars-ado/clone_and_enhance_test_cases`** — Clone test cases from a source User Story to a target User Story. Reads source TCs, analyzes target US + Solution Design, classifies each TC (Clone As-Is / Minor Update / Enhanced), generates preview, creates in ADO only after explicit APPROVED.
+- **`/ado-testforge/clone_and_enhance_test_cases`** — Clone test cases from a source User Story to a target User Story. Reads source TCs, analyzes target US + Solution Design, classifies each TC (Clone As-Is / Minor Update / Enhanced), generates preview, creates in ADO only after explicit APPROVED.
 - **`list_test_cases_linked_to_user_story`** — Get test case IDs linked to a User Story via Tests/Tested By relation. Use before cloning.
 - **`save_tc_clone_preview`** — Save clone preview to `tc-drafts/Clone_US_X_to_US_Y_preview.md`. User reviews and responds APPROVED / MODIFY / CANCEL.
 
@@ -32,7 +45,7 @@ All notable changes to the MARS ADO MCP server are documented here.
 ### Prompt Updates
 
 - **`create_test_suite`** and **`update_test_suite`** now ask only for User Story ID and use `ensure_suite_hierarchy_for_us`.
-- **`/mars-ado/ensure_suite_hierarchy_for_us`** — New slash command for the same flow.
+- **`/ado-testforge/ensure_suite_hierarchy_for_us`** — New slash command for the same flow.
 
 ---
 
@@ -43,7 +56,7 @@ All notable changes to the MARS ADO MCP server are documented here.
 - **`create_test_suite`** — Create a new test suite under a parent. Uses find-or-create logic; returns existing suite if one with the same name already exists under that parent.
 - **`update_test_suite`** — Update an existing test suite. Supports partial updates: `name`, `parentSuiteId`, `queryString` (for dynamic suites).
 - **`delete_test_suite`** — Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.
-- **Slash commands:** `/mars-ado/create_test_suite`, `/mars-ado/update_test_suite`, `/mars-ado/delete_test_suite`
+- **Slash commands:** `/ado-testforge/create_test_suite`, `/ado-testforge/update_test_suite`, `/ado-testforge/delete_test_suite`
 
 ---
 
@@ -148,7 +161,7 @@ All notable changes to the MARS ADO MCP server are documented here.
 
 ### User Chooses Where Drafts Are Stored
 
-- **No hardcoded default path** — Removed `~/.mars-ado-mcp/tc-drafts` as default.
+- **No hardcoded default path** — Removed `~/.ado-testforge-mcp/tc-drafts` as default.
 - **workspaceRoot:** When user has a folder open, drafts go to `workspaceRoot/tc-drafts/` (created if missing).
 - **draftsPath:** When user specifies a location ("save to X", "create under folder Y"), use this exact path.
 - **tc_drafts_path / TC_DRAFTS_PATH:** Optional user config; no longer a fallback to homedir.
@@ -293,8 +306,8 @@ All notable changes to the MARS ADO MCP server are documented here.
 ### Post-Deployment Checklist
 
 1. **Rebuild** — `npm run build`
-2. **Restart MCP** — Restart Cursor or reload mars-ado in Settings → MCP
+2. **Restart MCP** — Restart Cursor or reload ado-testforge in Settings → MCP
 3. **Verify tools** — `list_work_item_fields`, `delete_test_case`, `update_test_case` (with prerequisites, areaPath, iterationPath)
-4. **Verify commands** — `/mars-ado/update_test_case`, `/mars-ado/list_work_item_fields`, `/mars-ado/delete_test_case`
+4. **Verify commands** — `/ado-testforge/update_test_case`, `/ado-testforge/list_work_item_fields`, `/ado-testforge/delete_test_case`
 5. **Verify prerequisite formatting** — Update a test case; confirm HTML renders in ADO
 6. **Verify title limit** — Draft a TC with long title; confirm truncation works

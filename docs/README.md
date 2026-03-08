@@ -1,6 +1,6 @@
-# MARS ADO MCP Documentation
+# ADO TestForge MCP Documentation
 
-Documentation for the MARS ADO MCP server — Azure DevOps test case automation for Cursor IDE.
+Documentation for the ADO TestForge MCP server — Azure DevOps test case automation for Cursor IDE.
 
 ---
 

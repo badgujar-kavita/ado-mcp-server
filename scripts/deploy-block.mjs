@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * BLOCKED: This folder is a read-only deployment.
- * Deploy runs only from the main project (MARS ADO MCP).
+ * Deploy runs only from the main project (ADO TestForge MCP).
  * Users receive updates via sync; restart MCP to pick them up.
  */
 

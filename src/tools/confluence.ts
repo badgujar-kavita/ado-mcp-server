@@ -15,7 +15,7 @@ export function registerConfluenceTools(server: McpServer, confluenceClient: Con
           content: [{
             type: "text" as const,
             text:
-              "Confluence is not configured. Add confluence_base_url, confluence_email, and confluence_api_token to ~/.mars-ado-mcp/credentials.json, " +
+              "Confluence is not configured. Add confluence_base_url, confluence_email, and confluence_api_token to ~/.ado-testforge-mcp/credentials.json, " +
               "or set CONFLUENCE_BASE_URL, CONFLUENCE_EMAIL, and CONFLUENCE_API_TOKEN environment variables. See docs/setup-guide.md Step 4b.",
           }],
           isError: true,
