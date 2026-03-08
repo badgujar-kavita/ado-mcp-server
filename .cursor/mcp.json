@@ -1,0 +1,1 @@
+{"mcpServers":{"setup-mars-ado":{"command":"node","args":["bin/bootstrap.mjs","--installer"]}}}

@@ -1,0 +1,31 @@
+{
+  "name": "mars-ado-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Azure DevOps QA test case management",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "build:dist": "node build-dist.mjs",
+    "deploy": "node deploy.mjs",
+    "dev": "tsx watch src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "azure-devops",
+    "test-cases",
+    "qa"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "dotenv": "^17.3.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "esbuild": "^0.27.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

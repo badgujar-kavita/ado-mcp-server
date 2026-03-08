@@ -1,0 +1,343 @@
+import { z } from "zod";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { AdoClient } from "../ado-client.ts";
+import type { ConfluenceClient } from "../confluence-client.ts";
+import type { AdoWorkItem, JsonPatchOperation, TestCaseResult } from "../types.ts";
+import { loadConventionsConfig } from "../config.ts";
+import { buildTcTitle } from "../helpers/tc-title-builder.ts";
+import { buildPrerequisitesHtml } from "../helpers/prerequisites.ts";
+import { buildStepsXml } from "../helpers/steps-builder.ts";
+
+// Formatting (bold, lists, persona sub-bullets, TO BE TESTED FOR expansion) is applied
+// via buildPrerequisitesHtml and buildStepsXml for ALL paths: createTestCase (push_tc_draft_to_ado),
+// update_test_case, and any future create_test_case tool.
+
+const StepSchema = z.object({
+  action: z.string(),
+  expectedResult: z.string(),
+});
+
+const PrerequisitesSchema = z.object({
+  personas: z.union([z.string(), z.array(z.string()), z.null()]).optional(),
+  preConditions: z.array(z.string()).nullable().optional(),
+  toBeTested: z.array(z.string()).nullable().optional(),
+  testData: z.string().nullable().optional(),
+}).optional();
+
+export function registerTestCaseTools(
+  server: McpServer,
+  client: AdoClient,
+  _confluenceClient: ConfluenceClient | null
+) {
+  // Note: create_test_case tool removed. Test cases are inserted only via create_test_cases
+  // command → push_tc_draft_to_ado (after draft review and user confirmation).
+
+  server.tool(
+    "list_test_cases",
+    "List test cases within a specific test suite",
+    {
+      planId: z.number().int().positive().describe("The test plan ID"),
+      suiteId: z.number().int().positive().describe("The test suite ID"),
+    },
+    async ({ planId, suiteId }) => {
+      try {
+        const result = await client.get<{ value: Array<{ testCase: { id: number; name: string } }> }>(
+          `/_apis/testplan/Plans/${planId}/Suites/${suiteId}/TestCase`,
+          "7.1"
+        );
+        const cases = result.value.map((tc) => ({
+          id: tc.testCase.id,
+          name: tc.testCase.name,
+        }));
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(cases, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `Error listing test cases: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "get_test_case",
+    "Get a test case work item by ID with all fields",
+    { workItemId: z.number().int().positive().describe("The test case work item ID") },
+    async ({ workItemId }) => {
+      try {
+        const item = await client.get<AdoWorkItem>(
+          `/_apis/wit/workitems/${workItemId}`,
+          "7.0",
+          { "$expand": "relations" }
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(item, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `Error fetching test case: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "update_test_case",
+    "Update fields or steps of an existing test case",
+    {
+      workItemId: z.number().int().positive().describe("The test case work item ID"),
+      title: z.string().optional().describe("Updated title"),
+      description: z.string().optional().describe("Raw HTML for Prerequisite for Test (use when providing pre-built HTML)"),
+      prerequisites: PrerequisitesSchema.describe("Structured prerequisites; when provided, builds HTML and writes to prerequisite field"),
+      steps: z.array(StepSchema).optional().describe("Updated test steps"),
+      priority: z.number().int().min(1).max(4).optional().describe("Updated priority"),
+      state: z.string().optional().describe("Updated state"),
+      assignedTo: z.string().optional().describe("Updated assigned to"),
+      areaPath: z.string().optional().describe("Updated area path"),
+      iterationPath: z.string().optional().describe("Updated iteration path"),
+    },
+    async ({ workItemId, title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath }) => {
+      try {
+        const config = loadConventionsConfig();
+        const ops: JsonPatchOperation[] = [];
+        if (title) ops.push({ op: "replace", path: "/fields/System.Title", value: title });
+        const prereqField = config.prerequisiteFieldRef ?? "System.Description";
+        // buildPrerequisitesHtml applies full formatting (bold, lists, persona sub-bullets, ;/• expansion)
+        const prereqHtml = prerequisites ? buildPrerequisitesHtml(prerequisites) : description;
+        if (prereqHtml) ops.push({ op: "replace", path: `/fields/${prereqField}`, value: prereqHtml });
+        // buildStepsXml applies formatStepContent (bold, A./B. lists) to action/expectedResult
+        if (steps) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: buildStepsXml(steps) });
+        if (priority) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority });
+        if (state) ops.push({ op: "replace", path: "/fields/System.State", value: state });
+        if (assignedTo) ops.push({ op: "replace", path: "/fields/System.AssignedTo", value: assignedTo });
+        if (areaPath) ops.push({ op: "replace", path: "/fields/System.AreaPath", value: areaPath });
+        if (iterationPath) ops.push({ op: "replace", path: "/fields/System.IterationPath", value: iterationPath });
+
+        if (ops.length === 0) {
+          return { content: [{ type: "text" as const, text: "No fields to update." }] };
+        }
+
+        const item = await client.patch<AdoWorkItem>(
+          `/_apis/wit/workitems/${workItemId}`,
+          ops,
+          "application/json-patch+json",
+          "7.0"
+        );
+
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ id: item.id, rev: item.rev, url: item.url }, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `Error updating test case: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "add_test_cases_to_suite",
+    "Add existing test case IDs to a static test suite (not needed for query-based suites)",
+    {
+      planId: z.number().int().positive().describe("The test plan ID"),
+      suiteId: z.number().int().positive().describe("The target suite ID"),
+      testCaseIds: z.array(z.number().int().positive()).min(1).describe("Array of test case work item IDs to add"),
+    },
+    async ({ planId, suiteId, testCaseIds }) => {
+      try {
+        const body = testCaseIds.map((id) => ({ testCase: { id } }));
+        const result = await client.post<{ value: unknown[] }>(
+          `/_apis/testplan/Plans/${planId}/Suites/${suiteId}/TestCase`,
+          body,
+          "application/json",
+          "7.1"
+        );
+        return {
+          content: [{ type: "text" as const, text: `Added ${testCaseIds.length} test case(s) to suite ${suiteId}. Response count: ${result.value?.length ?? 0}` }],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `Error adding test cases to suite: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "delete_test_case",
+    "Delete a test case work item by ID. By default moves to Recycle Bin (restorable). Set destroy=true to permanently delete (not recommended).",
+    {
+      workItemId: z.number().int().positive().describe("The test case work item ID to delete"),
+      destroy: z.boolean().optional().default(false).describe("If true, permanently delete. Default false (Recycle Bin)."),
+    },
+    async ({ workItemId, destroy }) => {
+      try {
+        const queryParams = destroy ? { destroy: "true" } : undefined;
+        await client.delete(`/_apis/wit/workitems/${workItemId}`, "7.1", queryParams);
+        const msg = destroy
+          ? `Test case ${workItemId} permanently deleted.`
+          : `Test case ${workItemId} deleted (moved to Recycle Bin).`;
+        return { content: [{ type: "text" as const, text: msg }] };
+      } catch (err) {
+        return {
+          content: [{ type: "text" as const, text: `Error deleting test case ${workItemId}: ${err}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+}
+
+// ── Core Logic (exported for push_tc_draft_to_ado) ──
+
+export interface CreateTestCaseParams {
+  planId: number;
+  userStoryId: number;
+  tcNumber?: number;
+  featureTags: string[];
+  useCaseSummary: string;
+  priority?: number;
+  prerequisites?: {
+    personas?: string | string[] | null;
+    preConditions?: string[] | null;
+    toBeTested?: string[] | null;
+    testData?: string | null;
+  };
+  steps: Array<{ action: string; expectedResult: string }>;
+  areaPath?: string | null;
+  iterationPath?: string | null;
+  assignedTo?: string;
+}
+
+export async function createTestCase(client: AdoClient, params: CreateTestCaseParams): Promise<TestCaseResult> {
+  const config = loadConventionsConfig();
+
+  const usItem = await client.get<AdoWorkItem>(
+    `/_apis/wit/workitems/${params.userStoryId}`,
+    "7.0",
+    { fields: "System.AreaPath,System.IterationPath" }
+  );
+  const usAreaPath = (usItem.fields["System.AreaPath"] as string) || "";
+  const usIterationPath = (usItem.fields["System.IterationPath"] as string) || "";
+
+  const tcNumber = params.tcNumber ?? await getNextTcNumber(client, params.userStoryId, usAreaPath);
+  const title = buildTcTitle(params.userStoryId, tcNumber, params.featureTags, params.useCaseSummary);
+  const description = buildPrerequisitesHtml(params.prerequisites);
+  const stepsXml = buildStepsXml(params.steps);
+  // Prefer User Story's paths (live from ADO) to avoid TF401347 Invalid tree name - draft parsing can differ
+  const areaPath = usAreaPath || params.areaPath || "";
+  const iterationPath = usIterationPath || params.iterationPath || "";
+  const priority = params.priority ?? config.testCaseDefaults.priority;
+  const state = config.testCaseDefaults.state;
+
+  const ops: JsonPatchOperation[] = [
+    { op: "add", path: "/fields/System.Title", value: title },
+    { op: "add", path: "/fields/System.AreaPath", value: areaPath },
+    { op: "add", path: "/fields/System.IterationPath", value: iterationPath },
+    { op: "add", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority },
+    { op: "add", path: "/fields/System.State", value: state },
+    { op: "add", path: "/fields/Microsoft.VSTS.TCM.Steps", value: stepsXml },
+  ];
+
+  const prereqField = config.prerequisiteFieldRef ?? "System.Description";
+  if (description) {
+    ops.push({ op: "add", path: `/fields/${prereqField}`, value: description });
+  }
+
+  if (params.assignedTo) {
+    ops.push({ op: "add", path: "/fields/System.AssignedTo", value: params.assignedTo });
+  }
+
+  // Link to User Story via "Tests / Tested By" relation
+  ops.push({
+    op: "add",
+    path: "/relations/-",
+    value: {
+      rel: "Microsoft.VSTS.Common.TestedBy-Reverse",
+      url: `${client.baseUrl}/_apis/wit/workitems/${params.userStoryId}`,
+      attributes: { comment: "Auto-linked by MCP server" },
+    },
+  });
+
+  const item = await client.post<AdoWorkItem>(
+    "/_apis/wit/workitems/$Test Case",
+    ops,
+    "application/json-patch+json",
+    "7.0"
+  );
+
+  return {
+    id: item.id,
+    title: (item.fields["System.Title"] as string) || title,
+    url: item.url,
+    state: (item.fields["System.State"] as string) || state,
+    priority,
+  };
+}
+
+/**
+ * Updates an existing test case with the same params as createTestCase.
+ * Used for repush when draft is revised after initial push.
+ */
+export async function updateTestCaseFromParams(
+  client: AdoClient,
+  workItemId: number,
+  params: CreateTestCaseParams
+): Promise<TestCaseResult> {
+  const config = loadConventionsConfig();
+  const title = buildTcTitle(params.userStoryId, params.tcNumber ?? 0, params.featureTags, params.useCaseSummary);
+  const prereqHtml = buildPrerequisitesHtml(params.prerequisites);
+  const stepsXml = buildStepsXml(params.steps);
+  const prereqField = config.prerequisiteFieldRef ?? "System.Description";
+  const priority = params.priority ?? config.testCaseDefaults.priority;
+
+  const ops: JsonPatchOperation[] = [
+    { op: "replace", path: "/fields/System.Title", value: title },
+    { op: "replace", path: `/fields/${prereqField}`, value: prereqHtml },
+    { op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: stepsXml },
+    { op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority },
+  ];
+
+  const item = await client.patch<AdoWorkItem>(
+    `/_apis/wit/workitems/${workItemId}`,
+    ops,
+    "application/json-patch+json",
+    "7.0"
+  );
+
+  return {
+    id: item.id,
+    title: (item.fields["System.Title"] as string) || title,
+    url: item.url,
+    state: (item.fields["System.State"] as string) || config.testCaseDefaults.state,
+    priority,
+  };
+}
+
+async function getNextTcNumber(client: AdoClient, usId: number, areaPath: string): Promise<number> {
+  const wiql = {
+    query:
+      `SELECT [System.Id] FROM WorkItems ` +
+      `WHERE [System.WorkItemType] = 'Test Case' ` +
+      `AND [System.AreaPath] UNDER '${areaPath}' ` +
+      `AND [System.Title] CONTAINS 'TC_${usId}_' ` +
+      `ORDER BY [System.Title] DESC`,
+  };
+
+  try {
+    const result = await client.post<{ workItems: Array<{ id: number }> }>(
+      "/_apis/wit/wiql",
+      wiql,
+      "application/json",
+      "7.0"
+    );
+    return (result.workItems?.length ?? 0) + 1;
+  } catch {
+    return 1;
+  }
+}

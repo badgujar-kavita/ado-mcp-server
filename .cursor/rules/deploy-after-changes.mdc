@@ -1,0 +1,38 @@
+---
+description: Deploy to Google Drive after any MCP changes (one-way: Main → Deployment)
+alwaysApply: true
+---
+
+# Deploy to Google Drive After Changes
+
+**One-way flow only:** Changes flow Main Project (MARS ADO MCP) → Deployment (Center of Excellence (CoE)/MCP Servers). Never the reverse.
+
+**REQUIRED:** After making any changes to MCP commands, tools, prompts, bootstrap, or enhancements, you MUST deploy the updated files to the Google Drive folder.
+
+## Keep Documentation Up to Date
+
+**REQUIRED:** Every code change must update the relevant documentation:
+
+- **docs/implementation.md** — MCP tools inventory, conventions, field mapping, API reference
+- **docs/setup-guide.md** — Command tables, setup steps
+- **docs/testing-guide.md** — Tool quick reference, slash commands, troubleshooting
+- **docs/tc-style-guide-and-consistency-strategy.md** — TC style and consistency rules
+
+## Deploy Command
+
+```bash
+npm run deploy
+```
+
+This builds the distribution and copies it to the configured Google Drive folder (Center of Excellence (CoE)/MCP Servers).
+
+## When to Deploy
+
+- After adding or modifying MCP tools
+- After changing the installer or bootstrap
+- After updating setup-guide.md or conventions.config.json
+- After any enhancement that affects the user-facing MCP
+
+## Setup
+
+Create `.deploy-path` (or set `GDRIVE_DEPLOY_PATH` env var) with the target folder path. See `.deploy-path.example`.

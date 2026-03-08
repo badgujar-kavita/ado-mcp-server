@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-package/
+.env
+.deploy-path
+*.log
+.DS_Store
+tc-drafts/*.json

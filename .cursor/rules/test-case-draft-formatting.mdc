@@ -1,0 +1,33 @@
+---
+description: Test case draft and Prerequisite for Test formatting rules
+globs: tc-drafts/**/*.md,tc-drafts/**/*.json
+alwaysApply: false
+---
+
+# Test Case Draft & Formatting Rules
+
+## Draft Rules
+
+1. **Use workspaceRoot or draftsPath** — When calling `get_tc_draft`, `list_tc_drafts`, `save_tc_draft`, `push_tc_draft_to_ado`, ALWAYS pass `workspaceRoot` (open folder) or `draftsPath` (user-specified location). Drafts go to `workspaceRoot/tc-drafts/` (created if missing) or exact `draftsPath`. No hardcoded default.
+
+2. **Markdown-only until push** — `save_tc_draft` writes only `.md`. JSON is generated only when `push_tc_draft_to_ado` runs (avoids drift during revisions). The markdown header includes **Drafted By** (OS username).
+
+3. **Use latest version** — Never use an older draft. The version number in the header indicates revision; prefer the highest version.
+
+4. **Numbered lists in steps** — When steps or expected results contain numbered lists (e.g. "Fields to validate: 1. X 2. Y 3. Z"), use `<br>` between items: `Fields to validate:<br>1. X<br>2. Y<br>3. Z`. Apply in both markdown and JSON.
+
+## Prerequisite for Test Formatting
+
+5. **ADO-compatible HTML** — The MCP server formats prerequisites and test steps as ADO-compliant HTML. Pre-requisite and TO BE TESTED FOR render as lists (`<ol>`, `<ul>`). Drafts may use: `**bold**` (→ `<strong>`), "A. X B. Y" lists (→ `<ol><li>`), "; " or " • " to split items (outside parentheses only). Persona sub-items render as nested bullets. Table compatibility: see `docs/prerequisite-field-table-compatibility.md`.
+
+6. **Reference** — See `docs/prerequisite-formatting-instruction.md` for full details.
+
+## Title & Styling Rules
+
+7. **Title character limit** — ADO Work Item Title has a 256-character limit. All test case titles must be ≤ 256 characters. Verify before push; truncate or shorten useCaseSummary/featureTags if needed.
+
+8. **Expected result "should" form** — Every expected result must use "should" (e.g., `you should be able to do so`, `Tactic should be updated`). Avoid present tense ("is updated", "are generated").
+
+9. **Steps format** — Actions: imperative, short. Use `<br>` for numbered lists in steps/expected results.
+
+10. **Reference** — See `docs/test-case-writing-style-reference.md` for full styling (title pattern, pre-requisite format, admin validation, etc.).

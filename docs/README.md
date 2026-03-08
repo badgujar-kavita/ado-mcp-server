@@ -1,0 +1,33 @@
+# MARS ADO MCP Documentation
+
+Documentation for the MARS ADO MCP server — Azure DevOps test case automation for Cursor IDE.
+
+---
+
+## Documentation Index
+
+| Document | Purpose |
+|----------|---------|
+| [implementation.md](implementation.md) | Architecture, tools, conventions, API reference |
+| [setup-guide.md](setup-guide.md) | Installation, credentials, slash commands |
+| [testing-guide.md](testing-guide.md) | Step-by-step testing, tool quick reference, troubleshooting |
+| [changelog.md](changelog.md) | Release history and deployment changes |
+| [tc-style-guide-and-consistency-strategy.md](tc-style-guide-and-consistency-strategy.md) | Test case style patterns and AI consistency |
+| [prerequisite-formatting-instruction.md](prerequisite-formatting-instruction.md) | Prerequisite for Test HTML formatting (full spec) |
+| [prerequisite-field-table-compatibility.md](prerequisite-field-table-compatibility.md) | Field table compatibility, tc_draft format for future tables |
+| [prerequisite-formatting-ado.md](prerequisite-formatting-ado.md) | Prerequisite formatting — user summary and troubleshooting |
+| [test-case-writing-style-reference.md](test-case-writing-style-reference.md) | Title format, "should" form, steps, admin validation |
+| [distribution-guide.md](distribution-guide.md) | Build and deploy to Google Drive |
+| [repush-workflow.md](repush-workflow.md) | Re-push test cases (delete & re-create workflow) |
+| [ado-test-case-update-guide.md](ado-test-case-update-guide.md) | Updating prerequisites, TO BE TESTED FOR format, when to restart MCP and deploy |
+
+---
+
+## Quick Links
+
+- **New to setup?** → [setup-guide.md](setup-guide.md)
+- **Testing tools?** → [testing-guide.md](testing-guide.md)
+- **Prerequisite HTML not rendering?** → [prerequisite-formatting-ado.md](prerequisite-formatting-ado.md)
+- **Recent changes?** → [changelog.md](changelog.md)
+- **Re-push test cases?** → [repush-workflow.md](repush-workflow.md)
+- **Update prerequisites / TO BE TESTED FOR?** → [ado-test-case-update-guide.md](ado-test-case-update-guide.md)
