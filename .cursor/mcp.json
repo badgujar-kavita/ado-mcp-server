@@ -1,1 +1,3 @@
-{"mcpServers":{"ado-testforge":{"command":"node","args":["bin/bootstrap.mjs"]}}}
+{
+  "mcpServers": {}
+}
