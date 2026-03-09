@@ -8,8 +8,9 @@ Documentation for the ADO TestForge MCP server — Azure DevOps test case automa
 
 | Document | Purpose |
 |----------|---------|
+| [user-setup-guide.md](user-setup-guide.md) | **User Setup Guide** — Self-service setup for org-wide use; Confluence-ready |
 | [implementation.md](implementation.md) | Architecture, tools, conventions, API reference |
-| [setup-guide.md](setup-guide.md) | Installation, credentials, slash commands |
+| [setup-guide.md](setup-guide.md) | Installation, credentials, slash commands (technical reference) |
 | [testing-guide.md](testing-guide.md) | Step-by-step testing, tool quick reference, troubleshooting |
 | [changelog.md](changelog.md) | Release history and deployment changes |
 | [tc-style-guide-and-consistency-strategy.md](tc-style-guide-and-consistency-strategy.md) | Test case style patterns and AI consistency |
@@ -25,7 +26,8 @@ Documentation for the ADO TestForge MCP server — Azure DevOps test case automa
 
 ## Quick Links
 
-- **New to setup?** → [setup-guide.md](setup-guide.md)
+- **New user? Set up on your own** → [user-setup-guide.md](user-setup-guide.md)
+- **Technical setup reference** → [setup-guide.md](setup-guide.md)
 - **Testing tools?** → [testing-guide.md](testing-guide.md)
 - **Prerequisite HTML not rendering?** → [prerequisite-formatting-ado.md](prerequisite-formatting-ado.md)
 - **Recent changes?** → [changelog.md](changelog.md)

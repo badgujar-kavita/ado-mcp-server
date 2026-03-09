@@ -444,7 +444,7 @@ The tool composes the title automatically:
 ## Project Structure
 
 ```
-MARS ADO MCP/
+ado-mcp-server/
 ├── src/
 │   ├── index.ts                  # Entry point, MCP server setup + stdio transport
 │   ├── config.ts                 # Loads + validates conventions.config.json with Zod
@@ -620,7 +620,7 @@ Add to `.cursor/mcp.json`:
     "ado-test-manager": {
       "command": "npx",
       "args": ["tsx", "src/index.ts"],
-      "cwd": "/Users/kavita.badgujar/MARS ADO MCP",
+      "cwd": "/path/to/ado-mcp-server",
       "env": {
         "ADO_PAT": "your-pat",
         "ADO_ORG": "your-org",

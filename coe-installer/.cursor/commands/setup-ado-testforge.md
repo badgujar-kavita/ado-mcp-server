@@ -20,7 +20,7 @@ This will:
 1. **Restart Cursor** to load the MCP server
 2. Fill in your credentials at `~/.ado-testforge-mcp/credentials.json`:
    - `ado_pat`: Your Azure DevOps Personal Access Token
-   - `ado_org`: Your organization name (e.g., MarsDevTeam)
+   - `ado_org`: Your organization name (e.g., YourOrgName)
    - `ado_project`: Your project name
 
 After restart, `ado-testforge` will be available in all workspaces with commands like `/ado-testforge/get_user_story`, `/ado-testforge/draft_test_cases`, etc.

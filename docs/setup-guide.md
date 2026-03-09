@@ -56,11 +56,11 @@ You need a PAT because our organization uses OKTA SSO.
 https://dev.azure.com/{your-org}/_usersSettings/tokens
 ```
 
-Replace `{your-org}` with your ADO organization name (e.g., `MarsDevTeam`).
+Replace `{your-org}` with your ADO organization name (e.g., `YourOrgName`).
 
 2. Click **+ New Token**
 3. Configure the token:
-   - **Name**: `MARS MCP Server` (or any name you prefer)
+   - **Name**: `ADO TestForge MCP` (or any name you prefer)
    - **Expiration**: 90 days recommended
    - **Scopes**: Select **Custom defined**, then enable the scopes listed below
 4. Click **Create**
@@ -169,7 +169,7 @@ notepad "$env:USERPROFILE\.ado-testforge-mcp\credentials.json"
 | Field | What to Enter | Example |
 |---|---|---|
 | `ado_pat` | The PAT you created in Step 1 | `ghp4x7abc123...` |
-| `ado_org` | Your ADO organization name (from `https://dev.azure.com/{org}`) | `MarsDevTeam` |
+| `ado_org` | Your ADO organization name (from `https://dev.azure.com/{org}`) | `YourOrgName` |
 | `ado_project` | Your ADO project name | `TPM Product Ecosystem` |
 
 The Confluence fields are **optional** -- leave them empty if you don't use Confluence. See [Step 4b](#step-4b-configure-confluence-optional) for Confluence setup.
@@ -194,7 +194,7 @@ This is the approach the MCP server uses today. It's the simplest option for ind
 
 1. Go to [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
 2. Click **Create API token**
-3. Give it a label (e.g., `MARS MCP Server`)
+3. Give it a label (e.g., `ADO TestForge MCP`)
 4. Click **Create** and **copy the token immediately**
 
 #### Required Permissions
@@ -394,16 +394,16 @@ Run `/ado-testforge/install` again (with the ADO TestForge MCP folder in your wo
 
 - Your PAT may have expired -- create a new one in ADO
 - Verify the PAT has the correct scopes (Work Items + Test Management)
-- Make sure `ado_org` is just the organization name (e.g., `MarsDevTeam`), not the full URL
+- Make sure `ado_org` is just the organization name (e.g., `YourOrgName`), not the full URL
 
 ### Confluence 401 Unauthorized
 
 When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when fetching Solution Design:
 
 1. **Base URL** — Must be `https://yoursite.atlassian.net/wiki` (no `/spaces/...` or page path).  
-   Example for Mars: `https://marsaoh.atlassian.net/wiki`
+   Example: `https://your-org.atlassian.net/wiki`
 
-2. **Email** — Must match your Atlassian account exactly (e.g., `kavita.badgujar@salesforce.com`)
+2. **Email** — Must match your Atlassian account exactly (e.g., `your.email@company.com`)
 
 3. **API token** — Create a new token at [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens). Tokens can expire.
 
@@ -411,7 +411,7 @@ When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when f
 
 5. **Credentials location** — Add to `~/.ado-testforge-mcp/credentials.json`:
    ```json
-   "confluence_base_url": "https://marsaoh.atlassian.net/wiki",
+   "confluence_base_url": "https://your-org.atlassian.net/wiki",
    "confluence_email": "your.email@company.com",
    "confluence_api_token": "ATATT3x..."
    ```

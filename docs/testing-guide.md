@@ -61,7 +61,7 @@ Your credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` a
 
 1. Go to `https://dev.azure.com/{your-org}/_usersSettings/tokens`
 2. Click **+ New Token**
-3. Set a name (e.g., `MARS MCP Server`)
+3. Set a name (e.g., `ADO TestForge MCP`)
 4. Set expiration (recommend 90 days)
 5. Under **Scopes**, select **Custom defined** and enable:
    - **Work Items** -- Read & Write

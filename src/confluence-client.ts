@@ -4,7 +4,7 @@ function buildAuthHeader(email: string, apiToken: string): string {
   return `Basic ${Buffer.from(email + ":" + apiToken).toString("base64")}`;
 }
 
-/** Extract site host from base URL, e.g. marsaoh.atlassian.net from https://marsaoh.atlassian.net/wiki */
+/** Extract site host from base URL, e.g. your-org.atlassian.net from https://your-org.atlassian.net/wiki */
 function extractSiteHost(baseUrl: string): string | null {
   try {
     const u = new URL(baseUrl);
