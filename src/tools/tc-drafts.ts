@@ -116,10 +116,11 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         const markdown = formatTcDraftToMarkdown(data);
         writeFileSync(mdPath, markdown, "utf-8");
 
+        const fileName = `US_${input.userStoryId}_test_cases.md`;
         return {
           content: [{
             type: "text" as const,
-            text: `Draft saved.\n- Markdown: ${mdPath}\nVersion: ${input.version}\n(JSON will be generated when you push to ADO.)`,
+            text: `Draft saved successfully!\n\n**File:** [${fileName}](${mdPath})\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO._`,
           }],
         };
       } catch (err) {
@@ -252,7 +253,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         return {
           content: [{
             type: "text" as const,
-            text: `Clone preview saved.\n- Path: ${mdPath}\n\nReview the preview. When ready, respond with APPROVED to create test cases in ADO, MODIFY to revise, or CANCEL to abort.`,
+            text: `Clone preview saved successfully!\n\n**File:** [${filename}](${mdPath})\n\nReview the preview. When ready, respond with:\n- **APPROVED** to create test cases in ADO\n- **MODIFY** to revise\n- **CANCEL** to abort`,
           }],
         };
       } catch (err) {
