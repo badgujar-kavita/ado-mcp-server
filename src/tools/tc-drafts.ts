@@ -12,6 +12,12 @@ import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
 const NO_PATH_MSG =
   "No draft location specified. Open a folder in your workspace (drafts will go to <folder>/tc-drafts) or provide draftsPath, or set TC_DRAFTS_PATH / tc_drafts_path in credentials.";
 
+/** Convert an absolute file path to a file:// URI that Cursor can open on click. */
+function toFileUri(absolutePath: string): string {
+  const encoded = absolutePath.split("/").map(encodeURIComponent).join("/");
+  return `file://${encoded}`;
+}
+
 /**
  * Resolve tc-drafts directory. No hardcoded default.
  * Priority: draftsPath (user choice) > workspaceRoot/tc-drafts > credentials/env.
@@ -117,10 +123,11 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         writeFileSync(mdPath, markdown, "utf-8");
 
         const fileName = `US_${input.userStoryId}_test_cases.md`;
+        const fileUri = toFileUri(mdPath);
         return {
           content: [{
             type: "text" as const,
-            text: `Draft saved successfully!\n\n**File:** [${fileName}](${mdPath})\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO._`,
+            text: `Draft saved successfully!\n\n**File:** [${fileName}](${fileUri})\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO._`,
           }],
         };
       } catch (err) {
@@ -250,10 +257,11 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         const filename = `Clone_US_${sourceUserStoryId}_to_US_${targetUserStoryId}_preview.md`;
         const mdPath = join(tcDraftsDir, filename);
         writeFileSync(mdPath, markdown, "utf-8");
+        const fileUri = toFileUri(mdPath);
         return {
           content: [{
             type: "text" as const,
-            text: `Clone preview saved successfully!\n\n**File:** [${filename}](${mdPath})\n\nReview the preview. When ready, respond with:\n- **APPROVED** to create test cases in ADO\n- **MODIFY** to revise\n- **CANCEL** to abort`,
+            text: `Clone preview saved successfully!\n\n**File:** [${filename}](${fileUri})\n**Path:** ${mdPath}\n\nReview the preview. When ready, respond with:\n- **APPROVED** to create test cases in ADO\n- **MODIFY** to revise\n- **CANCEL** to abort`,
           }],
         };
       } catch (err) {
@@ -377,10 +385,12 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           .map((r) => `  TC_${userStoryId}_${String(r.tcNumber).padStart(2, "0")} → ADO #${r.id}`)
           .join("\n");
 
+        const mdFileName = `US_${userStoryId}_test_cases.md`;
+        const mdFileUri = toFileUri(mdPath);
         return {
           content: [{
             type: "text" as const,
-            text: `Pushed ${results.length} test case(s) to ADO.\n\n${summary}\n\nDraft updated to APPROVED.`,
+            text: `Pushed ${results.length} test case(s) to ADO.\n\n${summary}\n\n**Draft:** [${mdFileName}](${mdFileUri}) — updated to APPROVED.`,
           }],
         };
       } catch (err) {
