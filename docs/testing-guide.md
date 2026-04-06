@@ -133,7 +133,7 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 | `ensure_suite_hierarchy_for_us` | Same — User Story ID only, derives plan and sprint from US |
 | `delete_test_suite` | Delete a test suite (test cases remain) |
 | `ensure_suite_hierarchy` | Build sprint > parent > US suite tree |
-| `draft_test_cases` | Generate a test case draft for review (never creates in ADO). Applies QA architect skill: analyze US + Solution Design, coverage matrix, process flow, checklist. |
+| `draft_test_cases` | Generate a test case draft for review (never creates in ADO). Only asks for User Story ID - Test Plan ID is auto-derived during push. Applies QA architect skill: analyze US + Solution Design, coverage matrix, process flow, checklist. |
 | `create_test_cases` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
 | `list_test_cases` | List test cases in a suite |
 | `get_test_case` | Get test case details |
@@ -475,11 +475,11 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `delete_test_suite` | Delete a suite | `planId`, `suiteId` |
 | `list_test_suites` | List all suites in a plan | `planId` |
 | `get_test_suite` | Get suite details | `planId`, `suiteId` |
-| `save_tc_draft` | Save test case draft to markdown only | `userStoryId`, `testCases`, `functionalityProcessFlow` (optional), `coverageValidationChecklist` (optional), etc. |
+| `save_tc_draft` | Save test case draft to markdown only | `userStoryId`, `testCases`, `planId` (optional - auto-derived during push), `functionalityProcessFlow` (optional), `coverageValidationChecklist` (optional), etc. |
 | `save_tc_clone_preview` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
 | `list_tc_drafts` | List saved drafts (from .md files) | *(none)* |
 | `get_tc_draft` | Get draft by user story ID | `userStoryId` |
-| `push_tc_draft_to_ado` | Push approved draft to ADO (parses .md, creates JSON at push) | `userStoryId` |
+| `push_tc_draft_to_ado` | Push approved draft to ADO (auto-derives planId from US AreaPath if not in draft, creates suite hierarchy, creates TCs) | `userStoryId` |
 | `list_test_cases` | List TCs in a suite | `planId`, `suiteId` |
 | `get_test_case` | Get TC work item details | `workItemId` |
 | `update_test_case` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |

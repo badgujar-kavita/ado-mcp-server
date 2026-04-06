@@ -4,6 +4,29 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-04-06 — Test Plan ID Now Optional in Draft Stage
+
+### Simplified Draft Workflow
+
+- **`save_tc_draft`** — `planId` parameter is now **optional**. You can draft test cases with just the User Story ID.
+- **`draft_test_cases`** command — Now only asks for User Story ID (no longer asks for Test Plan ID).
+- **Auto-derivation** — When pushing a draft to ADO via `push_tc_draft_to_ado`, if the draft has no `planId`, the system automatically:
+  1. Calls `ensureSuiteHierarchyForUs(userStoryId)` to derive the Test Plan ID from the User Story's AreaPath (via `testPlanMapping` in config)
+  2. Creates the suite hierarchy (sprint > parent > US folders)
+  3. Creates the test cases with the correct plan context
+
+### Benefits
+
+- **Less repetition**: When drafting multiple User Stories in the same area/sprint, you no longer need to provide the same Test Plan ID repeatedly
+- **Cleaner workflow**: Draft stage is purely about test case logic; plan resolution happens automatically during push
+- **Backwards compatible**: If you provide `planId` during draft, it will be used; if not, it's derived automatically
+
+### How It Works
+
+The draft markdown now shows `Plan ID | To be derived` when planId is not provided. When you push the draft to ADO, the system uses the `testPlanMapping` configuration to match the User Story's AreaPath to the correct test plan, ensuring test cases are created in the right plan automatically.
+
+---
+
 ## 2026-03-08 — Consolidated Installer and Rename
 
 ### Single MCP Entry

@@ -31,7 +31,7 @@ export interface TcDraftData {
   iterationPath: string;
   parentId?: number;
   parentTitle?: string;
-  planId: number;
+  planId?: number;
   version: number;
   status: "DRAFT" | "APPROVED";
   lastUpdated: string;
@@ -62,7 +62,7 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
   lines.push(`| **Version** | ${data.version} |`);
   lines.push(`| **Last Updated** | ${data.lastUpdated} |`);
   lines.push(`| **Drafted By** | ${escape(draftedBy)} |`);
-  lines.push(`| **Plan ID** | ${data.planId} |`);
+  lines.push(`| **Plan ID** | ${data.planId ?? "To be derived"} |`);
   lines.push("");
   lines.push("---");
   lines.push("");

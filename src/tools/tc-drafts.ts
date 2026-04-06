@@ -7,6 +7,7 @@ import { getTcDraftsDir } from "../credentials.ts";
 import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from "../helpers/tc-draft-formatter.ts";
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
+import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
 
 const NO_PATH_MSG =
   "No draft location specified. Open a folder in your workspace (drafts will go to <folder>/tc-drafts) or provide draftsPath, or set TC_DRAFTS_PATH / tc_drafts_path in credentials.";
@@ -61,7 +62,7 @@ const SaveTcDraftShape = {
   iterationPath: z.string().describe("Iteration path from US"),
   parentId: z.number().int().positive().optional().describe("Parent work item ID"),
   parentTitle: z.string().optional().describe("Parent title"),
-  planId: z.number().int().positive().describe("Test plan ID"),
+  planId: z.number().int().positive().optional().describe("Test plan ID (optional; will be auto-derived from US AreaPath during push if not provided)"),
   version: z.number().int().positive().describe("Draft version (increment on revision)"),
   functionalityProcessFlow: z.string().optional().describe("Mermaid or process diagram based on understanding of the flow"),
   coverageValidationChecklist: z.array(z.string()).optional().describe("List of logic branches covered for coverage validation"),
@@ -97,7 +98,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           iterationPath: input.iterationPath,
           parentId: input.parentId,
           parentTitle: input.parentTitle,
-          planId: input.planId,
+          planId: input.planId ?? undefined,
           version: input.version,
           status: "DRAFT",
           lastUpdated: now,
@@ -312,11 +313,18 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
 
+        // Auto-derive planId if not in draft
+        let planId = data.planId;
+        if (!planId) {
+          const hierarchyResult = await ensureSuiteHierarchyForUs(adoClient, userStoryId);
+          planId = hierarchyResult.planId;
+        }
+
         const results: Array<{ tcNumber: number; id: number; title: string }> = [];
 
         for (const tc of data.testCases) {
           const params: CreateTestCaseParams = {
-            planId: data.planId,
+            planId,
             userStoryId: data.userStoryId,
             tcNumber: tc.tcNumber,
             featureTags: tc.featureTags,
@@ -343,6 +351,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
         const updatedData: TcDraftData = {
           ...data,
+          planId,
           status: "APPROVED",
           lastUpdated: new Date().toISOString().slice(0, 10),
           testCases: updatedTestCases,

@@ -367,7 +367,7 @@ Relations: Tested By                       | Auto-linked to userStoryId
 
 ```typescript
 {
-  planId: 456,                          // required: used to resolve area path from the test plan
+  planId: 456,                          // optional in drafts; auto-derived from US AreaPath during push. Required when creating test cases directly.
   userStoryId: 1098741,                 // required: links to US + inherits iteration path
   tcNumber: 2,                          // optional: auto-increments if omitted
   featureTags: ["Promotion Management", "Email Notification", "Pending Reapproval"],
@@ -536,11 +536,11 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
 
 ### Test Case Drafts (draft → review → push)
 
-- **`save_tc_draft`** -- Save a test case draft to markdown only. JSON is created only when pushing to ADO. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). Drafts go to `workspaceRoot/tc-drafts/` or exact `draftsPath`. Creates folder if missing. No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `coverageValidationChecklist` (logic branches covered).
+- **`save_tc_draft`** -- Save a test case draft to markdown only. JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). Drafts go to `workspaceRoot/tc-drafts/` or exact `draftsPath`. Creates folder if missing. No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `coverageValidationChecklist` (logic branches covered).
 - **`save_tc_clone_preview`** -- Save a clone-and-enhance preview to `tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md`. Pass `sourceUserStoryId`, `targetUserStoryId`, `markdown`, and `workspaceRoot` or `draftsPath`. Use after analyzing source TCs and target US + Solution Design. User reviews and responds APPROVED / MODIFY / CANCEL.
 - **`list_tc_drafts`** -- List saved drafts (reads .md files). Pass `workspaceRoot` or `draftsPath`.
 - **`get_tc_draft`** -- Get a draft by user story ID (markdown only). Pass `workspaceRoot` or `draftsPath`.
-- **`push_tc_draft_to_ado`** -- Push an approved draft to ADO. Parses markdown, creates test cases, links to US, then generates JSON with correct mappings. Pass `workspaceRoot` or `draftsPath`. Set `repush: true` when draft was revised after initial push to **update** existing test cases (formatting re-applied). JSON is created only at push time to avoid drift during revisions.
+- **`push_tc_draft_to_ado`** -- Push an approved draft to ADO. If draft has no `planId`, it automatically calls `ensureSuiteHierarchyForUs` to derive the plan ID from the User Story's AreaPath (via `testPlanMapping` in config), creates the suite hierarchy, then creates test cases. Parses markdown, creates test cases, links to US, then generates JSON with correct mappings. Pass `workspaceRoot` or `draftsPath`. Set `repush: true` when draft was revised after initial push to **update** existing test cases (formatting re-applied). JSON is created only at push time to avoid drift during revisions.
 
 Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` (QA architect methodology) → AI calls `save_tc_draft` → user reviews (revisions) → `create_test_cases` prompt → user confirms → `push_tc_draft_to_ado`, or `create_test_cases` calls `create_test_case` directly.
 

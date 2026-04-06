@@ -238,7 +238,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
 
 // ── Core Logic ──
 
-async function ensureSuiteHierarchyForUs(
+export async function ensureSuiteHierarchyForUs(
   client: AdoClient,
   userStoryId: number
 ): Promise<SuiteHierarchyResult> {

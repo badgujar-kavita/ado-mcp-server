@@ -58,7 +58,7 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
   const version = versionStr ? parseInt(versionStr, 10) : 1;
   const lastUpdated = parseTableValue(headerTable, "Last Updated") ?? new Date().toISOString().slice(0, 10);
   const planIdStr = parseTableValue(headerTable, "Plan ID");
-  const planId = planIdStr ? parseInt(planIdStr, 10) : 0;
+  const planId = planIdStr && planIdStr !== "To be derived" ? parseInt(planIdStr, 10) : undefined;
 
   const titleMatch = mdContent.match(/^# Test Cases: US #(\d+) — (.+)$/m);
   if (!titleMatch) return null;
