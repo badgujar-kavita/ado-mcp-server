@@ -106,37 +106,42 @@ Add at the **beginning** of the test case draft:
 
 **IMPORTANT:** You are acting as BOTH QA Architect AND Solution Architect. Be precise and accurate.
 
-**Choose the right format:**
+Mermaid diagrams are encouraged — they help visualize both business flows AND technical flows. The key rule is: **only diagram what is documented, never guess.**
 
-**Option A: Mermaid Diagram** — Use ONLY when ALL conditions are met:
-- Object relationships and dependencies are EXPLICITLY documented in Solution Design
-- Flow logic (triggers, conditions, decision points) is CLEARLY stated
-- You are 100% confident the diagram accurately represents the functionality
-- No assumptions or guesses are needed about relationships
+**Use Mermaid flowcharts for:**
 
-**Option B: Text-Based Business Functional Flow** — Use when:
-- Solution Design lacks explicit object relationship details
-- Dependencies or triggers are implied but not clearly documented
-- You would need to make assumptions about technical relationships
-- The flow is better explained as a business narrative
+- **Business/functionality flows:** User actions → System checks → Decisions → Outcomes
+- **Status transitions:** State machines showing allowed transitions
+- **Decision trees:** Config-driven branching (enabled/disabled, present/missing)
+- **Process sequences:** Step-by-step business process from trigger to result
 
-**Format for Text-Based Flow:**
+**Example — Business Functionality Flow (Mermaid):**
+```mermaid
+flowchart TD
+    A[User updates Promotion Status to Approved] --> B{TPM_Consider_Product_Category_Access__c?}
+    B -->|TRUE| C[Evaluate Product Category access for Customer Managers]
+    B -->|FALSE| D[Skip Product Category access check]
+    C --> E{Access level?}
+    E -->|Edit| F[Create sharing record with Edit access]
+    E -->|Read| G[Create sharing record with Read access]
+    E -->|None| H[No sharing record created]
 ```
-1. [Trigger Event] → User creates/updates [Object]
-2. [Condition Check] → System evaluates [Field/Configuration]
-3. [Decision Point] → If [Condition], then [Action A]; else [Action B]
-4. [Outcome] → System creates/updates [Result]
-```
 
-**Example:**
+**DO NOT use Mermaid for:**
+
+- Object relationships / data model diagrams when relationships are NOT explicitly documented in Solution Design
+- Technical dependencies between classes, triggers, or components that you are inferring from code snippets
+- Any diagram where you would need to GUESS connections between objects or systems
+
+**When details are insufficient for a Mermaid diagram**, use a text-based flow instead:
 ```
 1. User updates Promotion.Status to "Approved"
 2. System checks TPM_Consider_Product_Category_Access__c field
-3. If TRUE, system evaluates Product Category access for Customer Managers
+3. If TRUE → evaluates Product Category access for Customer Managers
 4. Sharing records created based on access level (Edit/Read)
 ```
 
-**Rule:** Accuracy > Visual appeal. Never create Mermaid diagrams with assumed/guessed relationships.
+**Golden Rule:** Diagram what is documented. If you are unsure about any relationship or dependency, ask the user or fall back to text-based flow for that part.
 
 ### 2. Coverage Validation Checklist
 
