@@ -48,32 +48,6 @@ function main() {
     }
   }
 
-  // Deploy CoE installer to parent folder (Center of Excellence (CoE)/)
-  const coeInstallerSrc = join(ROOT, "coe-installer");
-  const parentFolder = dirname(deployPath);
-  
-  if (existsSync(coeInstallerSrc)) {
-    console.log("Deploying CoE installer to:", parentFolder);
-    
-    // Copy install script
-    const installScriptSrc = join(coeInstallerSrc, "install-ado-testforge.mjs");
-    if (existsSync(installScriptSrc)) {
-      copyFileSync(installScriptSrc, join(parentFolder, "install-ado-testforge.mjs"));
-    }
-    
-    // Copy .cursor/commands for the slash command
-    const commandsSrc = join(coeInstallerSrc, ".cursor", "commands");
-    if (existsSync(commandsSrc)) {
-      const commandsDestDir = join(parentFolder, ".cursor", "commands");
-      mkdirSync(commandsDestDir, { recursive: true });
-      for (const cmd of readdirSync(commandsSrc)) {
-        copyFileSync(join(commandsSrc, cmd), join(commandsDestDir, cmd));
-      }
-    }
-    
-    console.log("CoE installer deployed.");
-  }
-
   console.log("Deploy complete. Google Drive folder updated.");
 }
 
