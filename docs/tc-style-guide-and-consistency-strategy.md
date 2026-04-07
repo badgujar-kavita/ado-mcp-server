@@ -12,13 +12,13 @@
 
 | Element | Pattern | Example |
 |---------|---------|---------|
-| Structure | `TC_{USID}_{##} -> {Feature Area} -> {Sub-feature/Role} -> {Use Case Summary}` | `TC_1245456_04 -> Tactic Card -> Verify as KAM User -> Inactive funds should not be associated with the Tactic.` |
+| Structure | `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]` | `TC_1342896_01 -> Promotion Management -> Review Status -> Verify that enabling LOA selection for the L1 Approval stage renders the LOA lookup` |
 | Separator | ` -> ` (space, hyphen, space) | |
-| Feature tags | Short, domain-specific | "Tactic Card", "Fund selection screen" |
-| Role in title | "Verify as KAM User" when KAM-specific | |
-| Use case summary | Sentence case, ends with period; describes outcome | |
+| Feature tags | Generic, based on AC (e.g. "Promotion Management", "Account Management") | "Promotion Management", "Fund Management" |
+| Role in title | Omit or simplify | |
+| Use case summary | Sentence case, describes outcome | |
 
-**Convention vs. current config:** `conventions.config.json` uses `separator: " -> "` — matches. Feature tags should be concise (2–4 words), not full feature names.
+**Convention vs. current config:** `conventions.config.json` uses `separator: " -> "` — matches. Feature tags should be generic and standardized (e.g., Promotion Management, Account Management, Product Management, Fund Management).
 
 ### 1.2 Step Structure
 
@@ -100,10 +100,10 @@
 
 4. **Update `draft_test_cases` and `create_test_cases` prompts:**
    - Add explicit instructions:
-     - "Use short feature tags (2–4 words), e.g. 'Tactic Card' not 'Fund Selection on Tactics'."
+     - "Use generic feature tags based on Acceptance Criteria (e.g., Promotion Management, Account Management, Product Management, Fund Management)."
      - "For setup steps, use expected result: 'you should be able to do so'."
      - "For validation steps, start expected result with 'User should' when describing user-visible outcome."
-     - "When TC uses a single persona (e.g. KAM), include 'Verify as KAM User' in the title."
+     - "Keep titles simple, clear, and to the point. Omit or simplify persona in the title to save space."
      - "Pre-requisites: Prefer technical format (Object.Field = Value). When setup context is needed, use: Condition [ Context ]."
 
 5. **Add TC style examples to prompt context:**

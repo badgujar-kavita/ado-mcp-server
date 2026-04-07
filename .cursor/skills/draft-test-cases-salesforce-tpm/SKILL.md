@@ -172,7 +172,16 @@ Adapt to the specific US and Solution Design.
 Follow existing project conventions:
 
 - **Format:** See `docs/test-case-writing-style-reference.md` and `conventions.config.json`
-- **Title:** `TC_{USID}_{##} -> {Feature} -> {Sub-context} -> Verify that {Persona} {validation}` (≤ 256 chars)
+- **Title:** `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]` (≤ 256 chars). Keep it simple, clear, and to the point.
+- **Feature Tags:** ALWAYS use generic feature tags based on the Acceptance Criteria:
+  - Promotion related: `Promotion Management`
+  - Account specific: `Account Management`
+  - Product use: `Product Management`
+  - Fund use: `Fund Management`
+  - Assortment or ADL: `Account Management -> ADL`
+  - Customer Business Plan or CBP: `Account Management -> CBP`
+  - Customer Managers: `Account Management -> Customer Managers`
+  - Customer Attributes: `Account Management -> Customer Attributes`
 - **Expected results:** Use "should" form (e.g., `you should be able to do so`, `X should be updated`)
 - **Steps:** Imperative actions; use `**bold**` for emphasis; use "A. X B. Y" or "A. X<br>B. Y" for multi-point expected results (server converts to proper lists)
 - **Personas:** Always all three defaults (System Administrator, ADMIN User, KAM) — do NOT override

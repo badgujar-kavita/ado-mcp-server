@@ -55,17 +55,28 @@ Persona:
 
 ## 2. Title Format
 
-**Pattern:** `TC_{USID}_{##} -> {Feature Area} -> Verify as {Persona} -> {Specific validation}`
+**Pattern:** `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]`
+
+**Feature Tag Rules:**
+Always use generic feature tags based on the Acceptance Criteria to keep titles clear and within the character limit:
+- **Promotion related US or AC:** `Promotion Management`
+- **Account specific AC:** `Account Management`
+- **Product use:** `Product Management`
+- **Fund use:** `Fund Management`
+- **Assortment or ADL:** `Account Management -> ADL`
+- **Customer Business Plan or CBP:** `Account Management -> CBP`
+- **Customer Managers:** `Account Management -> Customer Managers`
+- **Customer Attributes:** `Account Management -> Customer Attributes`
+
+*Note: You need to decide the appropriate tag by looking at the AC.*
 
 | Example | Pattern |
 |---------|---------|
-| TC_1245456_01 -> Tactic Template -> Verify ADMIN User can set default fund type for tactic template | Feature -> Persona -> Action/validation |
-| TC_1245456_02 -> Fund Selection -> Verify KAM User can view fund section on promotion tactic detail page and able to link fund to tactic | Feature -> Persona -> Capability |
-| TC_1245456_03 -> Tactic Card -> Verify as KAM User -> Fund selection screen | Feature -> Persona -> Screen/flow |
-| TC_1245456_04 -> Tactic Card -> Verify as KAM User -> Inactive funds should not be associated with the Tactic | Feature -> Persona -> Negative validation |
-| TC_1245456_06 -> Promotion and Tactic Template -> Verify as ADMIN and KAM newly introduced fields and access | Multi-area -> Both personas -> Admin validation |
+| TC_1342896_01 -> Promotion Management -> Review Status -> Verify that enabling LOA selection for the L1 Approval stage renders the LOA lookup | Feature Tag -> Sub-Feature/Context -> Action/Verification |
+| TC_1245456_01 -> Fund Management -> Tactic Template -> Verify default fund type can be set | Feature Tag -> Sub-Feature/Context -> Action/Verification |
+| TC_1245456_02 -> Fund Management -> Fund Selection -> Verify fund section is visible on promotion tactic detail page and fund can be linked | Feature Tag -> Sub-Feature/Context -> Action/Verification |
 
-**Title limit:** ADO Work Item Title has a 256-character limit. Keep all TC titles within this limit. Verify before finalizing.
+**Title limit:** ADO Work Item Title has a 256-character limit. Keep all TC titles within this limit. Verify before finalizing. Simpler, clearer, and to the point is always preferred.
 
 ---
 
@@ -119,9 +130,15 @@ When validating new fields/settings for System Administrator:
 
 ## 5. Feature Tags (for AI drafts)
 
-Align with title structure:
-- `Tactic Template`, `Fund Selection`, `Tactic Card`, `Promotion and Tactic Template`
-- Include persona context when relevant: `Verify as KAM User`, `Verify as ADMIN User`
+Align with the title structure rules based on the Acceptance Criteria:
+- **Promotion related:** `Promotion Management`
+- **Account specific:** `Account Management`
+- **Product use:** `Product Management`
+- **Fund use:** `Fund Management`
+- **Assortment or ADL:** `Account Management -> ADL`
+- **Customer Business Plan or CBP:** `Account Management -> CBP`
+- **Customer Managers:** `Account Management -> Customer Managers`
+- **Customer Attributes:** `Account Management -> Customer Attributes`
 
 ---
 
@@ -166,8 +183,8 @@ Align with title structure:
 - Use when TC may involve setup (System Admin) or different user types
 
 ### Title for Validation TCs
-- `TC_{USID}_{##} -> {Area} -> {Sub-context} -> {Validation Type} -> Verify that {Persona} {validation}`
-- Example: `TC_1234453_01 -> Promotion Management -> Status 'Draft to Planned' -> Validation Notification -> Verify that KAM user observes the required field missing notifications on Status Transition`
+- `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]`
+- Example: `TC_1234453_01 -> Promotion Management -> Status 'Draft to Planned' -> Verify that KAM user observes the required field missing notifications on Status Transition`
 
 ---
 
@@ -223,7 +240,7 @@ When drafting test cases, apply:
 0. ✅ **Project Context:** Consumer Goods Cloud TPM; out of 3 personas, use KAM as primary for promotion/tactic flows; reference OI vs Retro where relevant; ADMIN/System Administrator only when setup required
 1. ✅ **Persona:** List both ADMIN and KAM with full details (TPM Roles, Profile, PSG); add System Administrator when setup is involved
 2. ✅ **Pre-requisite:** Start with `User.Sales Organization = 1111`; add technical conditions with `Object.Field = Value` from AC/Solution Design; use `[ context ]` for setup details; use Config 1/Config 2 for alternate paths
-3. ✅ **Title:** `TC_{USID}_{##} -> {Feature} -> [Sub-context] -> {Validation Type} -> Verify that {Persona} {validation}`
+3. ✅ **Title:** `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]` (Use generic tags like Promotion Management, Account Management, etc.)
 4. ✅ **Steps:** Imperative actions; "you should be able to do so" for setup; specific user-observable outcomes; include inline Test Data when flow has many options; reference pre-requisite when needed; split Part A/Part B into separate steps
 5. ✅ **Expected:** Use **"should" form** consistently (e.g., "X should be updated; Y should be copied"); business/QA friendly; for validation TCs, use exact notification/message text from AC (with placeholders like `{field labels}`)
 6. ✅ **TO BE TESTED FOR:** Use when TC validates specific AC items (e.g. "At least one ZREP is added")
