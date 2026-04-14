@@ -4,6 +4,20 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-04-14 — Reliable File Link Generation
+
+### Fixed: Generated markdown links now open reliably in Cursor
+
+- **Root cause:** `toFileUri()` used manual `encodeURIComponent` + `file://` (double-slash) instead of proper `file:///` (triple-slash) URLs. Paths containing spaces (e.g., "MCP TC PREP"), `#`, `%`, or parentheses produced broken links.
+- **Fix:** Replaced with `pathToFileURL()` from Node's `url` module via new shared utility `src/helpers/file-links.ts`.
+- **Structured output:** `save_tc_draft`, `save_tc_clone_preview`, and `push_tc_draft_to_ado` now return structured fields: `fileName`, `absolutePath`, `workspaceRelativePath`, `fileUrl`.
+- **Sibling document links:** Generated markdown includes relative links to Solution Design Summary and QA Cheat Sheet only when those files exist on disk. Missing siblings are omitted (no broken links).
+- **Logging:** All draft saves log the absolute path, file URL, and relative link targets to stderr for debugging.
+- **Tests:** Added 26 regression tests covering paths with spaces, `#`, `%`, `()`, nested folders, sibling file existence checks, and markdown formatter link integration.
+- **Files changed:** `src/helpers/file-links.ts` (new), `src/tools/tc-drafts.ts`, `src/helpers/tc-draft-formatter.ts`, `src/__tests__/file-links.test.ts` (new), `src/__tests__/tc-draft-formatter-links.test.ts` (new), `docs/implementation.md`, `docs/changelog.md`, `package.json`
+
+---
+
 ## 2026-04-14 — Test Coverage Insights (replaces Coverage Validation Checklist)
 
 ### Enhanced Coverage Section in Drafts
