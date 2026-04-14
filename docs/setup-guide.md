@@ -319,7 +319,7 @@ You can now use any of the available commands. Type `/ado-testforge` in the chat
 | `/ado-testforge/ensure_suite_hierarchy_for_us` | Same as create — ensures folder structure from User Story ID only |
 | `/ado-testforge/delete_test_suite` | Delete a test suite (test cases remain, only suite association removed) |
 | `/ado-testforge/ensure_suite_hierarchy` | Build the test suite folder structure |
-| `/ado-testforge/draft_test_cases` | Generate a test case draft for review (never creates in ADO) |
+| `/ado-testforge/draft_test_cases` | Generate a test case draft for review (never creates in ADO). Uses a generic QA architect method and derives project-specific terms from the User Story and Solution Design. |
 | `/ado-testforge/create_test_cases` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
 | `/ado-testforge/list_test_cases` | List test cases in a suite |
 | `/ado-testforge/get_test_case` | View a test case by ID |

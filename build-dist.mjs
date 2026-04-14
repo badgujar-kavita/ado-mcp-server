@@ -5,7 +5,7 @@
  */
 
 import { build } from "esbuild";
-import { mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
+import { mkdirSync, copyFileSync, readFileSync, writeFileSync, existsSync, readdirSync, statSync, cpSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -72,10 +72,7 @@ alwaysApply: true
     for (const skillDir of readdirSync(skillsSrc, { withFileTypes: true })) {
       if (skillDir.isDirectory()) {
         const destSkillDir = join(OUT, ".cursor", "skills", skillDir.name);
-        mkdirSync(destSkillDir, { recursive: true });
-        for (const f of readdirSync(join(skillsSrc, skillDir.name))) {
-          copyFileSync(join(skillsSrc, skillDir.name, f), join(destSkillDir, f));
-        }
+        cpSync(join(skillsSrc, skillDir.name), destSkillDir, { recursive: true });
       }
     }
   }

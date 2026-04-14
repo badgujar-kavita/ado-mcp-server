@@ -1,11 +1,11 @@
 # Test Case Writing Style Reference
 
 **Source:** ADO test cases from US 1245456 (Fund Selection on Tactics) — Suites 1282528, 1282861  
-**Purpose:** Use this as a reference when AI drafts test cases so output is consistent with your team's style.
+**Purpose:** Use this as a style reference when AI drafts test cases. The methodology should stay implementation-generic; project-specific entities in this document are illustrative examples, not universal assumptions.
 
 ---
 
-## 0. Project Context (Always Consider)
+## 0. Project Context (Illustrative Example)
 
 **Cloud:** Salesforce Consumer Goods Cloud — Trade Promotion Management (TPM) Application
 
@@ -17,7 +17,7 @@
 - **OI** (Off Invoice)
 - **Retro** (Retrospective)
 
-**When drafting:** Include standard Consumer Goods Cloud TPM aspects; reference OI vs Retro where payment method or condition type is relevant. **Out of the 3 personas** (System Administrator, ADMIN User, KAM User), use **KAM as primary persona** for promotion/tactic flows; use ADMIN or System Administrator only when setup or configuration is required.
+**When drafting:** Derive business objects, scope dimensions, personas, and configuration labels from the active project's Acceptance Criteria, Solution Design, and configured conventions. Use TPM-specific concepts from this document only when they are explicitly relevant to the current project.
 
 ---
 
@@ -41,11 +41,11 @@ Persona:
 ```
 
 ### Pre-requisite Section
-- **Technical format:** `Object.Field = Value` (e.g., `User.Sales Organization = 1111`)
+- **Technical format:** `Object.Field = Value` (e.g., `Context.BusinessUnit = Primary`)
 - **Bracket hints for config:** `Object.Field = [Config should be setup/available]` or `[Config should be setup]`
 - **Narrative when describing scenario setup:** e.g. `Tactic Template without Tactic Template Condition Creation Def config OR Tactic for which no mapping exists`
 - **Examples from your TCs:**
-  - `User.Sales Organization = 1111`
+  - `Context.BusinessUnit = Primary`
   - `TPM_Tactic_SAP_GLAccount_Mapping__c = [Config should be setup/available]`
   - `Tactic Template without Tactic Template Condition Creation Def config OR Tactic for which no mapping exists`
   - `Workflow State Transition Action [Approved->Committed] => [Config should be setup]`
@@ -118,7 +118,7 @@ Always use generic feature tags based on the Acceptance Criteria to keep titles 
 
 When validating new fields/settings for System Administrator:
 - **Personas:** Both ADMIN and KAM (to verify ADMIN edit vs KAM read-only)
-- **Pre-requisite:** `User.Sales Organization = 1111`
+- **Pre-requisite:** Include the relevant documented business context or scope condition in technical format
 - **Steps:** 
   1. Login as ADMIN User
   2. Navigate to setup (App Launcher, Promotion Template, Tactic Template)
@@ -193,8 +193,8 @@ Align with the title structure rules based on the Acceptance Criteria:
 Apply these when drafting future test cases:
 
 ### Phrasing
-- **Status transitions:** Use generic phrasing. Prefer `Transition the Promotion to Committed Status` over `Move Promotion status from Draft to Committed`.
-- **Payment Method:** Consider **both OI and Retro** when payment method is relevant. Add Payment Method to Test Data combinations; include "Repeat for Payment Method = Retro" or similar where applicable.
+- **Status transitions:** Use generic phrasing derived from the source requirements. Prefer neutral wording that matches the documented entity and target state.
+- **Payment / variant dimensions:** When a dimension such as payment method, channel, region, tenant, or market changes behavior, include the relevant combinations in Test Data and repeat steps only where needed.
 
 ### Field Validation Steps
 - **Format:** When listing fields to validate, format for readability:
@@ -217,7 +217,7 @@ Apply these when drafting future test cases:
 - Examples: Tactic without mapping config (no data copied), Promotion with multiple Tactics (each gets correct mapping).
 
 ### Test Case Optimization
-- Combine similar combinations (e.g., Sales Org 0404) into a single TC with Test Data table and "Repeat for each combination" step instead of separate TCs per combination.
+- Combine similar combinations (e.g., alternate region or business-unit values) into a single TC with Test Data table and "Repeat for each combination" step instead of separate TCs per combination.
 
 ### Push to ADO (create_test_cases command)
 - **Only test cases are pushed to ADO** — not the JSON file. The draft is stored as markdown until push; `push_tc_draft_to_ado` parses the markdown, creates test case work items in ADO, then generates JSON for reference. The JSON file is created only at push time.
@@ -237,16 +237,16 @@ Apply these when drafting future test cases:
 ## Summary: AI Draft Checklist
 
 When drafting test cases, apply:
-0. ✅ **Project Context:** Consumer Goods Cloud TPM; out of 3 personas, use KAM as primary for promotion/tactic flows; reference OI vs Retro where relevant; ADMIN/System Administrator only when setup required
-1. ✅ **Persona:** List both ADMIN and KAM with full details (TPM Roles, Profile, PSG); add System Administrator when setup is involved
-2. ✅ **Pre-requisite:** Start with `User.Sales Organization = 1111`; add technical conditions with `Object.Field = Value` from AC/Solution Design; use `[ context ]` for setup details; use Config 1/Config 2 for alternate paths
+0. ✅ **Project Context:** Treat project-specific examples in this guide as illustrative. Derive the real business objects, personas, and scope dimensions from the active AC, Solution Design, and project conventions.
+1. ✅ **Persona:** Use the configured default personas for the active project and include their configured metadata consistently; add setup/admin personas when the scenario requires them.
+2. ✅ **Pre-requisite:** Start with the primary documented scope/config condition for the scenario; add technical conditions with `Object.Field = Value` from AC/Solution Design; use `[ context ]` for setup details; use Config 1/Config 2 for alternate paths
 3. ✅ **Title:** `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]` (Use generic tags like Promotion Management, Account Management, etc.)
 4. ✅ **Steps:** Imperative actions; "you should be able to do so" for setup; specific user-observable outcomes; include inline Test Data when flow has many options; reference pre-requisite when needed; split Part A/Part B into separate steps
 5. ✅ **Expected:** Use **"should" form** consistently (e.g., "X should be updated; Y should be copied"); business/QA friendly; for validation TCs, use exact notification/message text from AC (with placeholders like `{field labels}`)
 6. ✅ **TO BE TESTED FOR:** Use when TC validates specific AC items (e.g. "At least one ZREP is added")
-7. ✅ **Admin validation TCs:** Include API field names from Solution Design; verify both ADMIN (edit) and KAM (read-only)
+7. ✅ **Admin validation TCs:** Include API field names from Solution Design; verify the relevant setup/admin persona and the relevant business user persona for access behavior
 8. ✅ **Clumsy AC:** Parse tables row-by-row; map Trigger → Pre-requisite, Notification Text → Expected, Audience → Persona; group related validations in one TC
-9. ✅ **Phrasing:** Generic status transitions; consider both OI and Retro for payment method; format field lists (numbered, readable)
+9. ✅ **Phrasing:** Use generic status transitions and cover the documented variant dimensions that affect behavior; format field lists (numbered, readable)
 10. ✅ **Admin validation:** Only for newly introduced config (Custom Metadata, Workflow State Transition Action); not for existing fields
 11. ✅ **Title limit:** ADO Work Item Title ≤ 256 characters
 12. ✅ **Edge cases:** Include TCs for no config, multiple records, fallback behavior where relevant

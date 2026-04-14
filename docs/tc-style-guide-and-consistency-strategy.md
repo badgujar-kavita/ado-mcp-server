@@ -38,20 +38,17 @@
 
 **Formatting:** The MCP server outputs ADO-compatible HTML (`<div>`, `<strong>`, `<ul>`, `<ol>`, `<li>`). See `docs/prerequisite-formatting-instruction.md` and `docs/prerequisite-formatting-ado.md`.
 
-**Persona section:** (Only consistent part; always all three: System Administrator, ADMIN User, KAM. No override.)
+**Persona section:** Reflects the configured default personas for the active project. The current project commonly uses System Administrator, ADMIN User, and KAM, but the implementation guidance should treat these as configured examples rather than universal defaults.
 - Ordered list format (HTML `<ol>`).
-- Each persona: **Bold label** with nested sub-items:
-  - TPM Roles = {value}
-  - Profile = {value}
-  - PSG = {value}
-- Personas observed: "ADMIN User" User, Key Account Manager (KAM) User.
+- Each persona: **Bold label** with nested sub-items for the configured persona metadata (for example `TPM Roles`, `Profile`, `PSG` in the current project).
+- Personas observed in the current project: "ADMIN User" User, Key Account Manager (KAM) User.
 - System Administrator not always present; include when admin validation is needed.
 
 **Pre-requisite section:** (Always unique per user story; never from config.)
 - Ordered list.
 - Mix of:
-  - **Technical format:** `User.Sales Organization = 1111`
-  - **Narrative with context:** `Tactic Template has default fund selected [ Tactic Template -> Fund Template -> Inactive Fund is present ]`
+  - **Technical format:** `Context.BusinessUnit = Primary`
+  - **Narrative with context:** `Entity has default option selected [ Parent configuration -> Child configuration -> Inactive option is present ]`
 - Use technical format where conventions.config preConditionFormat applies.
 - Use narrative + bracketed context when setup is complex.
 

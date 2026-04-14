@@ -3,9 +3,9 @@ name: draft-test-cases-salesforce-tpm
 description: Generate complete, precise, non-ambiguous test cases in Azure DevOps format from User Story Acceptance Criteria and Confluence Solution Design. Use when drafting test cases, running draft_test_cases or create_test_cases commands, or when the user asks to draft test cases for a User Story.
 ---
 
-# Draft Test Cases — Salesforce TPM QA Architect
+# Draft Test Cases — QA Architect Methodology
 
-You are a Senior QA Test Designer for Salesforce TPM. Generate complete, precise, and non-ambiguous test cases in Azure DevOps format by combining User Story Acceptance Criteria with Confluence Solution Design.
+You are a Senior QA Test Designer. Generate complete, precise, and non-ambiguous test cases in Azure DevOps format by combining User Story Acceptance Criteria with Confluence Solution Design.
 
 **CRITICAL RULES:**
 
@@ -31,7 +31,7 @@ You are a Senior QA Test Designer for Salesforce TPM. Generate complete, precise
 - Field updates
 - Status transitions
 - Configuration dependency
-- Market/Sales Org dependency
+- Scope-specific dependency (for example market, region, business unit, tenant, channel, or sales organization when explicitly documented)
 - Enable/Disable behavior
 - Error handling expectations
 - Backward compatibility requirements
@@ -50,9 +50,9 @@ You are a Senior QA Test Designer for Salesforce TPM. Generate complete, precise
 | Extract | Examples |
 |---------|----------|
 | Business behavior rules | Trigger occurs when X; OR logic across fields |
-| Configuration variables | TriggerPromotionStatuses, TargetPromotionStatus, EnableLOACheck, Sales Org specific behavior |
-| Conditional flows | LOA enabled vs disabled |
-| Fixed elements | TPM_LOA__c must not be blank; OR logic (not AND); Skip processing if config missing |
+| Configuration variables | Trigger statuses, target state, feature toggle, scope-specific behavior documented in requirements |
+| Conditional flows | Validation enabled vs disabled |
+| Fixed elements | Required field must not be blank; OR logic (not AND); Skip processing if config missing |
 
 **IGNORE (implementation details):**
 
@@ -78,7 +78,7 @@ Before generating test cases, validate coverage:
 
 | Category | Must Cover |
 |----------|------------|
-| A. Market variations | Different Sales Org, market configs |
+| A. Scope/config variations | Different documented region, business unit, market, tenant, or similar scope configs |
 | B. Trigger field scenarios | Each configured trigger field |
 | C. Status scenarios | All relevant status transitions |
 | D. Configuration logics | Config present vs missing; enabled vs disabled |
@@ -91,7 +91,7 @@ Before generating test cases, validate coverage:
 ## Step 5 — Strict Rules
 
 1. NEVER skip configuration-based scenarios
-2. ALWAYS consider Sales Org-specific config
+2. ALWAYS consider scope-specific configuration documented in the requirements
 3. ALWAYS include negative test cases
 4. ALWAYS include missing config case
 5. NEVER rely only on example config — derive generalized cases
@@ -118,13 +118,12 @@ Mermaid diagrams are encouraged — they help visualize both business flows AND 
 **Example — Business Functionality Flow (Mermaid):**
 ```mermaid
 flowchart TD
-    A[User updates Promotion Status to Approved] --> B{TPM_Consider_Product_Category_Access__c?}
-    B -->|TRUE| C[Evaluate Product Category access for Customer Managers]
-    B -->|FALSE| D[Skip Product Category access check]
-    C --> E{Access level?}
-    E -->|Edit| F[Create sharing record with Edit access]
-    E -->|Read| G[Create sharing record with Read access]
-    E -->|None| H[No sharing record created]
+    A[User moves record to Approved] --> B{Validation feature enabled?}
+    B -->|TRUE| C[Evaluate configured eligibility rules]
+    B -->|FALSE| D[Skip validation and continue]
+    C --> E{Rules satisfied?}
+    E -->|Yes| F[Complete transition]
+    E -->|No| G[Block transition and show validation message]
 ```
 
 **DO NOT use Mermaid for:**
@@ -135,17 +134,29 @@ flowchart TD
 
 **When details are insufficient for a Mermaid diagram**, use a text-based flow instead:
 ```
-1. User updates Promotion.Status to "Approved"
-2. System checks TPM_Consider_Product_Category_Access__c field
-3. If TRUE → evaluates Product Category access for Customer Managers
-4. Sharing records created based on access level (Edit/Read)
+1. User changes the record to the target status
+2. System checks whether the relevant validation/configuration is enabled
+3. If enabled -> system evaluates the documented business rules
+4. System either completes the transition or blocks it with the expected message
 ```
 
 **Golden Rule:** Diagram what is documented. If you are unsure about any relationship or dependency, ask the user or fall back to text-based flow for that part.
 
-### 2. Coverage Validation Checklist
+### 2. Test Coverage Insights
 
-List all logic branches covered. If any branch is missing → generate additional test case.
+Classify every coverage scenario derived from the coverage matrix (Step 4) into a structured table.
+
+For each scenario, provide:
+- **scenario**: Concise description of the logic branch or test condition
+- **covered**: `true` if a test case covers it, `false` if not yet covered
+- **positiveNegative**: `P` (Positive/happy path) or `N` (Negative/error path)
+- **functionalNonFunctional**: `F` (Functional) or `NF` (Non-Functional)
+- **priority**: `High`, `Medium`, or `Low`
+- **notes**: Optional, keep extremely concise (e.g., "Missing config case", "Deferred")
+
+Pass these as the `testCoverageInsights` array to `save_tc_draft`. The formatter auto-computes a Coverage Summary (total, covered count, coverage %, P/N and F/NF distribution).
+
+If any scenario has `covered: false` → generate an additional test case to cover it.
 
 ---
 
@@ -154,13 +165,12 @@ List all logic branches covered. If any branch is missing → generate additiona
 Add config summary to **Pre-requisite** (Prerequisite for Test field) in technical format. Example:
 
 ```
-* User.Sales Organization = 1111 / 0404
-* PromotionTemplate.TPM_Required_Promotion_Fields__c != NULL
-* PromotionTemplate.TPM_Required_Tactic_Fields__c != NULL
-* PromotionTemplate.TPM_Tactic_Fund_Validation__c = TRUE
-* TacticTemplate.TPM_Required_Tactic_Fields__c != NULL
-* Promotion Field Set: TPM_Required_Promotion_Fields
-* Tactic Field Set: TPM_Required_Tactic_Fields
+* Context.BusinessUnit IN [Primary, Secondary]
+* FeatureConfig.RequiredFields != NULL
+* FeatureConfig.ValidationEnabled = TRUE
+* WorkflowRule.TargetStatus = Approved
+* Entity.TemplateMapping != NULL
+* Validation field set is available
 ```
 
 Adapt to the specific US and Solution Design.
@@ -173,18 +183,10 @@ Follow existing project conventions:
 
 - **Format:** See `docs/test-case-writing-style-reference.md` and `conventions.config.json`
 - **Title:** `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]` (≤ 256 chars). Keep it simple, clear, and to the point.
-- **Feature Tags:** ALWAYS use generic feature tags based on the Acceptance Criteria:
-  - Promotion related: `Promotion Management`
-  - Account specific: `Account Management`
-  - Product use: `Product Management`
-  - Fund use: `Fund Management`
-  - Assortment or ADL: `Account Management -> ADL`
-  - Customer Business Plan or CBP: `Account Management -> CBP`
-  - Customer Managers: `Account Management -> Customer Managers`
-  - Customer Attributes: `Account Management -> Customer Attributes`
+- **Feature Tags:** Use generic feature tags derived from the Acceptance Criteria and documented business language. Do not assume project-specific entities unless they appear in the source material.
 - **Expected results:** Use "should" form (e.g., `you should be able to do so`, `X should be updated`)
 - **Steps:** Imperative actions; use `**bold**` for emphasis; use "A. X B. Y" or "A. X<br>B. Y" for multi-point expected results (server converts to proper lists)
-- **Personas:** Always all three defaults (System Administrator, ADMIN User, KAM) — do NOT override
+- **Personas:** Use the configured default personas for the active project. Include them consistently unless the project conventions or source material explicitly require a different set.
 - **Pre-requisite:** Object.Field = Value; use `[Config should be setup/available]` when config is required
 
 ---
@@ -193,7 +195,7 @@ Follow existing project conventions:
 
 When generating test cases, think:
 
-- Market-configurable logic
+- Scope/configurable logic
 - OR logic complexity
 - Boundary conditions
 - Negative cases

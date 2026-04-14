@@ -414,7 +414,7 @@ Before drafting test cases, the AI must present an **Execution Plan** and wait f
 - [ ] Identify new fields/configs from Solution Design for admin validation TCs
 - [ ] Use Impact Assessment to identify edge cases and regression risks
 - [ ] Generate Functionality Process Flow (Mermaid if confident, text-based otherwise)
-- [ ] Generate Coverage Validation Checklist
+- [ ] Generate Test Coverage Insights
 - [ ] Draft test cases with full prerequisites
 
 ### Pending Items

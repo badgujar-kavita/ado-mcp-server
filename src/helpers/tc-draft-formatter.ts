@@ -23,6 +23,15 @@ export interface TcDraftTestCase {
   adoWorkItemId?: number;
 }
 
+export interface CoverageInsightRow {
+  scenario: string;
+  covered: boolean;
+  positiveNegative: "P" | "N";
+  functionalNonFunctional: "F" | "NF";
+  priority: "High" | "Medium" | "Low";
+  notes?: string;
+}
+
 export interface TcDraftData {
   userStoryId: number;
   storyTitle: string;
@@ -38,8 +47,8 @@ export interface TcDraftData {
   testCases: TcDraftTestCase[];
   /** Mermaid or process diagram based on understanding of the flow */
   functionalityProcessFlow?: string | null;
-  /** List of logic branches covered; used for coverage validation */
-  coverageValidationChecklist?: string[] | null;
+  /** Classified coverage scenarios with P/N, F/NF, priority */
+  testCoverageInsights?: CoverageInsightRow[] | null;
   commonPrerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
@@ -79,14 +88,34 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
     lines.push("");
   }
 
-  // Coverage Validation Checklist (optional)
-  if (data.coverageValidationChecklist && data.coverageValidationChecklist.length > 0) {
-    lines.push("## Coverage Validation Checklist");
+  // Test Coverage Insights (optional)
+  if (data.testCoverageInsights && data.testCoverageInsights.length > 0) {
+    const rows = data.testCoverageInsights;
+    const total = rows.length;
+    const covered = rows.filter((r) => r.covered).length;
+    const pct = Math.round((covered / total) * 100);
+    const pCount = rows.filter((r) => r.positiveNegative === "P").length;
+    const nCount = rows.filter((r) => r.positiveNegative === "N").length;
+    const fCount = rows.filter((r) => r.functionalNonFunctional === "F").length;
+    const nfCount = rows.filter((r) => r.functionalNonFunctional === "NF").length;
+
+    lines.push("## Test Coverage Insights");
     lines.push("");
-    lines.push("| # | Logic Branch |");
-    lines.push("|---|---|");
-    data.coverageValidationChecklist.forEach((branch, i) => {
-      lines.push(`| ${i + 1} | ${escape(branch)} |`);
+    lines.push("Coverage Summary:");
+    lines.push(`- Total Scenarios: ${total}`);
+    lines.push(`- Covered: ${covered}`);
+    lines.push(`- Coverage: **${pct}%**`);
+    lines.push(`- Distribution: ${pCount}P / ${nCount}N | ${fCount}F / ${nfCount}NF`);
+    lines.push("");
+    lines.push("| ID | Scenario | Covered | P/N | F/NF | Priority | Notes |");
+    lines.push("|---|---|---|---|---|---|---|");
+    rows.forEach((row, i) => {
+      const covSymbol = row.covered ? "✔" : "✘";
+      const covColor = row.covered ? "green" : "red";
+      const covCell = `<span style="color:${covColor}; font-weight:600;">${covSymbol}</span>`;
+      const pnColor = row.positiveNegative === "P" ? "blue" : "orange";
+      const pnCell = `<span style="color:${pnColor};">${row.positiveNegative}</span>`;
+      lines.push(`| ${i + 1} | ${escape(row.scenario)} | ${covCell} | ${pnCell} | ${row.functionalNonFunctional} | ${row.priority} | ${escape(row.notes ?? "")} |`);
     });
     lines.push("");
     lines.push("---");

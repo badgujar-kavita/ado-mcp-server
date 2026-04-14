@@ -71,7 +71,14 @@ const SaveTcDraftShape = {
   planId: z.number().int().positive().optional().describe("Test plan ID (optional; will be auto-derived from US AreaPath during push if not provided)"),
   version: z.number().int().positive().describe("Draft version (increment on revision)"),
   functionalityProcessFlow: z.string().optional().describe("Mermaid or process diagram based on understanding of the flow"),
-  coverageValidationChecklist: z.array(z.string()).optional().describe("List of logic branches covered for coverage validation"),
+  testCoverageInsights: z.array(z.object({
+    scenario: z.string().describe("Scenario description"),
+    covered: z.boolean().describe("Whether this scenario is covered by a test case"),
+    positiveNegative: z.enum(["P", "N"]).describe("P = Positive, N = Negative"),
+    functionalNonFunctional: z.enum(["F", "NF"]).describe("F = Functional, NF = Non-Functional"),
+    priority: z.enum(["High", "Medium", "Low"]).describe("Scenario priority"),
+    notes: z.string().optional().describe("Optional concise note"),
+  })).optional().describe("Classified coverage scenarios with P/N, F/NF, priority for Test Coverage Insights"),
   testCases: z.array(z.object({
     tcNumber: z.number().int().positive(),
     featureTags: z.array(z.string()).min(1),
@@ -109,7 +116,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           status: "DRAFT",
           lastUpdated: now,
           functionalityProcessFlow: input.functionalityProcessFlow,
-          coverageValidationChecklist: input.coverageValidationChecklist,
+          testCoverageInsights: input.testCoverageInsights,
           testCases: input.testCases.map((tc: TcDraftTestCase) => ({
             ...tc,
             adoWorkItemId: undefined,

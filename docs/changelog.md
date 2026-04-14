@@ -4,6 +4,18 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-04-14 — Test Coverage Insights (replaces Coverage Validation Checklist)
+
+### Enhanced Coverage Section in Drafts
+
+- **`coverageValidationChecklist`** (simple string array) replaced by **`testCoverageInsights`** (structured object array) across schema, formatter, parser, prompts, and skill.
+- Each scenario is now classified with: `covered` (true/false), `P/N` (Positive/Negative), `F/NF` (Functional/Non-Functional), `Priority` (High/Medium/Low), and optional `Notes`.
+- The formatter **auto-computes** a Coverage Summary: total scenarios, covered count, coverage %, P vs N distribution, F vs NF distribution.
+- 7-column table with HTML `<span>` color indicators (green/red for covered, blue/orange for P/N) that gracefully degrade to plain symbols.
+- **Files changed:** `src/helpers/tc-draft-formatter.ts`, `src/helpers/tc-draft-parser.ts`, `src/tools/tc-drafts.ts`, `src/prompts/index.ts`, `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`
+
+---
+
 ## 2026-04-06 — Test Plan ID Now Optional in Draft Stage
 
 ### Simplified Draft Workflow
@@ -149,12 +161,12 @@ The install command now checks:
 
 - **Location:** `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`
 - **Purpose:** QA architect methodology for drafting test cases from User Story + Confluence Solution Design
-- **Steps:** Analyze US (extract functional behavior, field updates, status transitions, config dependency, etc.); use Confluence SD (extract business rules, config variables, conditional flows; ignore code/implementation); validate coverage matrix (market variations, trigger fields, status scenarios, config logics, backward compatibility); add Functionality Process Flow and Coverage Validation Checklist at draft start; generate complete test cases
+- **Steps:** Analyze US (extract functional behavior, field updates, status transitions, config dependency, etc.); use Confluence SD (extract business rules, config variables, conditional flows; ignore code/implementation); validate coverage matrix (market variations, trigger fields, status scenarios, config logics, backward compatibility); add Functionality Process Flow and Test Coverage Insights at draft start; generate complete test cases
 - **Reference:** `config-summary-examples.md` for Pre-requisite config summary templates
 
 ### Draft Structure Enhancements
 
-- **save_tc_draft:** Optional `functionalityProcessFlow` (mermaid/process diagram) and `coverageValidationChecklist` (logic branches covered) added at draft start
+- **save_tc_draft:** Optional `functionalityProcessFlow` (mermaid/process diagram) and `testCoverageInsights` (classified coverage scenarios with auto-computed summary) added at draft start
 - **Prompts:** `draft_test_cases` and `create_test_cases` (when creating draft) now reference the QA architect skill
 - **Files:** `src/helpers/tc-draft-formatter.ts`, `src/helpers/tc-draft-parser.ts`, `src/tools/tc-drafts.ts`, `src/prompts/index.ts`
 

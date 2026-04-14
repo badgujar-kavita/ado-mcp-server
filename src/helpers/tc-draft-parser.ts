@@ -4,7 +4,7 @@
  */
 
 import { loadConventionsConfig } from "../config.ts";
-import type { TcDraftData, TcDraftTestCase } from "./tc-draft-formatter.ts";
+import type { TcDraftData, TcDraftTestCase, CoverageInsightRow } from "./tc-draft-formatter.ts";
 
 function unescape(s: string): string {
   return String(s)
@@ -75,18 +75,30 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
     if (content) functionalityProcessFlow = content;
   }
 
-  let coverageValidationChecklist: string[] | undefined;
-  const checklistStart = mdContent.indexOf("## Coverage Validation Checklist");
-  if (checklistStart >= 0) {
-    const afterHeader = mdContent.slice(checklistStart);
+  let testCoverageInsights: CoverageInsightRow[] | undefined;
+  const insightsStart = mdContent.indexOf("## Test Coverage Insights");
+  if (insightsStart >= 0) {
+    const afterHeader = mdContent.slice(insightsStart);
     const endMatch = afterHeader.match(/\n\n---\n\n|\n\n## Story Summary/);
     const block = endMatch ? afterHeader.slice(0, endMatch.index) : afterHeader;
-    const rows = block.match(/\|\s*\d+\s*\|\s*([^|]+)\|/g);
-    if (rows && rows.length > 0) {
-      const branches = rows
-        .map((r) => unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim()))
-        .filter((v) => v && v !== "Logic Branch" && v !== "#");
-      if (branches.length > 0) coverageValidationChecklist = branches;
+    const tableRows = block.match(/\|\s*\d+\s*\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]*\|/g);
+    if (tableRows && tableRows.length > 0) {
+      const parsed: CoverageInsightRow[] = [];
+      for (const row of tableRows) {
+        const cells = row.split("|").map((c) => c.trim()).filter(Boolean);
+        if (cells.length < 6) continue;
+        const scenario = unescape(cells[1]);
+        const covRaw = cells[2].replace(/<[^>]*>/g, "").trim();
+        const covered = covRaw === "✔";
+        const pnRaw = cells[3].replace(/<[^>]*>/g, "").trim() as "P" | "N";
+        const fnfRaw = cells[4].trim() as "F" | "NF";
+        const priority = cells[5].trim() as "High" | "Medium" | "Low";
+        const notes = cells[6] ? unescape(cells[6]) : undefined;
+        if (scenario && scenario !== "Scenario") {
+          parsed.push({ scenario, covered, positiveNegative: pnRaw, functionalNonFunctional: fnfRaw, priority, notes: notes || undefined });
+        }
+      }
+      if (parsed.length > 0) testCoverageInsights = parsed;
     }
   }
 
@@ -205,7 +217,7 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
     lastUpdated,
     testCases,
     functionalityProcessFlow,
-    coverageValidationChecklist,
+    testCoverageInsights,
     commonPrerequisites,
   };
 }

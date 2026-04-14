@@ -231,13 +231,12 @@ All naming patterns, formats, and labels are externalized into a single JSON con
       }
     },
     "commonPreConditions": [
-      "User.Sales Organization = 1111 / 0404",
-      "PromotionTemplate.TPM_Required_Promotion_Fields__c != NULL",
-      "PromotionTemplate.TPM_Required_Tactic_Fields__c != NULL",
-      "PromotionTemplate.TPM_Tactic_Fund_Validation__c = TRUE",
-      "PromotionTemplate.TacticTemplate.TPM_Required_Tactic_Fields__c != NULL",
-      "Promotion Field Set: TPM_Required_Promotion_Fields",
-      "Tactic Field Set: TPM_Required_Tactic_Fields"
+      "Context.BusinessUnit IN [Primary, Secondary]",
+      "FeatureConfig.RequiredFields != NULL",
+      "FeatureConfig.ValidationEnabled = TRUE",
+      "WorkflowRule.TargetStatus = Approved",
+      "Entity.TemplateMapping != NULL",
+      "Validation field set is available"
     ],
     "toBeTested": null,
     "testData": "N/A"
@@ -264,12 +263,12 @@ All naming patterns, formats, and labels are externalized into a single JSON con
 
 **How defaults are applied at runtime:**
 
-- **Persona**: The **only** consistent part across all test cases. Always all three from config (System Administrator, ADMIN User, KAM). No override — every TC gets all three as-is.
+- **Persona**: The consistent part across all test cases comes from the active project's configured defaults. The current project config includes System Administrator, ADMIN User, and KAM, but the drafting methodology should treat these as project-configured defaults rather than universal assumptions.
 - **Pre-requisite**: **Always unique per user story.** Never from config. The AI/draft must generate pre-conditions from the User Story and Solution Design every time. Use technical format per `preConditionFormat` (Object.Field = Value). `commonPreConditions` in config is unused; pre-conditions come only from the draft.
 - **TO BE TESTED FOR**: Optional. Omitted from the output entirely when `null` / not provided. Only rendered when the caller supplies specific validation scenarios.
 - **Test Data**: Optional. Defaults to `"N/A"` from config. Only overridden when the test case needs specific data.
 
-**Default personas** (added automatically when none specified): System Administrator, "ADMIN User" User, Key Account Manager (KAM) User. To add a new persona (e.g., a Customer Manager role), add a new key to `prerequisiteDefaults.personas` with `label`, `profile`, `tpmRoles`, `psg` (and optional `user`). Order in the JSON determines display order. No code changes needed.
+**Default personas** (added automatically when none specified): come from `prerequisiteDefaults.personas`. In the current project that is System Administrator, "ADMIN User" User, and Key Account Manager (KAM) User. To add a new persona (e.g., a Customer Manager role), add a new key to `prerequisiteDefaults.personas` with `label`, `profile`, `tpmRoles`, `psg` (and optional `user`). Order in the JSON determines display order. No code changes needed.
 
 ---
 
@@ -536,7 +535,7 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
 
 ### Test Case Drafts (draft → review → push)
 
-- **`save_tc_draft`** -- Save a test case draft to markdown only. JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). Drafts go to `workspaceRoot/tc-drafts/` or exact `draftsPath`. Creates folder if missing. No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `coverageValidationChecklist` (logic branches covered).
+- **`save_tc_draft`** -- Save a test case draft to markdown only. JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). Drafts go to `workspaceRoot/tc-drafts/` or exact `draftsPath`. Creates folder if missing. No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `testCoverageInsights` (classified coverage scenarios with P/N, F/NF, priority — auto-computes coverage summary).
 - **`save_tc_clone_preview`** -- Save a clone-and-enhance preview to `tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md`. Pass `sourceUserStoryId`, `targetUserStoryId`, `markdown`, and `workspaceRoot` or `draftsPath`. Use after analyzing source TCs and target US + Solution Design. User reviews and responds APPROVED / MODIFY / CANCEL.
 - **`list_tc_drafts`** -- List saved drafts (reads .md files). Pass `workspaceRoot` or `draftsPath`.
 - **`get_tc_draft`** -- Get a draft by user story ID (markdown only). Pass `workspaceRoot` or `draftsPath`.
@@ -546,7 +545,9 @@ Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-
 
 **Clone and Enhance Flow:** `clone_and_enhance_test_cases` prompt → AI calls `list_test_cases_linked_to_user_story`(source) → `get_test_case` for each → `get_user_story`(target) → classifies each TC (Clone As-Is / Minor Update / Enhanced) → `save_tc_clone_preview` → user reviews → on APPROVED: `ensure_suite_hierarchy_for_us`(target) → `save_tc_draft` with transformed TCs → `push_tc_draft_to_ado`. Never creates in ADO without explicit APPROVED.
 
-**Draft Test Cases Skill:** `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` defines the QA architect methodology: analyze US + Confluence Solution Design, extract business behavior (not implementation), validate coverage matrix (market variations, trigger fields, status scenarios, config logics, backward compatibility), add Functionality Process Flow and Coverage Validation Checklist at draft start, and generate complete test cases.
+**Draft Test Cases Skill:** `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` defines an implementation-generic QA architect methodology: analyze US + Confluence Solution Design, extract business behavior (not implementation), derive project-specific terminology from the source material, validate coverage matrix (scope/config variations, trigger fields, status scenarios, configuration logic, backward compatibility), add Functionality Process Flow and Test Coverage Insights at draft start, and generate complete test cases.
+
+**Distribution packaging:** `build-dist.mjs` copies the full `.cursor/skills` directory tree into `dist-package`, including nested assets inside skill folders, so deployed skills remain complete in the Google Drive distribution.
 
 **TO BE TESTED FOR Skill:** `.cursor/skills/to-be-tested-for-executor-friendly/SKILL.md` guides writing the TO BE TESTED FOR section so QA executors understand it without reading the solution design. Use plain descriptions (e.g., "Rate change → Pending Reapproval"), not Flow 1/2/3 references.
 
