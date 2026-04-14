@@ -88,11 +88,14 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
         const cells = row.split("|").map((c) => c.trim()).filter(Boolean);
         if (cells.length < 6) continue;
         const scenario = unescape(cells[1]);
-        const covRaw = cells[2].replace(/<[^>]*>/g, "").trim();
-        const covered = covRaw === "✔";
-        const pnRaw = cells[3].replace(/<[^>]*>/g, "").trim() as "P" | "N";
-        const fnfRaw = cells[4].trim() as "F" | "NF";
-        const priority = cells[5].trim() as "High" | "Medium" | "Low";
+        const covRaw = cells[2].replace(/<[^>]*>/g, "").replace(/[✅✔]/g, "Y").replace(/[❌✘]/g, "N").trim();
+        const covered = covRaw.startsWith("Y");
+        const pnText = cells[3].replace(/[🟢🔴🔵🟣🟡]/g, "").trim();
+        const pnRaw = (pnText === "P" ? "P" : "N") as "P" | "N";
+        const fnfText = cells[4].replace(/[🟢🔴🔵🟣🟡]/g, "").trim();
+        const fnfRaw = (fnfText === "NF" ? "NF" : "F") as "F" | "NF";
+        const prioText = cells[5].replace(/[🟢🔴🔵🟣🟡]/g, "").trim();
+        const priority = (["High", "Medium", "Low"].includes(prioText) ? prioText : "Medium") as "High" | "Medium" | "Low";
         const notes = cells[6] ? unescape(cells[6]) : undefined;
         if (scenario && scenario !== "Scenario") {
           parsed.push({ scenario, covered, positiveNegative: pnRaw, functionalNonFunctional: fnfRaw, priority, notes: notes || undefined });

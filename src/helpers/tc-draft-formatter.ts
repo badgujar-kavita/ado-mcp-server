@@ -110,12 +110,12 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
     lines.push("| ID | Scenario | Covered | P/N | F/NF | Priority | Notes |");
     lines.push("|---|---|---|---|---|---|---|");
     rows.forEach((row, i) => {
-      const covSymbol = row.covered ? "✔" : "✘";
-      const covColor = row.covered ? "green" : "red";
-      const covCell = `<span style="color:${covColor}; font-weight:600;">${covSymbol}</span>`;
-      const pnColor = row.positiveNegative === "P" ? "blue" : "orange";
-      const pnCell = `<span style="color:${pnColor};">${row.positiveNegative}</span>`;
-      lines.push(`| ${i + 1} | ${escape(row.scenario)} | ${covCell} | ${pnCell} | ${row.functionalNonFunctional} | ${row.priority} | ${escape(row.notes ?? "")} |`);
+      const covCell = row.covered ? "✅" : "❌";
+      const pnCell = row.positiveNegative === "P" ? "🟢 P" : "🔴 N";
+      const fnfCell = row.functionalNonFunctional === "F" ? "🔵 F" : "🟣 NF";
+      const prioMap = { High: "🔴 High", Medium: "🟡 Medium", Low: "🟢 Low" } as const;
+      const prioCell = prioMap[row.priority];
+      lines.push(`| ${i + 1} | ${escape(row.scenario)} | ${covCell} | ${pnCell} | ${fnfCell} | ${prioCell} | ${escape(row.notes ?? "")} |`);
     });
     lines.push("");
     lines.push("---");

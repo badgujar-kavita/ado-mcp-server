@@ -154,7 +154,11 @@ For each scenario, provide:
 - **priority**: `High`, `Medium`, or `Low`
 - **notes**: Optional, keep extremely concise (e.g., "Missing config case", "Deferred")
 
-Pass these as the `testCoverageInsights` array to `save_tc_draft`. The formatter auto-computes a Coverage Summary (total, covered count, coverage %, P/N and F/NF distribution).
+Pass these as the `testCoverageInsights` array to `save_tc_draft`. The formatter auto-computes a Coverage Summary (total, covered count, coverage %, P/N and F/NF distribution) and renders emoji indicators for instant visual scanning:
+- Covered: ✅ / ❌
+- P/N: 🟢 P / 🔴 N
+- F/NF: 🔵 F / 🟣 NF
+- Priority: 🔴 High / 🟡 Medium / 🟢 Low
 
 If any scenario has `covered: false` → generate an additional test case to cover it.
 
