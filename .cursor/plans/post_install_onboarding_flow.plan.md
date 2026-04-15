@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add an interactive post-install onboarding experience that auto-detects first run, welcomes the user, collects project context using structured multi-select UI for platforms and free-text for names/notes, and feeds the context into test case drafting.
+Add an interactive post-install onboarding experience that auto-detects first run, welcomes the user, collects project context using structured multi-select UI for platforms and free-text for names/notes, performs background web research, and feeds the context into test case drafting.
 
 ## Current State
 
@@ -18,7 +18,7 @@ Add an interactive post-install onboarding experience that auto-detects first ru
 - **Question format:** Structured multi-select UI (checkboxes) for platform/module/domain selection; free-text for project name, integration notes, and other open-ended inputs
 - **Trigger:** Auto-detect on first meaningful tool use -- when `get_project_context` returns "not configured," the AI proactively welcomes and guides onboarding before proceeding
 - **Non-blocking:** Onboarding is strongly encouraged but never blocks tool usage
-- **No web search:** The AI already has deep knowledge of major platforms from training data. Project context (platforms, modules, personas) tells the AI what's relevant; the AI applies its own knowledge at draft time. No network dependency, no latency, no stale cached results.
+- **Web research:** Always performed on mentioned platforms, regardless of file uploads
 
 ---
 
@@ -54,18 +54,20 @@ sequenceDiagram
     U-->>AI: [SD, MM]
     AI->>U: "How do these connect?" (free-text)
     U-->>AI: "MuleSoft middleware, Okta SSO"
-    AI->>U: AskQuestion: "Key user roles in your system?" (multi-select)
-    U-->>AI: [Sales Rep, Sales Manager, System Administrator, Integration User]
     AI->>U: "Any supporting docs to share?" (optional)
     U-->>AI: "Skip"
 
-    AI->>MCP: save_project_context({ projectName, platforms, personas... })
+    Note over AI: AI performs web research on all platforms
+    AI->>AI: Web search: Salesforce Sales Cloud, CPQ, SAP SD/MM, MuleSoft, Okta
+    AI->>AI: Generate platform knowledge summaries
+
+    AI->>MCP: save_project_context({ projectName, platforms, knowledge... })
     MCP->>FS: Write project-context.json
     AI->>U: "Context saved! Now continuing with your test case draft..."
 
     Note over AI: AI now continues the original /draft_test_cases flow
     AI->>MCP: get_user_story(12345)
-    AI->>AI: Draft with project context + AI's platform knowledge
+    AI->>AI: Draft with platform awareness
 ```
 
 **The key insight:** The AI does not need a separate trigger. The `draft_test_cases` prompt instructs it to call `get_project_context` first. If not configured, the AI runs the onboarding inline then the original command continues seamlessly. The user never has to know about a separate `/setup_project` command -- it just happens naturally.
@@ -91,11 +93,6 @@ The `/setup_project` prompt still exists as a standalone command for users who w
 - SAP: SD, MM, FI, CO, PP, HR, Other
 - (extensible for other platforms)
 - `allow_multiple: true`
-
-**User Roles / Personas:**
-- Options: System Administrator, Sales Rep, Sales Manager, Service Agent, Finance User, Integration User, End User, Custom/Other
-- `allow_multiple: true`
-- Purpose: Captured roles become the project's persona catalog. During test case drafting, the AI derives which personas are relevant per US from the AC/SD instead of applying all personas to every TC. Replaces the hardcoded blanket-persona approach in `conventions.config.json`.
 
 **Supporting files:**
 - Options: "Upload files now", "Skip for now"
@@ -134,8 +131,14 @@ Stored at `~/.ado-testforge-mcp/project-context.json`:
       "modules": []
     }
   ],
-  "personas": ["Sales Rep", "Sales Manager", "System Administrator", "Integration User"],
   "integrations": "MuleSoft handles all integration between SF and SAP. SSO via Okta.",
+  "platformKnowledge": {
+    "Salesforce_SalesCloud": "...concise testing-relevant summary...",
+    "Salesforce_CPQ": "...concise summary...",
+    "SAP_SD": "...concise summary...",
+    "MuleSoft": "...integration testing patterns...",
+    "Okta_SSO": "...auth testing patterns..."
+  },
   "additionalNotes": "",
   "createdAt": "2026-04-09T...",
   "updatedAt": "2026-04-09T..."
@@ -166,8 +169,10 @@ Stored at `~/.ado-testforge-mcp/project-context.json`:
 Register `/setup_project` prompt with detailed AI instructions:
 - Welcome message text
 - Step-by-step question flow
-- Explicit instruction to use AskQuestion tool with `allow_multiple: true` for domain, platform, module, and persona questions
+- Explicit instruction to use AskQuestion tool with `allow_multiple: true` for domain, platform, and module questions
 - Explicit instruction to use free-text for project name, integration notes
+- Instruction to always perform web research on each selected platform (search for "[Platform] [Module] testing concepts and common test scenarios")
+- Instruction to generate concise platform knowledge summaries (2-3 paragraphs per platform, focused on testing relevance)
 - Instruction to call `save_project_context` at the end
 - Closing message with next-steps guidance
 
@@ -175,17 +180,17 @@ Register `/setup_project` prompt with detailed AI instructions:
 
 **Modify: [src/prompts/index.ts](src/prompts/index.ts)** -- update `draft_test_cases` prompt:
 - Add instruction: "Before starting, call `get_project_context`. If `configured: false`, welcome the user and run the full onboarding flow (same as `/setup_project`) before proceeding with the draft."
-- Add instruction: "If `configured: true`, use the project context (platforms, modules, personas) combined with the AI's own platform knowledge to inform your analysis of the acceptance criteria and solution design."
+- Add instruction: "If `configured: true`, use the platform knowledge to inform your analysis of the acceptance criteria and solution design."
 
 **Modify: [.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md](.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md)**
 - Add "Step 0: Load Project Context" before the existing Step 1
-- Instruct: "Call `get_project_context`. Use the project context (platforms, modules, domain) combined with the AI's own knowledge to understand domain terminology, identify platform-specific test scenarios, and generate accurate prerequisites. Use the project's `personas` list as the persona catalog — derive which personas are relevant per US from the AC/SD content instead of blanket-applying all personas to every test case."
+- Instruct: "Call `get_project_context`. Use the platform knowledge to understand domain terminology, identify platform-specific test scenarios, and generate accurate prerequisites."
 
 ### Phase 4: `/update_project` for Later Changes
 
 **Modify: [src/prompts/index.ts](src/prompts/index.ts)**
 - Register `/update_project` -- loads existing context, shows current summary, asks what to change
-- Lighter flow: only re-asks about the parts being updated
+- Lighter flow: only re-asks about the parts being updated, re-runs web research if new platforms added
 
 ### Phase 5: Docs and Deploy
 
@@ -202,8 +207,7 @@ Register `/setup_project` prompt with detailed AI instructions:
 - **Inline onboarding:** When auto-detected during `/draft_test_cases`, onboarding runs inline then the original command continues seamlessly. The user does not have to re-invoke.
 - **Mixed UI:** Structured checkboxes for selections (less typing, fewer errors), free-text for names and notes (more natural).
 - **Single file, profile-ready:** `project-context.json` lives at `~/.ado-testforge-mcp/` now. When profiles land, `loadProjectContext()` just changes its path -- no other code changes needed.
-- **No web search needed:** The AI has deep training knowledge of major platforms (Salesforce, SAP, ServiceNow, etc.). Project context tells the AI WHICH platforms/modules are relevant; the AI applies its own knowledge at draft time. This keeps onboarding fast, offline-capable, and free of stale cached results.
-- **Persona derivation over blanket defaults:** User roles captured during onboarding become the project's persona catalog. When drafting test cases, the AI identifies which personas are relevant per US from the AC/SD content — rather than applying all personas to every TC. This replaces the current hardcoded approach where `renderPersonas()` ignores overrides and always renders all `prerequisiteDefaults.personas` from config.
+- **Web research always runs:** Even if the user uploads detailed docs, the AI still searches for each platform to build baseline testing knowledge. Uploads supplement, not replace.
 
 ---
 
@@ -235,8 +239,10 @@ After onboarding:
 
 ## Risks and Mitigations
 
+- **Web search quality:** Platform knowledge from web search may be generic. Mitigation: the prompt instructs the AI to focus on testing-relevant aspects, and the user can correct/supplement.
 - **Context drift:** Project scope changes over time. Mitigation: `/update_project` makes it easy to refresh. Context has `updatedAt` timestamp.
-- **Privacy:** Project names and platform info are stored locally only (`~/.ado-testforge-mcp/`), never transmitted. No web searches are performed.
+- **Large context size:** Many platforms with detailed knowledge could bloat the context. Mitigation: platform knowledge summaries are kept concise (2-3 paragraphs per platform max).
+- **Privacy:** Project names and platform info are stored locally only, never transmitted. Web searches are generic ("Salesforce Sales Cloud testing concepts") not project-specific.
 
 ---
 
@@ -244,7 +250,7 @@ After onboarding:
 
 - [ ] Create `src/project-context.ts` -- Zod schema, load/save functions, path constants
 - [ ] Add `get_project_context` and `save_project_context` tools to `src/tools/setup.ts`; enhance `check_setup_status` with context status line
-- [ ] Register `/setup_project` prompt in `src/prompts/index.ts` with full conversational flow, structured AskQuestion instructions
+- [ ] Register `/setup_project` prompt in `src/prompts/index.ts` with full conversational flow, structured AskQuestion instructions, web research instructions
 - [ ] Update `draft_test_cases` prompt to call `get_project_context` first and auto-trigger onboarding if not configured
 - [ ] Add Step 0 (Load Project Context) to `SKILL.md` with platform-aware analysis instructions
 - [ ] Register `/update_project` prompt for lightweight context updates

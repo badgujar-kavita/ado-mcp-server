@@ -3,12 +3,9 @@
  * Used by save_tc_draft to produce tc-drafts/US_xxx_test_cases.md
  */
 
-import { existsSync } from "fs";
-import { join, dirname } from "path";
 import { loadConventionsConfig } from "../config.ts";
 import { getSystemUsername } from "./system-username.ts";
 import { buildTcTitle } from "./tc-title-builder.ts";
-import { safeRelativeMarkdownLink } from "./file-links.ts";
 import type { PersonaConfig } from "../types.ts";
 
 export interface TcDraftTestCase {
@@ -60,13 +57,7 @@ export interface TcDraftData {
   };
 }
 
-/**
- * @param data      Structured draft data.
- * @param mdPath    Optional absolute path where the markdown will be saved.
- *                  When provided, sibling-document links are resolved relative
- *                  to this file and only emitted when the target exists on disk.
- */
-export function formatTcDraftToMarkdown(data: TcDraftData, mdPath?: string): string {
+export function formatTcDraftToMarkdown(data: TcDraftData): string {
   const config = loadConventionsConfig();
   const lines: string[] = [];
 
@@ -82,28 +73,6 @@ export function formatTcDraftToMarkdown(data: TcDraftData, mdPath?: string): str
   lines.push(`| **Drafted By** | ${escape(draftedBy)} |`);
   lines.push(`| **Plan ID** | ${data.planId ?? "To be derived"} |`);
   lines.push("");
-
-  // Supporting Documents — only include links to files that actually exist
-  if (mdPath) {
-    const dir = dirname(mdPath);
-    const siblingDefs = [
-      { file: `US_${data.userStoryId}_solution_design_summary.md`, label: "Solution Design Summary" },
-      { file: `US_${data.userStoryId}_qa_cheat_sheet.md`, label: "QA Cheat Sheet" },
-    ];
-    const links: string[] = [];
-    for (const { file, label } of siblingDefs) {
-      const targetPath = join(dir, file);
-      const link = safeRelativeMarkdownLink(mdPath, targetPath, label);
-      if (link) links.push(`- ${label}: ${link}`);
-    }
-    if (links.length > 0) {
-      lines.push("## Supporting Documents");
-      lines.push("");
-      lines.push(...links);
-      lines.push("");
-    }
-  }
-
   lines.push("---");
   lines.push("");
 

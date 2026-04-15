@@ -8,10 +8,15 @@ import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from 
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
 import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
-import { buildFileReference, formatSavedFileResponse, logFileLink } from "../helpers/file-links.ts";
 
 const NO_PATH_MSG =
   "No draft location specified. Open a folder in your workspace (drafts will go to <folder>/tc-drafts) or provide draftsPath, or set TC_DRAFTS_PATH / tc_drafts_path in credentials.";
+
+/** Convert an absolute file path to a file:// URI that Cursor can open on click. */
+function toFileUri(absolutePath: string): string {
+  const encoded = absolutePath.split("/").map(encodeURIComponent).join("/");
+  return `file://${encoded}`;
+}
 
 /**
  * Resolve tc-drafts directory. No hardcoded default.
@@ -121,35 +126,16 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
         const mdPath = join(tcDraftsDir, `US_${input.userStoryId}_test_cases.md`);
 
-        const markdown = formatTcDraftToMarkdown(data, mdPath);
+        const markdown = formatTcDraftToMarkdown(data);
         writeFileSync(mdPath, markdown, "utf-8");
 
-        const ref = buildFileReference(mdPath, input.workspaceRoot);
-        logFileLink("save_tc_draft", ref);
-
-        const responseText = [
-          "Draft saved successfully!",
-          "",
-          formatSavedFileResponse(ref),
-          `**Version:** ${input.version}`,
-          `**Test Cases:** ${input.testCases.length}`,
-          "",
-          "_JSON will be generated when you push to ADO._",
-        ].join("\n");
-
+        const fileName = `US_${input.userStoryId}_test_cases.md`;
+        const fileUri = toFileUri(mdPath);
         return {
           content: [{
             type: "text" as const,
-            text: responseText,
+            text: `Draft saved successfully!\n\n**File:** [${fileName}](${fileUri})\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO._`,
           }],
-          structuredContent: {
-            fileName: ref.fileName,
-            absolutePath: ref.absolutePath,
-            workspaceRelativePath: ref.workspaceRelativePath,
-            fileUrl: ref.fileUrl,
-            version: input.version,
-            testCaseCount: input.testCases.length,
-          },
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -278,32 +264,12 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         const filename = `Clone_US_${sourceUserStoryId}_to_US_${targetUserStoryId}_preview.md`;
         const mdPath = join(tcDraftsDir, filename);
         writeFileSync(mdPath, markdown, "utf-8");
-
-        const ref = buildFileReference(mdPath, workspaceRoot);
-        logFileLink("save_tc_clone_preview", ref);
-
-        const responseText = [
-          "Clone preview saved successfully!",
-          "",
-          formatSavedFileResponse(ref),
-          "",
-          "Review the preview. When ready, respond with:",
-          "- **APPROVED** to create test cases in ADO",
-          "- **MODIFY** to revise",
-          "- **CANCEL** to abort",
-        ].join("\n");
-
+        const fileUri = toFileUri(mdPath);
         return {
           content: [{
             type: "text" as const,
-            text: responseText,
+            text: `Clone preview saved successfully!\n\n**File:** [${filename}](${fileUri})\n**Path:** ${mdPath}\n\nReview the preview. When ready, respond with:\n- **APPROVED** to create test cases in ADO\n- **MODIFY** to revise\n- **CANCEL** to abort`,
           }],
-          structuredContent: {
-            fileName: ref.fileName,
-            absolutePath: ref.absolutePath,
-            workspaceRelativePath: ref.workspaceRelativePath,
-            fileUrl: ref.fileUrl,
-          },
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -407,7 +373,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           testCases: updatedTestCases,
         };
 
-        const markdown = formatTcDraftToMarkdown(updatedData, mdPath);
+        const markdown = formatTcDraftToMarkdown(updatedData);
         writeFileSync(mdPath, markdown, "utf-8");
 
         // Generate JSON only at push time (correct mappings for ADO)
@@ -426,29 +392,13 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           .map((r) => `  TC_${userStoryId}_${String(r.tcNumber).padStart(2, "0")} → ADO #${r.id}`)
           .join("\n");
 
-        const ref = buildFileReference(mdPath, workspaceRoot);
-        logFileLink("push_tc_draft_to_ado", ref);
-
-        const responseText = [
-          `Pushed ${results.length} test case(s) to ADO.`,
-          "",
-          summary,
-          "",
-          `**Draft:** [${ref.fileName}](${ref.fileUrl}) — updated to APPROVED.`,
-        ].join("\n");
-
+        const mdFileName = `US_${userStoryId}_test_cases.md`;
+        const mdFileUri = toFileUri(mdPath);
         return {
           content: [{
             type: "text" as const,
-            text: responseText,
+            text: `Pushed ${results.length} test case(s) to ADO.\n\n${summary}\n\n**Draft:** [${mdFileName}](${mdFileUri}) — updated to APPROVED.`,
           }],
-          structuredContent: {
-            fileName: ref.fileName,
-            absolutePath: ref.absolutePath,
-            workspaceRelativePath: ref.workspaceRelativePath,
-            fileUrl: ref.fileUrl,
-            pushed: results.length,
-          },
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

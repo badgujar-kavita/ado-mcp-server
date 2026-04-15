@@ -8,8 +8,7 @@
     "build": "tsc",
     "build:dist": "node build-dist.mjs",
     "deploy": "node deploy.mjs",
-    "dev": "tsx watch src/index.ts",
-    "test": "tsx --test src/__tests__/**/*.test.ts"
+    "dev": "tsx watch src/index.ts"
   },
   "keywords": [
     "mcp",

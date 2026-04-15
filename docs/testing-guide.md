@@ -490,24 +490,11 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 
 ---
 
-## Unit Tests
-
-Run the regression test suite (file link generation, markdown formatter links, path encoding):
-
-```bash
-npm test
-```
-
-Tests cover: paths with spaces/special chars, `file:///` URL generation via `pathToFileURL`, sibling file existence checks, workspace-relative paths, and markdown formatter link integration.
-
----
-
 ## Recommended Testing Order
 
 ```
 1. npm install                    -- Setup
 2. Configure .env                 -- Credentials
-2a. npm test                      -- Run unit tests
 3. npx tsc --noEmit               -- Verify build
 4. Start MCP in Cursor            -- Activate server
 5. list_test_plans                -- Verify connection

@@ -535,7 +535,7 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
 
 ### Test Case Drafts (draft → review → push)
 
-- **`save_tc_draft`** -- Save a test case draft to markdown only. JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). Drafts go to `workspaceRoot/tc-drafts/` or exact `draftsPath`. Creates folder if missing. No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `testCoverageInsights` (classified coverage scenarios with P/N, F/NF, priority — auto-computes coverage summary). Returns structured fields: `fileName`, `absolutePath`, `workspaceRelativePath`, `fileUrl` (generated via `pathToFileURL` for reliable clickability). Sibling links (Solution Design Summary, QA Cheat Sheet) are included in generated markdown only when the target file exists on disk.
+- **`save_tc_draft`** -- Save a test case draft to markdown only. JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). Drafts go to `workspaceRoot/tc-drafts/` or exact `draftsPath`. Creates folder if missing. No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `testCoverageInsights` (classified coverage scenarios with P/N, F/NF, priority — auto-computes coverage summary).
 - **`save_tc_clone_preview`** -- Save a clone-and-enhance preview to `tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md`. Pass `sourceUserStoryId`, `targetUserStoryId`, `markdown`, and `workspaceRoot` or `draftsPath`. Use after analyzing source TCs and target US + Solution Design. User reviews and responds APPROVED / MODIFY / CANCEL.
 - **`list_tc_drafts`** -- List saved drafts (reads .md files). Pass `workspaceRoot` or `draftsPath`.
 - **`get_tc_draft`** -- Get a draft by user story ID (markdown only). Pass `workspaceRoot` or `draftsPath`.
@@ -782,37 +782,6 @@ Suite types by level:
 npm install
 npx tsx src/index.ts   # Runs via stdio, launched by Cursor
 ```
-
----
-
-## File Link Generation (`src/helpers/file-links.ts`)
-
-All file URLs returned by MCP tools use Node's `pathToFileURL()` for reliable clickability in Cursor — never manual string concatenation. This handles workspace paths containing spaces, `#`, `%`, parentheses, and other special characters.
-
-### Utility Functions
-
-| Function | Purpose |
-|---|---|
-| `toFileUrl(absolutePath)` | Convert filesystem path to `file:///` URL via `pathToFileURL` |
-| `buildFileReference(absolutePath, workspaceRoot?)` | Build structured `{ fileName, absolutePath, workspaceRelativePath, fileUrl }` |
-| `safeRelativeMarkdownLink(from, target, label)` | Generate relative markdown link only if target exists on disk; returns `null` otherwise |
-| `formatSavedFileResponse(ref, extras?)` | Format the MCP response text with clickable link + path |
-| `logFileLink(context, ref, targets?)` | Log link details to stderr at save time |
-
-### Rules
-
-- **Tool responses:** Always return `fileUrl` built from `pathToFileURL`. Also include `absolutePath` and `workspaceRelativePath` as fallbacks.
-- **Generated markdown:** Use relative links (`./sibling.md`) for sibling files. Only emit links to files that **actually exist** on disk. Omit the link (not a broken link) when the target is missing.
-- **Logging:** All draft saves log the resolved absolute path, file URL, and relative link targets to stderr for debugging.
-
-### Tests
-
-Run `npm test` to execute the regression suite covering:
-- Paths with spaces, `#`, `%`, `(`, `)`
-- Workspace-relative path computation
-- Sibling file existence checks
-- Missing target file handling
-- Markdown formatter link integration
 
 ---
 
