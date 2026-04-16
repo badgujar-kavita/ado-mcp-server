@@ -278,19 +278,40 @@ If Confluence is not configured or the field is empty, `solutionDesignUrl` and `
 
 ## Step 6: Verify Everything Works
 
-In Cursor's AI chat, type `/ado-testforge` and select **check_status**. You should see:
+In Cursor's AI chat, type `/ado-testforge` and select **check_status**. You should see a welcome message followed by your setup status:
 
 ```
+Welcome to ADO TestForge MCP
+============================
+
+ADO TestForge MCP connects your Cursor IDE directly to Azure DevOps, giving you
+AI-assisted test case management without leaving your editor. It reads User Stories,
+fetches Solution Design context from Confluence, and helps you draft, review, and
+push test cases — all through natural-language commands.
+
+What You Can Do
+---------------
+• User Story Context — Fetch US with acceptance criteria + auto-linked Solution Design
+• Test Suite Management — Auto-build suite folder hierarchy from just a User Story ID
+• Test Case Drafting — Draft test cases in markdown, review, then push approved drafts to ADO
+• Test Case CRUD — Create, read, update, and delete test cases with convention-driven formatting
+• Clone & Enhance — Clone test cases across User Stories with context-aware adaptation
+• Configuration-Driven — All naming patterns, formats, and defaults live in conventions.config.json
+
+Setup Status
+------------
 Credentials file: EXISTS
 ADO PAT: Configured
 ADO Org: YourOrgName
 ADO Project: YourProjectName
 Confluence: Not configured (optional)
 
-Status: READY -- all tools and commands are available.
+Status: READY — all tools and commands are available.
+
+Quick Start: Type /ado-testforge in the AI chat to see available commands.
 ```
 
-If you see **READY**, setup is complete.
+If you see **READY**, setup is complete. The welcome message and feature summary appear every time you run `check_status`, so it doubles as a quick reference for what's available.
 
 ### Post-Setup: Verify Tools & Commands
 

@@ -50,48 +50,75 @@ export function registerSetupTools(server: McpServer) {
     "Check if the ADO TestForge MCP server is fully configured and ready to use",
     {},
     async () => {
-      const checks: string[] = [];
+      const lines: string[] = [];
+
+      lines.push("Welcome to ADO TestForge MCP");
+      lines.push("============================");
+      lines.push("");
+      lines.push(
+        "ADO TestForge MCP connects your Cursor IDE directly to Azure DevOps, " +
+        "giving you AI-assisted test case management without leaving your editor. " +
+        "It reads User Stories, fetches Solution Design context from Confluence, " +
+        "and helps you draft, review, and push test cases — all through natural-language commands."
+      );
+      lines.push("");
+
+      lines.push("What You Can Do");
+      lines.push("---------------");
+      lines.push("• User Story Context — Fetch US with acceptance criteria + auto-linked Solution Design from Confluence");
+      lines.push("• Test Suite Management — Auto-build suite folder hierarchy from just a User Story ID");
+      lines.push("• Test Case Drafting — Draft test cases in markdown, review, then push approved drafts to ADO");
+      lines.push("• Test Case CRUD — Create, read, update, and delete test cases with convention-driven formatting");
+      lines.push("• Clone & Enhance — Clone test cases across User Stories with context-aware adaptation");
+      lines.push("• Configuration-Driven — All naming patterns, formats, and defaults live in conventions.config.json");
+      lines.push("");
+
+      lines.push("Setup Status");
+      lines.push("------------");
+
       let allGood = true;
 
       if (credentialsFileExists()) {
-        checks.push("Credentials file: EXISTS");
+        lines.push("Credentials file: EXISTS");
       } else {
-        checks.push("Credentials file: MISSING -- run setup_credentials first");
+        lines.push("Credentials file: MISSING — run setup_credentials first");
         allGood = false;
       }
 
       const creds = loadCredentials();
       if (creds) {
-        checks.push("ADO PAT: Configured");
-        checks.push(`ADO Org: ${creds.ado_org}`);
-        checks.push(`ADO Project: ${creds.ado_project}`);
+        lines.push("ADO PAT: Configured");
+        lines.push(`ADO Org: ${creds.ado_org}`);
+        lines.push(`ADO Project: ${creds.ado_project}`);
         const confluenceUrl =
           creds.confluence_base_url || process.env.CONFLUENCE_BASE_URL;
         if (confluenceUrl) {
-          checks.push(`Confluence: Configured (${confluenceUrl})`);
+          lines.push(`Confluence: Configured (${confluenceUrl})`);
         } else {
-          checks.push("Confluence: Not configured (optional)");
+          lines.push("Confluence: Not configured (optional)");
         }
         const tcPath = getTcDraftsDir();
-        checks.push(`TC Drafts: ${tcPath ?? "Use workspace (open folder) or set TC_DRAFTS_PATH"}`);
+        lines.push(`TC Drafts: ${tcPath ?? "Use workspace (open folder) or set TC_DRAFTS_PATH"}`);
       } else if (credentialsFileExists()) {
-        checks.push("Credentials: File exists but contains placeholder values -- please edit it");
+        lines.push("Credentials: File exists but contains placeholder values — please edit it");
         allGood = false;
       } else {
-        checks.push("Credentials: Not configured");
+        lines.push("Credentials: Not configured");
         allGood = false;
       }
 
       if (allGood) {
-        checks.push("");
-        checks.push("Status: READY -- all tools and commands are available.");
+        lines.push("");
+        lines.push("Status: READY — all tools and commands are available.");
+        lines.push("");
+        lines.push("Quick Start: Type /ado-testforge in the AI chat to see available commands.");
       } else {
-        checks.push("");
-        checks.push("Status: SETUP REQUIRED -- run /ado-testforge/install to get started.");
+        lines.push("");
+        lines.push("Status: SETUP REQUIRED — run /ado-testforge/install to get started.");
       }
 
       return {
-        content: [{ type: "text" as const, text: checks.join("\n") }],
+        content: [{ type: "text" as const, text: lines.join("\n") }],
       };
     }
   );
