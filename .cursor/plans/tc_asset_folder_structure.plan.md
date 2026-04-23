@@ -1,22 +1,19 @@
 ---
 name: TC Asset Folder Structure
-overview: Create a modular test case asset management system with per-user-story folders, separate files for test cases, solution design summary, and QA cheat sheet, with proper linking and quality standards.
+overview: Create a modular test case asset management system with per-user-story folders, enhanced QA intelligence documents (Solution Summary, QA Cheat Sheet), regression test support, and proper linking and quality standards.
 todos:
   - id: create-skill
-    content: Create test-case-asset-manager/SKILL.md with folder structure and orchestration rules
-    status: pending
+    content: Create test-case-asset-manager/SKILL.md with folder rules, examples guidance, and regression support
+    status: completed
   - id: create-templates
-    content: Create templates for test cases, solution design summary, and QA cheat sheet
-    status: pending
-  - id: create-example
-    content: Create example US folder with all three populated files
-    status: pending
+    content: Create enhanced templates (test_cases, solution_summary, qa_cheat_sheet, cheat_sheet_review_guide)
+    status: completed
   - id: update-rule
     content: Update test-case-draft-formatting.mdc to reference new folder convention
-    status: pending
+    status: completed
   - id: deploy
     content: Run npm run deploy to push to Google Drive
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -26,7 +23,11 @@ isProject: false
 
 Create a new `test-case-asset-manager` skill that orchestrates folder structure and file organization, while the existing `draft-test-cases-salesforce-tpm` skill remains unchanged and focused on test case content quality.
 
-**Key Principle:** Separation of concerns - organization vs. content quality.
+**Key Principles:**
+- Separation of concerns - organization vs. content quality
+- Examples are learning patterns, not copy-paste content
+- Documents serve as QA intelligence for regression test preparation
+- Support quick decision-making, debugging, and impact analysis
 
 ---
 
@@ -40,19 +41,17 @@ Create a new `test-case-asset-manager` skill that orchestrates folder structure 
 │
 └── test-case-asset-manager/             ← NEW
     ├── SKILL.md
-    ├── templates/
-    │   ├── test_cases.template.md
-    │   ├── solution_design_summary.template.md
-    │   └── qa_cheat_sheet.template.md
-    └── examples/
-        └── US_EXAMPLE/
-            ├── US_EXAMPLE_test_cases.md
-            ├── US_EXAMPLE_solution_design_summary.md
-            └── US_EXAMPLE_qa_cheat_sheet.md
+    └── templates/
+        ├── test_cases.template.md
+        ├── solution_summary.template.md       ← Enhanced (10 sections + Executive QA Snapshot)
+        ├── qa_cheat_sheet.template.md         ← Enhanced (decision tables, debug order)
+        └── cheat_sheet_review_guide.md        ← NEW (review framework)
 
 .cursor/rules/
 └── test-case-draft-formatting.mdc       ← UPDATED (add folder reference)
 ```
+
+**Note:** Examples are reference-only in this plan document. No example files are created in the skill folder. The AI learns from examples in this plan; users get clean templates with placeholders.
 
 ---
 
@@ -82,11 +81,13 @@ Organize and manage test case documentation assets for User Stories with a consi
 ### Location
 All US folders go inside `tc-drafts/` in the workspace root:
 ```
+
 tc-drafts/
-└── US_<ID>/
-    ├── US_<ID>_test_cases.md
-    ├── US_<ID>_solution_design_summary.md
-    └── US_<ID>_qa_cheat_sheet.md
+└── US_/
+    ├── US_*test_cases.md
+    ├── US**solution_design_summary.md
+    └── US**_qa_cheat_sheet.md*
+
 ```
 
 ### Naming Conventions
@@ -125,6 +126,7 @@ tc-drafts/
 ```
 
 **Rules:**
+
 - Do NOT embed full solution design or cheat sheet content
 - Keep focused on test cases
 - Use relative paths for links
@@ -135,6 +137,7 @@ tc-drafts/
 **Purpose:** Concise reference for business logic and configurations.
 
 **Must Include:**
+
 - US ID and title
 - Scope note (if partial coverage)
 - Business goal (1-2 sentences)
@@ -144,6 +147,7 @@ tc-drafts/
 - Recalculation/refresh triggers (where relevant)
 
 **Rules:**
+
 - Keep concise and reusable
 - Use condition-based format for configurations
 - Do not include implementation details or code
@@ -153,6 +157,7 @@ tc-drafts/
 **Purpose:** Quick execution aid for QA testers.
 
 **Should Include (where relevant):**
+
 - Quick decision rules (If X then Y)
 - Setup checklist
 - Positive validations
@@ -162,6 +167,7 @@ tc-drafts/
 - Dependency/hierarchy reminders
 
 **Rules:**
+
 - Keep compact and scannable
 - Use tables and checklists for quick reference
 - Self-contained (no external references needed during execution)
@@ -171,22 +177,18 @@ tc-drafts/
 ## Accuracy Rules
 
 1. **Source Material Only:** Use only supported sources:
-   - User Story / Acceptance Criteria
-   - Confluence Solution Design
-   - Approved documentation
-   - Explicit user clarification
-
+  - User Story / Acceptance Criteria
+  - Confluence Solution Design
+  - Approved documentation
+  - Explicit user clarification
 2. **No Invention:** Do not invent:
-   - Requirements
-   - Scope
-   - Logic
-   - Conditions
-   - Assumptions
-
+  - Requirements
+  - Scope
+  - Logic
+  - Conditions
+  - Assumptions
 3. **Partial Coverage:** If source only supports part of the story scope, state that clearly in the supporting documents.
-
 4. **Terminology Conflicts:** Prefer the latest explicit user clarification.
-
 5. **Story-Specific:** Keep prompts generic to the current US. Do not reuse story-specific assumptions from previous work.
 
 ---
@@ -196,15 +198,19 @@ tc-drafts/
 Write prerequisites as condition-based setup statements.
 
 **Preferred Formats:**
-| Pattern | Example |
-|---------|---------|
-| `<Object>.<Field> = <Value>` | `Promotion.Status = Adjusted` |
-| `<Object>.<Field> != NULL` | `Tactic.Planned_Rate__c != NULL` |
-| `<Object>.<Field> = TRUE/FALSE` | `Template.TPM_Enable_LOA__c = TRUE` |
-| `<Object>.<Field> CONTAINS <Value>` | `FieldSet.Fields CONTAINS Rate` |
-| `<Object>.<Field> IN (<Values>)` | `User.Sales_Org IN (1111, 0404)` |
+
+
+| Pattern                             | Example                             |
+| ----------------------------------- | ----------------------------------- |
+| `<Object>.<Field> = <Value>`        | `Promotion.Status = Adjusted`       |
+| `<Object>.<Field> != NULL`          | `Tactic.Planned_Rate__c != NULL`    |
+| `<Object>.<Field> = TRUE/FALSE`     | `Template.TPM_Enable_LOA__c = TRUE` |
+| `<Object>.<Field> CONTAINS <Value>` | `FieldSet.Fields CONTAINS Rate`     |
+| `<Object>.<Field> IN (<Values>)`    | `User.Sales_Org IN (1111, 0404)`    |
+
 
 **Avoid:**
+
 - "Setup is configured"
 - "Required configuration exists"
 - "Conditions are met"
@@ -215,6 +221,7 @@ Write prerequisites as condition-based setup statements.
 ## Test Case Quality Standard
 
 Each test case must have:
+
 - Clear use case (what is being validated)
 - Relevant prerequisites (condition-based)
 - Unambiguous action (imperative, short)
@@ -227,11 +234,8 @@ Each test case must have:
 ## Maintenance Rules
 
 1. **Update Together:** When updating a US draft, update or validate linked summary and cheat-sheet files.
-
 2. **Create Folder First:** If US folder doesn't exist, create it before adding files.
-
 3. **Consistent Naming:** Keep naming consistent within the same folder.
-
 4. **Version Control:** Update version number in metadata when making revisions.
 
 ---
@@ -240,26 +244,70 @@ Each test case must have:
 
 Before considering a US draft complete:
 
-- [ ] All files belong to the same US
-- [ ] Draft links point to correct files (relative paths)
-- [ ] Test case draft is lightweight (no embedded large summaries)
-- [ ] Prerequisites use condition-based wording
-- [ ] Folder structure is clean and self-contained
-- [ ] Solution design summary has all required sections
-- [ ] QA cheat sheet is scannable and self-contained
+- All files belong to the same US
+- Draft links point to correct files (relative paths)
+- Test case draft is lightweight (no embedded large summaries)
+- Prerequisites use condition-based wording
+- Folder structure is clean and self-contained
+- Solution design summary has all required sections
+- QA cheat sheet is scannable and self-contained
 
 ---
 
 ## Templates
 
 Use templates in `templates/` folder as starting points:
+
 - [test_cases.template.md](./templates/test_cases.template.md)
-- [solution_design_summary.template.md](./templates/solution_design_summary.template.md)
+- [solution_summary.template.md](./templates/solution_summary.template.md)
 - [qa_cheat_sheet.template.md](./templates/qa_cheat_sheet.template.md)
+- [cheat_sheet_review_guide.md](./templates/cheat_sheet_review_guide.md)
 
-## Examples
+---
 
-See `examples/US_EXAMPLE/` for a complete reference implementation.
+## Using Examples (Learning Patterns)
+
+Examples in this plan document are **learning patterns**, not copy-paste content.
+
+**Learn from examples:**
+- Structure and section organization
+- Condition-based wording patterns
+- Decision table formatting
+- How to identify regression triggers
+- How to separate setup from scenario variables
+
+**Never copy verbatim:**
+- Domain-specific field names
+- Project-specific business logic
+- User Story-specific assumptions
+- Sample test data values
+
+**Key insight:** Each user's documents are generated fresh from their own User Story context and source material.
+
+---
+
+## Regression Test Case Preparation
+
+When asked to prepare regression test cases:
+
+1. **Start with Solution Summary Section 8** (Risk Areas and Regression Triggers)
+   - Identify what changed
+   - Map change to risk areas
+
+2. **Use Cheat Sheet Regression Triggers**
+   - Find impacted scenarios per trigger
+   - Generate test cases for each impacted scenario
+
+3. **Use Decision Table for Combinations**
+   - Identify which condition columns are affected
+   - Generate test cases for affected combinations
+
+4. **Cross-reference QA Impact section**
+   - Include high-value combinations
+   - Include risks easy to miss
+
+5. **Output format:** Separate `US_<ID>_regression_tests.md` file in the same US folder
+
 ```
 
 ---
@@ -288,7 +336,7 @@ See `examples/US_EXAMPLE/` for a complete reference implementation.
 
 ## Functionality Process Flow
 
-<!-- Use Mermaid diagram for visual flows, or text-based flow when details are insufficient -->
+<!-- Use Mermaid diagram for visual flows, breakor text-based flow when details are insufficient -->
 
 ```mermaid
 flowchart TD
@@ -298,6 +346,7 @@ flowchart TD
 ```
 
 OR text-based:
+
 ```
 1. User performs action X
 2. System checks condition Y
@@ -309,66 +358,79 @@ OR text-based:
 
 ## Common Prerequisites
 
-| Section | Conditions |
-|---------|------------|
-| **Persona** | System Administrator, ADMIN User, KAM User |
-| **Pre-requisite** | User.Sales_Organization = <value><br>Object.Field = <value> |
-| **TO BE TESTED FOR** | <validation summary> |
-| **Test Data** | N/A |
+
+| Section              | Conditions                                 |
+| -------------------- | ------------------------------------------ |
+| **Persona**          | System Administrator, ADMIN User, KAM User |
+| **Pre-requisite**    | User.Sales_Organization = Object.Field =   |
+| **TO BE TESTED FOR** |                                            |
+| **Test Data**        | N/A                                        |
+
 
 ---
 
 ## Test Data
 
-<!-- Add test data tables or combinations if applicable -->
 
-| Scenario | Field A | Field B | Expected |
-|----------|---------|---------|----------|
-| Scenario 1 | Value | Value | Result |
+
+
+| Scenario   | Field A | Field B | Expected |
+| ---------- | ------- | ------- | -------- |
+| Scenario 1 | Value   | Value   | Result   |
+
 
 ---
 
 ## Test Cases
 
-### TC_<ID>_01 → <Feature Tag> → <Sub-Feature> → Verify that <action/verification>
+### TC__01 →  →  → Verify that <action/verification>
 
-| Field | Value |
-|-------|-------|
-| **Pre-requisite** | Object.Field = Value |
-| **TO BE TESTED FOR** | Validation summary |
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Login as KAM User | you should be able to do so |
-| 2 | <Action> | <Expected outcome should...> |
+| Field                | Value                |
+| -------------------- | -------------------- |
+| **Pre-requisite**    | Object.Field = Value |
+| **TO BE TESTED FOR** | Validation summary   |
+
+
+
+| Step | Action            | Expected Result             |
+| ---- | ----------------- | --------------------------- |
+| 1    | Login as KAM User | you should be able to do so |
+| 2    |                   |                             |
+
 
 ---
 
-### TC_<ID>_02 → <Feature Tag> → <Sub-Feature> → Verify that <action/verification>
+### TC__02 →  →  → Verify that <action/verification>
 
-| Field | Value |
-|-------|-------|
-| **Pre-requisite** | Object.Field = Value |
-| **TO BE TESTED FOR** | Validation summary |
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Login as KAM User | you should be able to do so |
-| 2 | <Action> | <Expected outcome should...> |
+| Field                | Value                |
+| -------------------- | -------------------- |
+| **Pre-requisite**    | Object.Field = Value |
+| **TO BE TESTED FOR** | Validation summary   |
+
+
+
+| Step | Action            | Expected Result             |
+| ---- | ----------------- | --------------------------- |
+| 1    | Login as KAM User | you should be able to do so |
+| 2    |                   |                             |
+
 
 ---
 
 ## Review Notes
 
-<!-- Optional: Add notes for reviewers, open questions, or clarifications needed -->
+
+
 ```
 
-### Template 2: solution_design_summary.template.md
+### Template 2: solution_summary.template.md
 
-**File:** [.cursor/skills/test-case-asset-manager/templates/solution_design_summary.template.md](.cursor/skills/test-case-asset-manager/templates/solution_design_summary.template.md)
+**File:** [.cursor/skills/test-case-asset-manager/templates/solution_summary.template.md](.cursor/skills/test-case-asset-manager/templates/solution_summary.template.md)
 
 ```markdown
-# Solution Design Summary - US <ID>
+# Solution Summary - US <ID>
 
 **US ID:** <ID>
 **Title:** <Title>
@@ -376,75 +438,151 @@ OR text-based:
 
 ---
 
-## Business Goal
+## 1. Purpose and Scope
 
-<!-- 1-2 sentences describing the business objective -->
+**Business Problem:**
+<What business problem this solution addresses>
 
-<Business goal description>
+**Behavior Introduced/Changed:**
+<What is being introduced or changed>
+
+**In Scope:**
+- <Item 1>
+- <Item 2>
+
+**Out of Scope:**
+- <Item not covered>
 
 ---
 
-## Core Logic
+## 2. Business Process Overview
 
-### Process Flow
-<!-- Key steps in the business process -->
+**Triggering Action:** <Entry point / trigger event>
 
+**Key Actors:**
+- <Role 1> — <what they do>
+- <Role 2> — <what they do>
+
+**Process Flow:**
 1. <Trigger event>
 2. <System check/evaluation>
 3. <Outcome based on conditions>
 
-### Access / Visibility Rules
-<!-- Who can see/do what -->
+**Expected Outcome:** <What happens when successful>
 
-- <Role/User> can <action> when <condition>
-
-### Controlling Conditions
-<!-- Fields/configs that control behavior -->
-
-- `Object.Field = Value` → <behavior>
+**Alternate Flows:**
+- If <condition> → <alternate outcome>
 
 ---
 
-## Supported Functional Areas
+## 3. Core Decision Logic
 
-- <Area 1>
-- <Area 2>
-- <Area 3>
+<!-- Use decision table or rule matrix for clarity -->
 
----
+| Condition A | Condition B | Outcome |
+|-------------|-------------|---------|
+| TRUE        | Edit        | <Result> |
+| TRUE        | Read        | <Result> |
+| TRUE        | None        | <Result> |
+| FALSE       | Any         | <Result> |
 
-## Key Configurations
+**Feature Flags / Controlling Settings:**
+- `Object.Field = Value` → <behavior enabled/disabled>
 
-| Object | Field | Values | Impact |
-|--------|-------|--------|--------|
-| <Object> | <Field__c> | TRUE / FALSE | <what it controls> |
-
----
-
-## Recalculation / Refresh Triggers
-
-<!-- When does the system recalculate or refresh data? -->
-
-| Trigger | Action |
-|---------|--------|
-| <Event> | <What gets recalculated> |
+**Eligibility Rules:**
+- <Rule 1>
+- <Rule 2>
 
 ---
 
-## Dependencies
+## 4. Key Solution Decisions
 
-<!-- Other features, objects, or configurations this depends on -->
-
-- <Dependency 1>
-- <Dependency 2>
+| Decision | Why It Matters | QA Impact |
+|----------|----------------|-----------|
+| <Decision 1> | <Business/technical reason> | <What QA must verify> |
+| <Decision 2> | <Business/technical reason> | <What QA must verify> |
 
 ---
 
-## Out of Scope
+## 5. Data and Configuration Elements
 
-<!-- Explicitly state what is NOT covered -->
+| Element | Type | Role in Solution | QA Impact |
+|---------|------|------------------|-----------|
+| <Object.Field> | Field | <What it controls> | <Why QA cares> |
+| <Setting> | Config | <What it enables> | <Why QA cares> |
 
-- <Item not covered>
+---
+
+## 6. Behavior by Scenario
+
+| Scenario | Conditions | Expected Behavior |
+|----------|------------|-------------------|
+| Happy path | <All conditions met> | <Success outcome> |
+| Negative - config disabled | <Config = FALSE> | <No processing> |
+| Edge - missing data | <Required data absent> | <Graceful handling> |
+| Role variation | <Different user role> | <Role-specific behavior> |
+
+---
+
+## 7. QA Impact / Test Design Guidance
+
+**What Must Always Be Validated:**
+- <Critical validation 1>
+- <Critical validation 2>
+
+**High-Value Test Combinations:**
+- <Combination 1>
+- <Combination 2>
+
+**Risks Easy to Miss:**
+- <Risk 1> — <why it's easy to miss>
+- <Risk 2> — <why it's easy to miss>
+
+**Coverage Guidance:**
+- Positive: <What to test>
+- Negative: <What to test>
+- Boundary: <What to test>
+
+---
+
+## 8. Risk Areas and Regression Triggers
+
+| Risk Area | Why It Matters | Regression Test When |
+|-----------|----------------|----------------------|
+| <Area 1> | <Explanation> | <Trigger condition> |
+| <Area 2> | <Explanation> | <Trigger condition> |
+
+---
+
+## 9. Open Questions / Assumptions
+
+**Missing Information:**
+- <What is unknown>
+
+**Assumptions Needing Confirmation:**
+- <Assumption 1> — awaiting confirmation from <source>
+
+---
+
+## 10. QA Reuse Notes
+
+**Test Case Generation:** Use Section 3 (Decision Logic) and Section 6 (Behavior by Scenario) to derive test cases.
+
+**Cheat Sheet Creation:** Use Section 3 for decision tables, Section 5 for setup requirements.
+
+**Regression Scoping:** Use Section 8 (Risk Areas) to identify regression test scope.
+
+---
+
+## Executive QA Snapshot
+
+| Aspect | Details |
+|--------|---------|
+| **What controls behavior** | <Key config/flag> |
+| **What must match for success** | <Required conditions> |
+| **What causes failure/no access** | <Failure conditions> |
+| **Regression test areas** | <Key areas to retest> |
+
 ```
 
 ### Template 3: qa_cheat_sheet.template.md
@@ -454,90 +592,219 @@ OR text-based:
 ```markdown
 # QA Cheat Sheet - US <ID>
 
-Quick reference for test execution.
+Quick reference for test execution and debugging.
 
 ---
 
-## Quick Decision Rules
+## Executive Decision Summary
 
-| If... | Then... |
-|-------|---------|
-| <Condition A> | <Expected behavior> |
-| <Condition B> | <Expected behavior> |
-| <Condition C> | <Expected behavior> |
+| Aspect | Details |
+|--------|---------|
+| **What controls behavior** | `<Object.Field>` = TRUE/FALSE |
+| **What must match for success** | <Required conditions> |
+| **What causes failure/no access** | <Failure conditions> |
 
 ---
 
-## Setup Checklist
+## Decision Table
 
-Before executing tests, verify:
+<!-- Use consistent outcome language: access granted / not granted, visible / hidden, created / not created -->
 
+| Config Enabled | Access Level | Outcome |
+|----------------|--------------|---------|
+| TRUE           | Edit         | Access granted (Edit) |
+| TRUE           | Read         | Access granted (Read-only) |
+| TRUE           | None         | Access not granted |
+| FALSE          | Any          | No processing (config disabled) |
+
+---
+
+## Setup Prerequisites
+
+**System Config Requirements:**
+- [ ] `<Object.Field>` = <required value>
+- [ ] <Feature flag enabled>
+
+**User/Role Requirements:**
+- [ ] User has <required role/profile>
 - [ ] User.Sales_Organization = <value>
-- [ ] <Config Object>.<Field> = <required value>
-- [ ] <User has required role/profile>
-- [ ] <Test data is available>
+
+**Data State Requirements:**
+- [ ] <Required data exists>
+- [ ] <Required relationships established>
+
+---
+
+## Scenario Variables
+
+Variables that change per test (use for test combination planning):
+
+| Variable | Valid Values | Notes |
+|----------|--------------|-------|
+| <Variable 1> | <Value A, Value B, Value C> | <Combination guidance> |
+| <Variable 2> | <TRUE, FALSE> | <Impact on outcome> |
 
 ---
 
 ## Positive Validations
 
-Expected behaviors when conditions are met:
+Expected behaviors when conditions are met (use consistent outcome language):
 
-- <Validation 1>
-- <Validation 2>
-- <Validation 3>
+- Config = TRUE + Access = Edit → Access granted (Edit)
+- Config = TRUE + Access = Read → Access granted (Read-only)
+- <Additional positive validation>
 
 ---
 
 ## Negative Validations
 
-Expected behaviors for error/edge cases:
+Expected behaviors for error/edge/failure cases:
 
-- <Negative case 1> → <Expected error/behavior>
-- <Negative case 2> → <Expected error/behavior>
-
----
-
-## Retest Triggers
-
-Retest when:
-
-- [ ] <Configuration change>
-- [ ] <Data change>
-- [ ] <Related feature change>
+- Config = FALSE → No processing occurs (not: "default access")
+- Access = None → Access not granted
+- <Missing required data> → <Graceful handling / error message>
 
 ---
 
-## Role Reminders
+## Debug / Triage Order
 
-| Role | Key Points |
-|------|------------|
-| **KAM** | <What KAM can/cannot do> |
-| **ADMIN** | <What ADMIN can/cannot do> |
-| **System Admin** | <Setup/verification only> |
+When access or behavior is incorrect, check in this order:
+
+1. [ ] **Config check:** Is `<Object.Field>` = TRUE?
+2. [ ] **User check:** Does user have required role/profile?
+3. [ ] **Data check:** Does required data exist and have correct values?
+4. [ ] **Relationship check:** Are required object relationships established?
+5. [ ] **Timing check:** Has background processing completed?
+
+**Common Root Causes:**
+- Config not enabled at expected level (Template vs. Record)
+- Required data created after trigger event
+- User role missing required permission
+
+---
+
+## Regression Triggers
+
+| Change | Impacted Test Areas |
+|--------|---------------------|
+| <Config value changed> | <Which tests to rerun> |
+| <Data relationship changed> | <Which tests to rerun> |
+| <Role/permission changed> | <Which tests to rerun> |
+| <Related feature updated> | <Which tests to rerun> |
+
+---
+
+## Role-Based Behavior Matrix
+
+| Role | Can Create | Can Edit | Can View | Special Notes |
+|------|------------|----------|----------|---------------|
+| **KAM** | Yes | <Conditional> | Yes | <Notes> |
+| **ADMIN** | Yes | Yes | Yes | <Notes> |
+| **System Admin** | Setup only | Setup only | Yes | <Notes> |
 
 ---
 
 ## Dependency Reminders
 
-- <Parent object> must exist before <child object>
-- <Config A> must be enabled for <feature B> to work
+- <Parent object> must exist **before** <child object>
+- <Config A> must be enabled **for** <feature B> to work
+- <Data X> must be associated **with** <Object Y> before trigger
 
 ---
 
 ## Common Pitfalls
 
-- <Common mistake 1> — <how to avoid>
-- <Common mistake 2> — <how to avoid>
+- <Common mistake 1> — <how to avoid / what to check>
+- <Common mistake 2> — <how to avoid / what to check>
+- Assuming FALSE config means "default access" — it means "no processing"
+```
+
+### Template 4: cheat_sheet_review_guide.md
+
+**File:** [.cursor/skills/test-case-asset-manager/templates/cheat_sheet_review_guide.md](.cursor/skills/test-case-asset-manager/templates/cheat_sheet_review_guide.md)
+
+```markdown
+# QA Cheat Sheet Review Guide
+
+Use this guide when reviewing or enhancing an existing QA cheat sheet.
+
+---
+
+## Review Process
+
+Before editing any cheat sheet, analyze and document:
+
+1. **Keep As-Is** — What is already effective and should be preserved
+2. **Improvement Opportunities** — Issues, limitations, ambiguities
+3. **Structural Changes** — Better section order or organization
+4. **Content Changes** — Wording improvements for testability
+5. **Prioritized Plan** — High/medium/optional changes
+
+---
+
+## Quality Checklist
+
+- [ ] Decision logic in table format (not prose or if/then bullets)
+- [ ] Setup prerequisites separated from scenario variables
+- [ ] Outcome language consistent (granted/not granted, visible/hidden, created/not created)
+- [ ] FALSE-path behavior explicit (not implied as "default")
+- [ ] Debug/triage order included for troubleshooting
+- [ ] Regression triggers linked to specific impacted test areas
+- [ ] Role-based behavior in matrix format (Role x Action x Outcome)
+- [ ] All validations testable (not vague like "works correctly")
+- [ ] Executive summary captures the 3 key decision points
+
+---
+
+## Optimization Targets
+
+The cheat sheet should support:
+
+- **Quick decision-making** — What outcome for which condition?
+- **Setup validation** — What must be true before testing?
+- **Positive/negative test thinking** — What succeeds vs. fails?
+- **Troubleshooting** — Where to look when behavior is wrong?
+- **Clear distinctions** — Access rules vs. UI behavior vs. permissions
+
+---
+
+## Improvement Priority
+
+**High impact / low effort:**
+- Convert if/then rules to decision table
+- Add debug/triage order
+- Standardize outcome language
+
+**Medium impact:**
+- Separate setup prerequisites from scenario variables
+- Add regression trigger → impacted area mapping
+- Convert role reminders to behavior matrix
+
+**Optional refinements:**
+- Add executive summary
+- Add scenario variable combination guidance
+- Tighten common pitfalls with specific checks
+
+---
+
+## Output Format
+
+When documenting a review, structure as:
+
+1. Overall Assessment (2-3 sentences)
+2. Keep As-Is (bullet list)
+3. Improvement Opportunities (bullet list)
+4. Recommended Changes (prioritized list)
+5. Proposed Structure Skeleton (outline)
 ```
 
 ---
 
-## Deliverable 3: Example Files
+## Reference Examples (Learning Patterns Only)
 
-### Example 1: US_EXAMPLE_test_cases.md
+> **IMPORTANT:** These examples are for AI learning and reference only. They are NOT created as actual files in the skill folder. Each user's documents are generated fresh from their own User Story context. Learn the structure and patterns; never copy domain-specific content verbatim.
 
-**File:** [.cursor/skills/test-case-asset-manager/examples/US_EXAMPLE/US_EXAMPLE_test_cases.md](.cursor/skills/test-case-asset-manager/examples/US_EXAMPLE/US_EXAMPLE_test_cases.md)
+### Example 1: US_EXAMPLE_test_cases.md (Reference Only)
 
 ```markdown
 # US 1399001 - Customer Manager Product Category Access
@@ -572,12 +839,14 @@ flowchart TD
 
 ## Common Prerequisites
 
-| Section | Conditions |
-|---------|------------|
-| **Persona** | System Administrator, ADMIN User, KAM User |
-| **Pre-requisite** | User.Sales_Organization = 1111<br>Promotion.TPM_Consider_Product_Category_Access__c = TRUE<br>CustomerManager.Product_Category_Access__c = Edit / Read / None |
-| **TO BE TESTED FOR** | Product Category access creates correct sharing records based on access level |
-| **Test Data** | N/A |
+
+| Section              | Conditions                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Persona**          | System Administrator, ADMIN User, KAM User                                                                                                              |
+| **Pre-requisite**    | User.Sales_Organization = 1111 Promotion.TPM_Consider_Product_Category_Access__c = TRUE CustomerManager.Product_Category_Access__c = Edit / Read / None |
+| **TO BE TESTED FOR** | Product Category access creates correct sharing records based on access level                                                                           |
+| **Test Data**        | N/A                                                                                                                                                     |
+
 
 ---
 
@@ -585,65 +854,81 @@ flowchart TD
 
 ### TC_1399001_01 → Promotion Management → Customer Managers → Verify that Edit access creates Edit sharing record
 
-| Field | Value |
-|-------|-------|
-| **Pre-requisite** | CustomerManager.Product_Category_Access__c = Edit |
-| **TO BE TESTED FOR** | Edit access → Edit sharing record created |
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Login as KAM User | you should be able to do so |
-| 2 | Create a new Promotion record | you should be able to do so |
-| 3 | Transition Promotion to Approved status | Promotion should transition to Approved |
-| 4 | Verify sharing records for Customer Manager | Sharing record should be created with Edit access |
+| Field                | Value                                             |
+| -------------------- | ------------------------------------------------- |
+| **Pre-requisite**    | CustomerManager.Product_Category_Access__c = Edit |
+| **TO BE TESTED FOR** | Edit access → Edit sharing record created         |
+
+
+
+| Step | Action                                      | Expected Result                                   |
+| ---- | ------------------------------------------- | ------------------------------------------------- |
+| 1    | Login as KAM User                           | you should be able to do so                       |
+| 2    | Create a new Promotion record               | you should be able to do so                       |
+| 3    | Transition Promotion to Approved status     | Promotion should transition to Approved           |
+| 4    | Verify sharing records for Customer Manager | Sharing record should be created with Edit access |
+
 
 ---
 
 ### TC_1399001_02 → Promotion Management → Customer Managers → Verify that Read access creates Read sharing record
 
-| Field | Value |
-|-------|-------|
-| **Pre-requisite** | CustomerManager.Product_Category_Access__c = Read |
-| **TO BE TESTED FOR** | Read access → Read sharing record created |
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Login as KAM User | you should be able to do so |
-| 2 | Create a new Promotion record | you should be able to do so |
-| 3 | Transition Promotion to Approved status | Promotion should transition to Approved |
-| 4 | Verify sharing records for Customer Manager | Sharing record should be created with Read access |
+| Field                | Value                                             |
+| -------------------- | ------------------------------------------------- |
+| **Pre-requisite**    | CustomerManager.Product_Category_Access__c = Read |
+| **TO BE TESTED FOR** | Read access → Read sharing record created         |
+
+
+
+| Step | Action                                      | Expected Result                                   |
+| ---- | ------------------------------------------- | ------------------------------------------------- |
+| 1    | Login as KAM User                           | you should be able to do so                       |
+| 2    | Create a new Promotion record               | you should be able to do so                       |
+| 3    | Transition Promotion to Approved status     | Promotion should transition to Approved           |
+| 4    | Verify sharing records for Customer Manager | Sharing record should be created with Read access |
+
 
 ---
 
 ### TC_1399001_03 → Promotion Management → Customer Managers → Verify that None access creates no sharing record
 
-| Field | Value |
-|-------|-------|
-| **Pre-requisite** | CustomerManager.Product_Category_Access__c = None |
-| **TO BE TESTED FOR** | None access → No sharing record |
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Login as KAM User | you should be able to do so |
-| 2 | Create a new Promotion record | you should be able to do so |
-| 3 | Transition Promotion to Approved status | Promotion should transition to Approved |
-| 4 | Verify sharing records for Customer Manager | No sharing record should be created for Customer Manager |
+| Field                | Value                                             |
+| -------------------- | ------------------------------------------------- |
+| **Pre-requisite**    | CustomerManager.Product_Category_Access__c = None |
+| **TO BE TESTED FOR** | None access → No sharing record                   |
+
+
+
+| Step | Action                                      | Expected Result                                          |
+| ---- | ------------------------------------------- | -------------------------------------------------------- |
+| 1    | Login as KAM User                           | you should be able to do so                              |
+| 2    | Create a new Promotion record               | you should be able to do so                              |
+| 3    | Transition Promotion to Approved status     | Promotion should transition to Approved                  |
+| 4    | Verify sharing records for Customer Manager | No sharing record should be created for Customer Manager |
+
 
 ---
 
 ### TC_1399001_04 → Promotion Management → Customer Managers → Verify that disabled config skips access check
 
-| Field | Value |
-|-------|-------|
-| **Pre-requisite** | Promotion.TPM_Consider_Product_Category_Access__c = FALSE |
-| **TO BE TESTED FOR** | Config disabled → Access check skipped |
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Login as KAM User | you should be able to do so |
-| 2 | Create a new Promotion with TPM_Consider_Product_Category_Access__c = FALSE | you should be able to do so |
-| 3 | Transition Promotion to Approved status | Promotion should transition to Approved |
-| 4 | Verify sharing records | No Product Category-based sharing records should be created (access check skipped) |
+| Field                | Value                                                     |
+| -------------------- | --------------------------------------------------------- |
+| **Pre-requisite**    | Promotion.TPM_Consider_Product_Category_Access__c = FALSE |
+| **TO BE TESTED FOR** | Config disabled → Access check skipped                    |
+
+
+
+| Step | Action                                                                      | Expected Result                                                                    |
+| ---- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 1    | Login as KAM User                                                           | you should be able to do so                                                        |
+| 2    | Create a new Promotion with TPM_Consider_Product_Category_Access__c = FALSE | you should be able to do so                                                        |
+| 3    | Transition Promotion to Approved status                                     | Promotion should transition to Approved                                            |
+| 4    | Verify sharing records                                                      | No Product Category-based sharing records should be created (access check skipped) |
+
 
 ---
 
@@ -651,11 +936,10 @@ flowchart TD
 
 - Confirm with BA: Does recalculation happen on Customer Manager access change?
 - Edge case to consider: Multiple Customer Managers with different access levels
+
 ```
 
-### Example 2: US_EXAMPLE_solution_design_summary.md
-
-**File:** [.cursor/skills/test-case-asset-manager/examples/US_EXAMPLE/US_EXAMPLE_solution_design_summary.md](.cursor/skills/test-case-asset-manager/examples/US_EXAMPLE/US_EXAMPLE_solution_design_summary.md)
+### Example 2: US_EXAMPLE_solution_summary.md (Reference Only)
 
 ```markdown
 # Solution Design Summary - US 1399001
@@ -733,9 +1017,7 @@ Enable Product Category-based access control for Customer Managers on Promotions
 - Bulk operations performance optimization
 ```
 
-### Example 3: US_EXAMPLE_qa_cheat_sheet.md
-
-**File:** [.cursor/skills/test-case-asset-manager/examples/US_EXAMPLE/US_EXAMPLE_qa_cheat_sheet.md](.cursor/skills/test-case-asset-manager/examples/US_EXAMPLE/US_EXAMPLE_qa_cheat_sheet.md)
+### Example 3: US_EXAMPLE_qa_cheat_sheet.md (Reference Only)
 
 ```markdown
 # QA Cheat Sheet - US 1399001
@@ -873,48 +1155,58 @@ flowchart TB
     G -->|links to| I
 ```
 
+
+
 ---
 
 ## Implementation Steps
 
 1. **Create skill folder structure:**
-   ```
-   mkdir -p .cursor/skills/test-case-asset-manager/templates
-   mkdir -p .cursor/skills/test-case-asset-manager/examples/US_EXAMPLE
-   ```
 
-2. **Create SKILL.md** with orchestration rules
+```bash
+mkdir -p .cursor/skills/test-case-asset-manager/templates
+```
+
+2. **Create SKILL.md** with:
+   - Folder structure rules
+   - File rules for each document type
+   - Examples as learning patterns guidance
+   - Regression test case preparation support
+   - Accuracy rules and quality standards
 
 3. **Create templates:**
-   - test_cases.template.md
-   - solution_design_summary.template.md
-   - qa_cheat_sheet.template.md
+   - `test_cases.template.md`
+   - `solution_summary.template.md` (enhanced 10-section version)
+   - `qa_cheat_sheet.template.md` (enhanced with decision tables, debug order)
+   - `cheat_sheet_review_guide.md` (review framework)
 
-4. **Create example files:**
-   - US_EXAMPLE_test_cases.md
-   - US_EXAMPLE_solution_design_summary.md
-   - US_EXAMPLE_qa_cheat_sheet.md
+4. **Update rule:** Add folder structure section to test-case-draft-formatting.mdc
 
-5. **Update rule:** Add folder structure section to test-case-draft-formatting.mdc
+5. **Deploy:** Run `npm run deploy` to push to Google Drive
 
-6. **Deploy:** Run `npm run deploy` to push to Google Drive
+**Note:** No example files are created. Examples in this plan document serve as learning patterns for the AI.
 
 ---
 
 ## Risk Mitigation
 
-| Risk | Mitigation |
-|------|------------|
-| Breaking existing skill | Existing `draft-test-cases-salesforce-tpm` is NOT modified |
-| Conflicting rules | New skill references existing skill for content; no overlap |
-| Folder creation errors | Templates provide clear structure; examples show correct output |
+
+| Risk                    | Mitigation                                                      |
+| ----------------------- | --------------------------------------------------------------- |
+| Breaking existing skill | Existing `draft-test-cases-salesforce-tpm` is NOT modified      |
+| Conflicting rules       | New skill references existing skill for content; no overlap     |
+| Project-specific leakage | No example files deployed; templates use generic placeholders   |
+| Verbose documents       | Enhanced templates are longer but structured for quick scanning |
+
 
 ---
 
 ## Post-Implementation Validation
 
-- [ ] Verify `draft-test-cases-salesforce-tpm` skill unchanged
-- [ ] Verify new skill is discoverable in Cursor
-- [ ] Test creating a new US folder manually using templates
-- [ ] Verify relative links work in markdown preview
-- [ ] Run `npm run deploy` and confirm Google Drive sync
+- Verify `draft-test-cases-salesforce-tpm` skill unchanged
+- Verify new skill is discoverable in Cursor
+- Test creating a new US folder manually using templates
+- Verify enhanced templates have all required sections
+- Verify relative links work in markdown preview
+- Run `npm run deploy` and confirm Google Drive sync
+

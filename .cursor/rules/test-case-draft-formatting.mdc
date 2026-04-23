@@ -31,3 +31,11 @@ alwaysApply: false
 9. **Steps format** — Actions: imperative, short. Use `<br>` for numbered lists in steps/expected results.
 
 10. **Reference** — See `docs/test-case-writing-style-reference.md` for full styling (title pattern, pre-requisite format, admin validation, etc.).
+
+## Folder Structure
+
+11. **US Folder Convention** — Test case drafts should be organized in per-US folders inside `tc-drafts/`:
+   - Folder: `tc-drafts/US_<ID>/`
+   - Files: `US_<ID>_test_cases.md`, `US_<ID>_solution_design_summary.md`, `US_<ID>_qa_cheat_sheet.md`
+   - Main draft must include relative links to supporting documents
+   - See `test-case-asset-manager` skill for full structure rules
