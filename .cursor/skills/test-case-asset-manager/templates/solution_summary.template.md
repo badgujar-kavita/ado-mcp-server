@@ -72,16 +72,34 @@
 
 ---
 
-## 5. Data and Configuration Elements
+## 5. Fields and Configuration
 
-| Element | Type | Role in Solution | QA Impact |
-|---------|------|------------------|-----------|
-| <Object.Field> | Field | <What it controls> | <Why QA cares> |
-| <Setting> | Config | <What it enables> | <Why QA cares> |
+**New Custom Fields:**
+| Field Label | API Name | Object | Type | Purpose |
+|-------------|----------|--------|------|---------|
+| <Label> | `Object.Field__c` | <Object> | <Type> | <What it does> |
+
+**New Configurations:**
+| Component | Detail |
+|-----------|--------|
+| <Rule/Queue/Setting> | <What it controls> |
 
 ---
 
-## 6. Behavior by Scenario
+## 6. Setup Prerequisites (Compact Format)
+
+<!-- Keep concise. Use table format. No exact formulas. -->
+
+| Component | Required State |
+|-----------|----------------|
+| `Object.Field__c` | Deployed on <Object> page layout |
+| <Rule Name> | Active with <N> entries |
+| <Queue Name> | Configured with <Object> as Supported Object |
+| <Validation Rule> | Active on <Object> |
+
+---
+
+## 7. Behavior by Scenario
 
 | Scenario | Conditions | Expected Behavior |
 |----------|------------|-------------------|
@@ -92,7 +110,7 @@
 
 ---
 
-## 7. QA Impact / Test Design Guidance
+## 8. QA Impact / Test Design Guidance
 
 **What Must Always Be Validated:**
 - <Critical validation 1>
@@ -113,7 +131,7 @@
 
 ---
 
-## 8. Risk Areas and Regression Triggers
+## 9. Risk Areas and Regression Triggers
 
 | Risk Area | Why It Matters | Regression Test When |
 |-----------|----------------|----------------------|
@@ -122,7 +140,7 @@
 
 ---
 
-## 9. Open Questions / Assumptions
+## 10. Open Questions / Assumptions
 
 **Missing Information:**
 - <What is unknown>
@@ -132,13 +150,13 @@
 
 ---
 
-## 10. QA Reuse Notes
+## 11. QA Reuse Notes
 
-**Test Case Generation:** Use Section 3 (Decision Logic) and Section 6 (Behavior by Scenario) to derive test cases.
+**Test Case Generation:** Use Section 3 (Decision Logic) and Section 7 (Behavior by Scenario) to derive test cases.
 
-**Cheat Sheet Creation:** Use Section 3 for decision tables, Section 5 for setup requirements.
+**Cheat Sheet Creation:** Use Section 3 for decision tables, Section 6 for setup requirements.
 
-**Regression Scoping:** Use Section 8 (Risk Areas) to identify regression test scope.
+**Regression Scoping:** Use Section 9 (Risk Areas) to identify regression test scope.
 
 ---
 

@@ -79,13 +79,15 @@ tc-drafts/
 - Business goal (1-2 sentences)
 - Core process/access/visibility logic
 - Supported functional areas
-- Key configurations (Object.Field = Value)
+- New custom fields and configurations (table format)
+- Setup prerequisites (compact table: Component → Required State)
 - Recalculation/refresh triggers (where relevant)
 
 **Rules:**
 
 - Keep concise and reusable
-- Use condition-based format for configurations
+- Section 6 (Setup Prerequisites): Use compact table format. Max 10 rows. No exact formulas/error messages.
+- Use condition-based format for configurations (Object.Field = Value)
 - Do not include implementation details or code
 
 ### QA Cheat Sheet File

@@ -199,7 +199,7 @@ export function registerAllPrompts(server: McpServer) {
           "8. Create organized US folder and all assets per test-case-asset-manager skill:",
           "   a. Create folder: tc-drafts/US_<ID>/ (or under draftsPath if user specified a custom location).",
           "   b. Create US_<ID>_test_cases.md with Supporting Documents links, Functionality Process Flow, Common Prerequisites, and Test Cases.",
-          "   c. Create US_<ID>_solution_design_summary.md following the 10-section template (Purpose, Process, Decision Logic, etc.).",
+          "   c. Create US_<ID>_solution_design_summary.md following the 11-section template (Purpose, Process, Decision Logic, Fields/Config, Setup Prerequisites as compact table with max 10 rows, Behavior by Scenario, etc.). Keep Section 6 (Setup Prerequisites) concise: use table format with Component → Required State, no exact formulas/error messages.",
           "   d. Create US_<ID>_qa_cheat_sheet.md — CRITICAL: Keep scannable (40-60 lines max). Use Decision Logic TABLE (Use Case | Config/Fields | Conditions | Outcome) instead of separate positive/negative sections. Include Quick Maps for field/value lookups. Max 5 setup items. Single debug order (6 steps max). Favor tables over prose.",
           "   e. Use save_tc_draft for the main test cases file. Do NOT pass planId (auto-derived during push). Pass workspaceRoot or draftsPath.",
           "   f. Create the solution summary and QA cheat sheet as separate files in the same US folder.",
