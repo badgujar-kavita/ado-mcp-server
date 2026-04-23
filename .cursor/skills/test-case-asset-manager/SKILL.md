@@ -131,6 +131,7 @@ tc-drafts/
   - User Story / Acceptance Criteria
   - Confluence Solution Design
   - Approved documentation
+  - Supporting files provided by user (images, Excel, Google Sheets, CSV, PDF, etc.)
   - Explicit user clarification
 2. **No Invention:** Do not invent:
   - Requirements
@@ -146,24 +147,45 @@ tc-drafts/
 
 ## Prerequisite Writing Standard
 
-Write prerequisites as condition-based setup statements.
+**MANDATORY:** Prerequisites MUST always be written as condition-based setup statements using the patterns below. Every prerequisite in every test case, solution summary, and cheat sheet must follow this format.
 
-**Preferred Formats:**
+**Required Patterns:**
 
-| Pattern                             | Example                             |
-| ----------------------------------- | ----------------------------------- |
-| `<Object>.<Field> = <Value>`        | `Promotion.Status = Adjusted`       |
-| `<Object>.<Field> != NULL`          | `Tactic.Planned_Rate__c != NULL`    |
-| `<Object>.<Field> = TRUE/FALSE`     | `Template.TPM_Enable_LOA__c = TRUE` |
-| `<Object>.<Field> CONTAINS <Value>` | `FieldSet.Fields CONTAINS Rate`     |
-| `<Object>.<Field> IN (<Values>)`    | `User.Sales_Org IN (1111, 0404)`    |
+| Pattern                                  | Example                                                                |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| `<Object>.<Field> = <Value>`             | `Promotion.Status = Adjusted`, `CustomerManager.Access__c = Edit`      |
+| `<Object>.<Field> != NULL`               | `Tactic.Planned_Rate__c != NULL`                                       |
+| `<Object>.<Field> = TRUE/FALSE`          | `Template.TPM_Enable_LOA__c = TRUE`                                    |
+| `<Object>.<Field> CONTAINS <Value>`      | `FieldSet.Fields CONTAINS Rate`                                        |
+| `<Object>.<Field> IN (<Values>)`         | `User.Sales_Org IN (1111, 0404)`                                       |
+| `<CustomLabel> = <Value>`                | `TPM_Error_Message = "Record not found"`                               |
+| `<CustomMetadataType>.<Field> = <Value>` | `TPM_Setting.Enabled__c = TRUE`                                        |
+| `<CustomSetting>.<Field> = <Value>`      | `TPM_Config__c.Max_Records__c = 100`                                   |
 
-**Avoid:**
+**Minimize vague phrasing (use only as last resort):**
 
-- "Setup is configured"
+When a condition genuinely cannot be expressed in the patterns above, fall back to minimal vague language such as `"Setup or configuration is required"`. Avoid the following over-generic forms:
+
 - "Required configuration exists"
 - "Conditions are met"
 - "Appropriate setup in place"
+- "System is ready for testing"
+- "Prerequisites are in place"
+
+Prefer specific condition-based wording whenever possible.
+
+---
+
+## Artifact Cleanliness Standards
+
+All three artifacts (test cases, solution summary, cheat sheet) MUST be:
+
+1. **Scannable** — QA should understand the content in under 2 minutes
+2. **Consistent** — Same terminology, same prerequisite format across all three files
+3. **Minimal** — No filler text, no redundant sections, no over-explanation
+4. **Table-first** — Use tables for any conditional logic, mappings, or decision rules
+5. **Technical-precise** — Use condition-based prerequisites; vague language only as a last resort
+6. **Self-contained** — Each artifact stands alone but references the others appropriately
 
 ---
 
@@ -175,6 +197,7 @@ Each test case must have:
 - Relevant prerequisites (condition-based)
 - Unambiguous action (imperative, short)
 - Precise expected result ("should" form)
+- **Reuse confirmed logic** from the linked solution summary and QA cheat sheet
 
 **Content Quality:** For test case content rules (coverage matrix, logic interpretation, step format), reference the [draft-test-cases-salesforce-tpm](../draft-test-cases-salesforce-tpm/SKILL.md) skill.
 
