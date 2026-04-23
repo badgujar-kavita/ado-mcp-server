@@ -18,7 +18,7 @@ alwaysApply: false
 
 ## Prerequisite for Test Formatting
 
-5. **ADO-compatible HTML** — The MCP server formats prerequisites and test steps as ADO-compliant HTML. Pre-requisite and TO BE TESTED FOR render as lists (`<ol>`, `<ul>`). Drafts may use: `**bold**` (→ `<strong>`), "A. X B. Y" lists (→ `<ol><li>`), "; " or " • " to split items (outside parentheses only). Persona sub-items render as nested bullets. Table compatibility: see `docs/prerequisite-field-table-compatibility.md`.
+5. **ADO-compatible HTML** — The MCP server formats prerequisites and test steps as ADO-compliant HTML. Pre-requisite renders as ordered list (`<ol>`). Drafts may use: `**bold**` (→ `<strong>`), "A. X B. Y" lists (→ `<ol><li>`), "; " or " • " to split items (outside parentheses only). Persona sub-items render as nested bullets. Table compatibility: see `docs/prerequisite-field-table-compatibility.md`.
 
 6. **Reference** — See `docs/prerequisite-formatting-instruction.md` for full details.
 

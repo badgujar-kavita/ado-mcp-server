@@ -41,7 +41,6 @@ OR text-based:
 | -------------------- | ------------------------------------------ |
 | **Persona**          | System Administrator, ADMIN User, KAM User |
 | **Pre-requisite**    | User.Sales_Organization = Object.Field =   |
-| **TO BE TESTED FOR** |                                            |
 | **Test Data**        | N/A                                        |
 
 ---
@@ -61,7 +60,6 @@ OR text-based:
 | Field                | Value                |
 | -------------------- | -------------------- |
 | **Pre-requisite**    | Object.Field = Value |
-| **TO BE TESTED FOR** | Validation summary   |
 
 | Step | Action            | Expected Result             |
 | ---- | ----------------- | --------------------------- |
@@ -75,7 +73,6 @@ OR text-based:
 | Field                | Value                |
 | -------------------- | -------------------- |
 | **Pre-requisite**    | Object.Field = Value |
-| **TO BE TESTED FOR** | Validation summary   |
 
 | Step | Action            | Expected Result             |
 | ---- | ----------------- | --------------------------- |
