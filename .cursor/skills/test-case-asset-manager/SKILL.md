@@ -90,22 +90,35 @@ tc-drafts/
 
 ### QA Cheat Sheet File
 
-**Purpose:** Quick execution aid for QA testers.
+**Purpose:** Quick execution aid for QA testers. Must be scannable in 30-60 seconds.
 
-**Should Include (where relevant):**
+**Target:** 40-60 lines max (not 80-100+)
 
-- Quick decision rules (If X then Y)
-- Setup checklist
-- Positive validations
-- Negative validations
-- Retest triggers
-- Role-based reminders
-- Dependency/hierarchy reminders
+**Format Priority:** Tables > Prose. Maps > Paragraphs. One-liners > Explanations.
+
+**Must Include:**
+
+1. **Decision Logic table** — Use Case | Config/Fields | Conditions | Expected Outcome (one row per test scenario)
+2. **Quick Maps** (if applicable) — Field mappings, category sources, value translations
+3. **Setup Checklist** — Max 5 items, no nested bullets, no exact formulas
+4. **Debug Order** — Single numbered list, max 6 steps
+5. **Regression Triggers** — Change → TCs table
+6. **Role Notes** — Role → Key reminders (short bullets)
+7. **Memory Aid** — One-liner rule of thumb
+
+**Anti-Patterns (DO NOT include):**
+
+- ❌ Separate "Positive Validations" and "Negative Validations" sections (merge into Decision Logic table)
+- ❌ Exact formulas, full error messages, API names in setup (those belong in test cases)
+- ❌ Nested checklists or multi-paragraph explanations
+- ❌ Multiple debug sections (consolidate into one)
+- ❌ Prose descriptions when a table works better
 
 **Rules:**
 
 - Keep compact and scannable
-- Use tables and checklists for quick reference
+- Use tables for conditional logic (not if/then bullet lists)
+- Decision Logic table replaces separate positive/negative sections
 - Self-contained (no external references needed during execution)
 
 ---

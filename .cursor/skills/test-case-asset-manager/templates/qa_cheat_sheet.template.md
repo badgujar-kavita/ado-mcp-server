@@ -1,127 +1,84 @@
 # QA Cheat Sheet - US <ID>
 
-Quick reference for test execution and debugging.
+Quick reference for test execution. Keep scannable (max 50-60 lines).
 
 ---
 
-## Executive Decision Summary
+## Decision Logic
 
-| Aspect | Details |
-|--------|---------|
-| **What controls behavior** | `<Object.Field>` = TRUE/FALSE |
-| **What must match for success** | <Required conditions> |
-| **What causes failure/no access** | <Failure conditions> |
+<!-- Use table format for conditional logic. Each row = one test scenario. -->
 
----
-
-## Decision Table
-
-<!-- Use consistent outcome language: access granted / not granted, visible / hidden, created / not created -->
-
-| Config Enabled | Access Level | Outcome |
-|----------------|--------------|---------|
-| TRUE           | Edit         | Access granted (Edit) |
-| TRUE           | Read         | Access granted (Read-only) |
-| TRUE           | None         | Access not granted |
-| FALSE          | Any          | No processing (config disabled) |
+| Use Case | Config/Field Values | Conditions | Expected Outcome |
+|----------|---------------------|------------|------------------|
+| Happy path | Config = TRUE, Access = Edit | All conditions met | Access granted (Edit) |
+| Read-only | Config = TRUE, Access = Read | All conditions met | Access granted (Read-only) |
+| Config disabled | Config = FALSE | Any | No processing |
+| Missing prerequisite | Config = TRUE | Relationship missing | Access not granted |
 
 ---
 
-## Setup Prerequisites
+## Quick Maps
 
-**System Config Requirements:**
-- [ ] `<Object.Field>` = <required value>
-- [ ] <Feature flag enabled>
+<!-- Use for field mappings, value translations, source lookups -->
 
-**User/Role Requirements:**
-- [ ] User has <required role/profile>
-- [ ] User.Sales_Organization = <value>
+**Field/Value Mappings:**
+| Source Field | Maps To | Valid Values |
+|--------------|---------|--------------|
+| `Object.Field__c` | `Target.Field__c` | Value A, Value B, Value C |
 
-**Data State Requirements:**
-- [ ] <Required data exists>
-- [ ] <Required relationships established>
-
----
-
-## Scenario Variables
-
-Variables that change per test (use for test combination planning):
-
-| Variable | Valid Values | Notes |
-|----------|--------------|-------|
-| <Variable 1> | <Value A, Value B, Value C> | <Combination guidance> |
-| <Variable 2> | <TRUE, FALSE> | <Impact on outcome> |
+**Category/Type Source:**
+| Object | Category Field | Example Values |
+|--------|----------------|----------------|
+| Promotion | `Effective_Categories__c` | Electronics, Apparel |
 
 ---
 
-## Positive Validations
+## Setup Checklist
 
-Expected behaviors when conditions are met (use consistent outcome language):
+<!-- Max 5 items. No nested bullets. No exact formulas. -->
 
-- Config = TRUE + Access = Edit → Access granted (Edit)
-- Config = TRUE + Access = Read → Access granted (Read-only)
-- <Additional positive validation>
-
----
-
-## Negative Validations
-
-Expected behaviors for error/edge/failure cases:
-
-- Config = FALSE → No processing occurs (not: "default access")
-- Access = None → Access not granted
-- <Missing required data> → <Graceful handling / error message>
+- [ ] Fields: `Object.Field__c`, `Object.Field2__c`
+- [ ] Rules: Assignment Rule (active), Validation Rule (active)
+- [ ] Config: `Feature_Flag__c = TRUE`
+- [ ] Queues/Roles: Support Queue configured, User is queue member
+- [ ] Relationships: Parent-child associations exist
 
 ---
 
-## Debug / Triage Order
+## Debug Order
 
-When access or behavior is incorrect, check in this order:
+<!-- Single numbered list. Max 6 steps. -->
 
-1. [ ] **Config check:** Is `<Object.Field>` = TRUE?
-2. [ ] **User check:** Does user have required role/profile?
-3. [ ] **Data check:** Does required data exist and have correct values?
-4. [ ] **Relationship check:** Are required object relationships established?
-5. [ ] **Timing check:** Has background processing completed?
-
-**Common Root Causes:**
-- Config not enabled at expected level (Template vs. Record)
-- Required data created after trigger event
-- User role missing required permission
+1. Check field/config values on record
+2. Verify rule/workflow is active
+3. Confirm user role/permissions
+4. Validate data relationships exist
+5. Check timing (async processing complete?)
+6. Review logs/debug for errors
 
 ---
 
 ## Regression Triggers
 
-| Change | Impacted Test Areas |
-|--------|---------------------|
-| <Config value changed> | <Which tests to rerun> |
-| <Data relationship changed> | <Which tests to rerun> |
-| <Role/permission changed> | <Which tests to rerun> |
-| <Related feature updated> | <Which tests to rerun> |
+| Change | Retest TCs |
+|--------|------------|
+| Config value changed | TC4, TC6, TC9 |
+| Rule modified | TC1-TC8 |
+| Field added/removed | All admin validation TCs |
 
 ---
 
-## Role-Based Behavior Matrix
+## Role Notes
 
-| Role | Can Create | Can Edit | Can View | Special Notes |
-|------|------------|----------|----------|---------------|
-| **KAM** | Yes | <Conditional> | Yes | <Notes> |
-| **ADMIN** | Yes | Yes | Yes | <Notes> |
-| **System Admin** | Setup only | Setup only | Yes | <Notes> |
-
----
-
-## Dependency Reminders
-
-- <Parent object> must exist **before** <child object>
-- <Config A> must be enabled **for** <feature B> to work
-- <Data X> must be associated **with** <Object Y> before trigger
+| Role | Key Reminders |
+|------|---------------|
+| KAM | Must be queue member; fills Resolution Notes before close |
+| System Admin | Validates field API names, rule formulas, exact error messages |
 
 ---
 
-## Common Pitfalls
+## Memory Aid
 
-- <Common mistake 1> — <how to avoid / what to check>
-- <Common mistake 2> — <how to avoid / what to check>
-- Assuming FALSE config means "default access" — it means "no processing"
+<!-- One-liner rule of thumb -->
+
+No [prerequisite] = no [outcome]. Config FALSE = no processing.

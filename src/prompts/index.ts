@@ -200,7 +200,7 @@ export function registerAllPrompts(server: McpServer) {
           "   a. Create folder: tc-drafts/US_<ID>/ (or under draftsPath if user specified a custom location).",
           "   b. Create US_<ID>_test_cases.md with Supporting Documents links, Functionality Process Flow, Common Prerequisites, and Test Cases.",
           "   c. Create US_<ID>_solution_design_summary.md following the 10-section template (Purpose, Process, Decision Logic, etc.).",
-          "   d. Create US_<ID>_qa_cheat_sheet.md with decision tables, setup checklist, debug order, and regression triggers.",
+          "   d. Create US_<ID>_qa_cheat_sheet.md — CRITICAL: Keep scannable (40-60 lines max). Use Decision Logic TABLE (Use Case | Config/Fields | Conditions | Outcome) instead of separate positive/negative sections. Include Quick Maps for field/value lookups. Max 5 setup items. Single debug order (6 steps max). Favor tables over prose.",
           "   e. Use save_tc_draft for the main test cases file. Do NOT pass planId (auto-derived during push). Pass workspaceRoot or draftsPath.",
           "   f. Create the solution summary and QA cheat sheet as separate files in the same US folder.",
           "9. After creating all files, present a concise summary with file links prominently displayed: test cases, solution summary, and QA cheat sheet. Include: version, test case count, and key highlights (coverage checklist, process flow type [Mermaid/Text], TC breakdown by category).",
