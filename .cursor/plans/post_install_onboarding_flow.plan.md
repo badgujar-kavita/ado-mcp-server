@@ -73,35 +73,84 @@ ELSE:
 
 ## Welcome Message (State-Aware)
 
-When a user completes installation (or runs `check_status` for the first time), the server should present a **state-aware** welcome message:
+When a user completes installation (or runs `check_status` for the first time), the server should present a **state-aware** welcome message.
+
+---
+
+### Variant A — First Run (No Confluence)
 
 > **Welcome to ADO TestForge MCP v1.0.0**
 >
-> ADO TestForge MCP connects your Cursor IDE directly to Azure DevOps, giving you AI-assisted test case management without leaving your editor.
+> Your AI-powered QA co-pilot is ready.
 >
-> **Two ways to work:**
-> 1. **Slash commands** — Direct, structured commands (e.g., `/ado-testforge/draft_test_cases`)
-> 2. **Natural language** — Conversational requests (e.g., "Get me the context for User Story #12345")
+> ADO TestForge MCP connects Cursor IDE directly to Azure DevOps — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, understands your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality.
 >
-> *(If Confluence is configured, add:)*
-> It reads User Stories, fetches Solution Design context from Confluence, and helps you draft, review, and push test cases to ADO.
+> Think of it as the QA teammate who never forgets a convention, never skips a step, and works at the speed of your prompts.
 >
-> Think of it as your QA co-pilot: it understands your User Story context, follows your team's naming conventions and formatting rules, and handles the repetitive ADO plumbing (folder structures, query-based suites, field mappings) so you can focus on test quality.
+> **Two ways to work — pick what feels natural:**
+> | Style | Example |
+> |---|---|
+> | Slash command | `/ado-testforge/draft_test_cases` |
+> | Plain English | "Draft test cases for User Story #12345" |
 >
-> **Ready? Start with:**
-> - `/ado-testforge/draft_test_cases` — Draft test cases for a User Story (or say: "Draft test cases for US #12345")
-> - `/ado-testforge/get_user_story` — Fetch US with auto-linked Solution Design (or say: "Get me User Story #12345")
+> **Ready? Start here:**
+> - `/ado-testforge/get_user_story` — Fetch a User Story with full QA context
+> - `/ado-testforge/draft_test_cases` — Generate test cases ready for ADO
 > - `/ado-testforge/check_status` — Verify your setup anytime
 >
-> **20+ slash commands available.** Type `/ado-testforge/` in Cursor's AI chat to see them all, or just ask in plain English!
+> Type `/ado-testforge/` in Cursor's AI chat to explore all 20+ commands, or just ask in plain English.
 
-**Tone:** Conversational but professional. No marketing fluff. Explain the "what" and "why" in plain language.
+---
+
+### Variant B — First Run (Confluence Configured)
+
+> **Welcome to ADO TestForge MCP v1.0.0**
+>
+> Your AI-powered QA co-pilot is ready — with Confluence connected.
+>
+> ADO TestForge MCP connects Cursor IDE directly to Azure DevOps and Confluence — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, automatically pulls in linked Solution Design pages from Confluence for full business and technical context, follows your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality.
+>
+> Think of it as the QA teammate who never forgets a convention, never skips a step, and works at the speed of your prompts.
+>
+> **Two ways to work — pick what feels natural:**
+> | Style | Example |
+> |---|---|
+> | Slash command | `/ado-testforge/draft_test_cases` |
+> | Plain English | "Draft test cases for User Story #12345" |
+>
+> **Ready? Start here:**
+> - `/ado-testforge/get_user_story` — Fetch a User Story with full QA context + Solution Design
+> - `/ado-testforge/draft_test_cases` — Generate test cases ready for ADO
+> - `/ado-testforge/check_status` — Verify your setup anytime
+>
+> Type `/ado-testforge/` in Cursor's AI chat to explore all 20+ commands, or just ask in plain English.
+
+---
+
+### Variant C — Returning User (Same Version)
+
+> **ADO TestForge MCP v1.0.0** | Status: ✓ Ready
+
+---
+
+### Variant D — Degraded State (Missing or Invalid Credentials)
+
+> **ADO TestForge MCP — Setup Incomplete**
+>
+> Your ADO credentials are missing or invalid. No tools will work until this is resolved.
+>
+> Run `/ado-testforge/install` or follow the setup guide: `docs/setup-guide.md`
+
+---
+
+**Tone:** Conversational but professional. No marketing fluff. Lead with value, explain the "why", make the first action obvious.
 
 ### Conditional Content Rules
 
-- **Confluence mention:** Only show if `confluenceBaseUrl` is set in config
-- **Suite hierarchy:** Only mention if ADO connection is verified
-- **Degraded state:** If credentials are missing, show: "Setup incomplete. Run `/ado-testforge/install` or see `docs/setup-guide.md` for help."
+- **Confluence mention:** Only show Variant B if `confluenceBaseUrl` is present and valid in config — otherwise show Variant A
+- **get_user_story CTA:** Show "with full QA context + Solution Design" only when Confluence is configured; otherwise show "with full QA context"
+- **Suite hierarchy:** Only mention if ADO connection is verified at startup
+- **Degraded state:** Show Variant D and suppress all other content if credentials are missing or config is invalid
 
 ---
 
@@ -224,10 +273,31 @@ function shouldShowUpdate(flagVersion: string, currentVersion: string): boolean 
 
 ## Testing Checklist
 
-- [ ] First run (no flag file) shows full welcome + CTA
-- [ ] Second run (flag exists, same version) shows brief header only
-- [ ] After version bump, shows "What's New" message
-- [ ] Confluence conditional works (show/hide based on config)
-- [ ] Degraded state (missing credentials) shows setup link
-- [ ] Flag file is created/updated correctly
-- [ ] Version number appears in all welcome variants
+### Welcome Variants
+- [ ] Variant A shown on first run when `confluenceBaseUrl` is absent
+- [ ] Variant B shown on first run when `confluenceBaseUrl` is present and valid
+- [ ] Variant C (brief header only) shown on second run with same version
+- [ ] Variant D (degraded) shown when ADO credentials are missing or invalid
+- [ ] `get_user_story` CTA shows "with full QA context" when Confluence absent
+- [ ] `get_user_story` CTA shows "with full QA context + Solution Design" when Confluence configured
+
+### First-Run Detection
+- [ ] Flag file created correctly after first successful run
+- [ ] Flag file contains correct version and timestamp
+- [ ] Flag file absent → full welcome shown
+- [ ] Flag file present, same version → brief header shown
+
+### Version-Aware Updates
+- [ ] After version bump, "What's New" message is shown
+- [ ] Flag file version updated after "What's New" is displayed
+- [ ] Subsequent runs after update show brief header (not "What's New" again)
+
+### Confluence Silent-Skip
+- [ ] Missing `confluenceBaseUrl` — no error thrown, ADO tools work normally
+- [ ] Invalid/unreachable Confluence URL — error suppressed, ADO tools unaffected
+- [ ] Confluence section absent from welcome when not configured
+
+### Flag File & Stability
+- [ ] Flag file is created/updated correctly across all state transitions
+- [ ] Version number appears correctly in all welcome variants
+- [ ] No welcome noise on every run — brief header only after first run
