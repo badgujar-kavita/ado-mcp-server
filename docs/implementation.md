@@ -191,6 +191,165 @@ The **Solution Notes** field (ADO API: `Custom.TechnicalSolution`) is a rich tex
 
 ---
 
+## Test Case Asset Management & Folder Structure
+
+### Overview
+
+Test case drafts are organized in a structured folder convention with three supporting documents per User Story:
+
+```
+tc-drafts/
+└── US_<ID>/
+    ├── US_<ID>_test_cases.md           # Main test case draft
+    ├── US_<ID>_solution_design_summary.md  # 11-section solution summary
+    └── US_<ID>_qa_cheat_sheet.md       # Scannable QA quick reference
+```
+
+### Folder Structure Enforcement
+
+- **Folder naming:** `tc-drafts/US_<ID>/` (e.g., `tc-drafts/US_1245456/`)
+- **File naming:** All three files share the `US_<ID>_` prefix
+- **Main draft:** `_test_cases.md` includes relative links to supporting documents in its header
+- **Skill orchestration:** `.cursor/skills/test-case-asset-manager/SKILL.md` enforces this structure
+
+### Three-File Structure
+
+#### 1. Test Cases (`_test_cases.md`)
+
+Main test case draft with:
+- **Metadata:** Version, User Story ID, Plan ID, Status, Drafted By
+- **Supporting Documents:** Links to solution summary and QA cheat sheet
+- **Functionality Process Flow:** Mermaid diagrams or text-based flow
+- **Common Prerequisites:** Persona, Pre-requisite, Test Data
+- **Test Cases:** Individual test case tables with prerequisites and steps
+
+#### 2. Solution Design Summary (`_solution_design_summary.md`)
+
+11-section structured analysis:
+1. **Purpose & Scope** — What the feature does and its business context
+2. **Business Process Overview** — High-level flow
+3. **Decision Logic & Conditional Flows** — Rules, branching, conditions
+4. **Key Solution Decisions** — Architecture choices, trade-offs
+5. **Fields and Configuration** — New Custom Fields + New Configurations (tables)
+6. **Setup Prerequisites (Compact Format)** — Table with Component | Required State (max 10 rows, no formulas)
+7. **Behavior by Scenario** — How the feature behaves under different conditions
+8. **QA Impact & Risk Areas** — Testing implications
+9. **Risk Areas & Edge Cases** — Known limitations, boundary conditions
+10. **Open Questions / Clarifications Needed** — Items requiring user input
+11. **QA Reuse Notes** — Patterns for regression, maintenance, automation
+
+Plus **Executive QA Snapshot** at the top for quick scanning.
+
+#### 3. QA Cheat Sheet (`_qa_cheat_sheet.md`)
+
+Scannable quick reference (40-60 lines max):
+- **Decision Logic TABLE:** Use Case | Config/Field Values | Conditions | Expected Outcome
+- **Quick Maps:** Field/Value Mappings, Category/Type Source (tables, not prose)
+- **Setup Checklist:** Max 5 items, no nested bullets
+- **Debug Order:** Single list, 6 steps max
+- **Regression Triggers:** Table format (When X Changes → Re-test Y)
+- **Role Notes:** Per-role behavior differences (if applicable)
+
+**Design Principles:**
+- **Scannable** — QA should understand in under 2 minutes
+- **Tables > Prose** — Use tables for any decision logic or mappings
+- **One-liners > Explanations** — Minimal text, maximum density
+- **No redundancies** — Removed separate Positive/Negative Validations
+
+### Prerequisite Writing Standard (MANDATORY)
+
+All prerequisites across all three artifacts must use **condition-based format**:
+
+| Pattern | Example |
+|---------|---------|
+| `Object.Field = Value` | `Promotion.Status = Adjusted`, `CustomerManager.Access__c = Edit` |
+| `Object.Field != NULL` | `Tactic.Planned_Rate__c != NULL` |
+| `Object.Field = TRUE/FALSE` | `Template.TPM_Enable_LOA__c = TRUE` |
+| `Object.Field CONTAINS Value` | `FieldSet.Fields CONTAINS Rate` |
+| `Object.Field IN (Values)` | `User.Sales_Org IN (1111, 0404)` |
+| `CustomLabel = Value` | `TPM_Error_Message = "Record not found"` |
+| `CustomMetadataType.Field = Value` | `TPM_Setting.Enabled__c = TRUE` |
+| `CustomSetting.Field = Value` | `TPM_Config__c.Max_Records__c = 100` |
+
+**Vague phrasing:** Use only as **last resort** when condition-based format is not expressible. Fallback: `"Setup or configuration is required"`. Avoid: "Required configuration exists", "Conditions are met", "Prerequisites are in place".
+
+### Expected Result Formatting (Automation-Friendly)
+
+When a single test step produces multiple validations, use **numbered list** with automation-friendly patterns:
+
+```
+1. <Object>.<Field> should <operator> <Value>
+2. <UI_Element> should be <state>
+3. <Action> should <outcome>
+4. <Message/Error> should [not] be displayed
+```
+
+**Examples:**
+
+**Field Validation:**
+```
+1. Promotion.Status__c should = Adjusted
+2. Promotion.Approved_By__c should = [Current User]
+3. Tactic.Planned_Rate__c should != NULL
+```
+
+**UI Element Validation:**
+```
+1. Edit button should be visible
+2. Save button should be enabled
+3. Delete button should not be visible
+```
+
+**Rule Logic:**
+```
+Rule Order 1: Case_Category__c = Technical → Technical Support Queue should be assigned
+Rule Order 2: Case_Category__c = Billing → Billing Support Queue should be assigned
+Rule Order 3: Case_Category__c = blank/other → Default Support Queue should be assigned
+```
+
+**Access Control:**
+```
+1. CBP record should be visible in list view
+2. Detail page should open successfully
+3. Record.Access_Level__c should = Full Access
+4. Edit action should be available
+```
+
+**See:** `docs/automation-friendly-test-patterns.md` for complete reference with automation mapping pseudocode.
+
+### Artifact Cleanliness Standards
+
+All three artifacts must be:
+1. **Scannable** — QA should understand content in under 2 minutes
+2. **Consistent** — Same terminology, same prerequisite format
+3. **Minimal** — No filler text, no redundant sections
+4. **Table-first** — Use tables for conditional logic, mappings, decision rules
+5. **Technical-precise** — Condition-based prerequisites; vague language only as last resort
+6. **Self-contained** — Each artifact stands alone but references others
+
+### Accuracy Rules
+
+- **Source material only:** User Story / Acceptance Criteria, Confluence Solution Design, Approved documentation, Supporting files (images, Excel, CSV, PDF), Explicit user clarification
+- **No invention:** Do not invent requirements, scope, logic, conditions, or assumptions
+- **Partial coverage:** If source only supports part of story scope, state clearly in supporting documents
+- **Terminology conflicts:** Prefer latest explicit user clarification
+- **Story-specific:** Keep prompts generic; do not reuse story-specific assumptions from previous work
+
+### Integration with Draft Commands
+
+When `draft_test_cases` or `create_test_cases` (no prior draft) is invoked:
+1. AI applies **both skills:**
+   - `.cursor/skills/test-case-asset-manager/SKILL.md` for folder structure
+   - `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` for content quality
+2. AI creates `tc-drafts/US_<ID>/` folder (or under `draftsPath` if user specified)
+3. AI generates all three files with proper linking
+4. AI calls `save_tc_draft` for main test cases file
+5. AI creates solution summary and QA cheat sheet as separate markdown files
+
+**Files:** `src/prompts/index.ts` (draft_test_cases, create_test_cases prompts), `.cursor/rules/test-case-draft-formatting.mdc` (Section 12)
+
+---
+
 ## Conventions Configuration (`conventions.config.json`)
 
 All naming patterns, formats, and labels are externalized into a single JSON config file at the project root. This makes it easy to adjust conventions without touching code. The file is loaded at server startup and validated with a Zod schema -- any misconfiguration fails fast with a clear error.
@@ -209,7 +368,6 @@ All naming patterns, formats, and labels are externalized into a single JSON con
     "sections": [
       { "key": "personas",       "label": "Persona",           "required": true  },
       { "key": "preConditions",  "label": "Pre-requisite",     "required": true  },
-      { "key": "toBeTested",     "label": "TO BE TESTED FOR",  "required": false },
       { "key": "testData",       "label": "Test Data",         "required": false }
     ]
   },

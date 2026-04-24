@@ -38,6 +38,8 @@
 
 **Formatting:** The MCP server outputs ADO-compatible HTML (`<div>`, `<strong>`, `<ul>`, `<ol>`, `<li>`). See `docs/prerequisite-formatting-instruction.md` and `docs/prerequisite-formatting-ado.md`.
 
+**Note:** The `TO BE TESTED FOR` section has been permanently removed as of 2026-04-15 to reduce verbosity and improve scannability.
+
 **Persona section:** Reflects the configured default personas for the active project. The current project commonly uses System Administrator, ADMIN User, and KAM, but the implementation guidance should treat these as configured examples rather than universal defaults.
 - Ordered list format (HTML `<ol>`).
 - Each persona: **Bold label** with nested sub-items for the configured persona metadata (for example `TPM Roles`, `Profile`, `PSG` in the current project).
@@ -46,11 +48,13 @@
 
 **Pre-requisite section:** (Always unique per user story; never from config.)
 - Ordered list.
-- Mix of:
-  - **Technical format:** `Context.BusinessUnit = Primary`
-  - **Narrative with context:** `Entity has default option selected [ Parent configuration -> Child configuration -> Inactive option is present ]`
-- Use technical format where conventions.config preConditionFormat applies.
-- Use narrative + bracketed context when setup is complex.
+- **MANDATORY condition-based format** (as of 2026-04-15):
+  - **Technical format:** `Object.Field = Value` (e.g., `Promotion.Status = Adjusted`, `CustomerManager.Access__c = Edit`)
+  - **Operators:** `!=`, `CONTAINS`, `IN`, `= TRUE/FALSE`
+  - **Special types:** `CustomLabel = Value`, `CustomMetadataType.Field = Value`, `CustomSetting.Field = Value`
+  - **Narrative with context:** Only when describing scenario setup (e.g., `Entity without X config OR record for which no mapping exists`)
+  - **Vague phrasing:** Use only as last resort when condition format is not expressible (e.g., `Setup or configuration is required`)
+- See `docs/implementation.md` (Prerequisite Writing Standard) and `.cursor/skills/test-case-asset-manager/SKILL.md` for full details.
 
 ### 1.4 Other Parameters
 
@@ -164,3 +168,32 @@ To maximize consistency with existing TCs:
 4. **Tooling (optional):** Add style-sample fetcher and validation.
 
 Implementing Phase 1 and Phase 2 will yield the largest improvement with minimal effort.
+
+---
+
+## 7. Recent Enhancements (2026-04-15)
+
+### Test Case Asset Management
+
+Test case drafts now follow a structured folder convention:
+- **Folder structure:** `tc-drafts/US_<ID>/` containing three files per User Story
+- **Main draft:** `US_<ID>_test_cases.md` with links to supporting documents
+- **Solution summary:** `US_<ID>_solution_design_summary.md` (11-section structured analysis)
+- **QA cheat sheet:** `US_<ID>_qa_cheat_sheet.md` (40-60 lines, scannable quick reference)
+
+See `.cursor/skills/test-case-asset-manager/SKILL.md` for full structure rules.
+
+### Automation-Friendly Expected Results
+
+Expected results now use automation-friendly patterns:
+- **Field validation:** `Object.Field should = Value`
+- **UI element:** `UI_Element should be state`
+- **Action outcome:** `Action should outcome`
+- **Message/error:** `Message should [not] be displayed`
+- **Rule logic:** `Rule Order N: condition → outcome should happen`
+
+See `docs/automation-friendly-test-patterns.md` for complete reference with pseudocode mappings.
+
+### Prerequisite Standard
+
+All prerequisites must use **condition-based format** (Object.Field = Value, !=, CONTAINS, IN). Vague language ("setup is configured") only as last resort. See `docs/implementation.md` (Prerequisite Writing Standard).

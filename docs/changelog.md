@@ -4,6 +4,135 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-04-15 — Automation-Friendly Expected Result Patterns
+
+### Enhanced Expected Result Formatting for Automation
+
+- **Structured patterns:** Expected results now follow automation-friendly patterns:
+  - `Object.Field should = Value` (field validation)
+  - `UI_Element should be state` (UI element validation)
+  - `Action should outcome` (action outcome validation)
+  - `Message should [not] be displayed` (message/error validation)
+  - `Rule Order N: condition → outcome should happen` (rule logic)
+- **Automation mapping examples:** Each pattern category includes pseudocode showing how test case text translates to automation assertions
+- **Five pattern categories:** Field Validation, UI Element Validation, Ordered Logic/Rules, Access Control, Negative Test Cases
+- **Eliminated vague language:** Strict rules against "should work properly", "appropriate access", "should be correct"
+- **Writing style rules:** Specific targets, clear operators (=, !=, CONTAINS, IN), measurable states (enabled, disabled, visible), deterministic outcomes (succeed, fail, be assigned)
+- **New documentation:** `docs/automation-friendly-test-patterns.md` — comprehensive quick reference guide with:
+  - Pattern categories with automation pseudocode mappings
+  - Operator, state, and outcome reference tables
+  - Decision tree for format selection
+  - Bad vs good examples
+- **Files updated:** `.cursor/skills/test-case-asset-manager/SKILL.md`, `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`, `src/prompts/index.ts`, `.cursor/rules/test-case-draft-formatting.mdc`, `docs/test-case-writing-style-reference.md`, templates
+
+---
+
+## 2026-04-15 — Test Case Asset Management & Folder Structure
+
+### Test Case Asset Manager Skill
+
+- **New skill:** `.cursor/skills/test-case-asset-manager/SKILL.md` — orchestrates folder structure and file organization for test case documentation
+- **Folder structure:** Enforces `tc-drafts/US_<ID>/` convention for organizing test case documentation
+- **Three-file structure per US:**
+  - `US_<ID>_test_cases.md` — Main test case draft with Supporting Documents links
+  - `US_<ID>_solution_design_summary.md` — 11-section solution summary
+  - `US_<ID>_qa_cheat_sheet.md` — Scannable QA quick reference (40-60 lines max)
+- **Enhanced templates:** Four new templates created:
+  - `test_cases.template.md` — Test case draft structure with links to supporting documents
+  - `solution_summary.template.md` — 11-section structured solution summary
+  - `qa_cheat_sheet.template.md` — Decision logic tables, quick maps, setup checklist, debug order
+  - `cheat_sheet_review_guide.md` — Review guide for QA cheat sheet quality
+
+### Solution Summary Structure (11 Sections)
+
+1. Purpose & Scope
+2. Business Process Overview
+3. Decision Logic & Conditional Flows
+4. Key Solution Decisions
+5. Fields and Configuration (New Custom Fields + New Configurations tables)
+6. Setup Prerequisites (Compact Format — table with max 10 rows)
+7. Behavior by Scenario
+8. QA Impact & Risk Areas
+9. Risk Areas & Edge Cases
+10. Open Questions / Clarifications Needed
+11. QA Reuse Notes
+- **Executive QA Snapshot** at the top for quick reference
+
+### QA Cheat Sheet Design Principles
+
+- **Brevity enforced:** Target 40-60 lines max
+- **Decision Logic TABLE:** Use Case | Config/Field Values | Conditions | Expected Outcome
+- **Quick Maps:** Field/Value Mappings, Category/Type Source (tables, not prose)
+- **Setup Checklist:** Max 5 items, no nested bullets
+- **Debug Order:** Single list, 6 steps max
+- **Regression Triggers:** Table format only
+- **Removed redundancies:** No separate Positive/Negative Validations sections
+
+### Prerequisite Writing Standard (MANDATORY Condition-Based Format)
+
+- **Required patterns:**
+  - `Object.Field = Value`
+  - `Object.Field != NULL`
+  - `Object.Field = TRUE/FALSE`
+  - `Object.Field CONTAINS Value`
+  - `Object.Field IN (Values)`
+  - `CustomLabel = Value`
+  - `CustomMetadataType.Field = Value`
+  - `CustomSetting.Field = Value`
+- **Consolidated object types:** Removed semantic variants (ConfigurationObject, TargetObject, AccessObject) — use generic `Object.Field = Value`
+- **Vague phrasing softened:** Changed from "NEVER use vague phrasing" to "use only as last resort" when condition-based format is not expressible
+- **Fallback:** Minimal vague language (e.g., "Setup or configuration is required") allowed only when specific condition cannot be expressed
+
+### Artifact Cleanliness Standards
+
+All three artifacts (test cases, solution summary, cheat sheet) must be:
+1. **Scannable** — QA should understand content in under 2 minutes
+2. **Consistent** — Same terminology, same prerequisite format across all files
+3. **Minimal** — No filler text, no redundant sections, no over-explanation
+4. **Table-first** — Use tables for conditional logic, mappings, decision rules
+5. **Technical-precise** — Condition-based prerequisites; vague language only as last resort
+6. **Self-contained** — Each artifact stands alone but references others appropriately
+
+### Accuracy Rules
+
+- **Source material only:** User Story / Acceptance Criteria, Confluence Solution Design, Approved documentation, Supporting files (images, Excel, Google Sheets, CSV, PDF), Explicit user clarification
+- **No invention:** Do not invent requirements, scope, logic, conditions, or assumptions
+- **Partial coverage:** If source only supports part of story scope, state clearly in supporting documents
+- **Terminology conflicts:** Prefer latest explicit user clarification
+
+### Integration with Drafting Commands
+
+- **`draft_test_cases` and `create_test_cases` prompts updated:** Now explicitly instruct AI to:
+  - Create `tc-drafts/US_<ID>/` folder structure
+  - Generate all three files (test cases, solution summary, QA cheat sheet)
+  - Apply both skills: `test-case-asset-manager` for folder structure + `draft-test-cases-salesforce-tpm` for content quality
+  - Use save_tc_draft for main file, create supporting documents separately
+- **Formatting rule updated:** `.cursor/rules/test-case-draft-formatting.mdc` Section 11 references new folder convention
+
+### Files Changed
+
+- **New skill:** `.cursor/skills/test-case-asset-manager/SKILL.md`
+- **New templates:** `.cursor/skills/test-case-asset-manager/templates/` (4 files)
+- **Updated:** `src/prompts/index.ts`, `.cursor/rules/test-case-draft-formatting.mdc`
+
+---
+
+## 2026-04-15 — Removed TO BE TESTED FOR Section
+
+### Prerequisite Section Simplification
+
+- **TO BE TESTED FOR section permanently removed** from test case drafts due to verbosity and clutter
+- **Files updated:**
+  - `conventions.config.json` — Removed `toBeTested` from prerequisites.sections and prerequisiteDefaults
+  - `.cursor/skills/test-case-asset-manager/templates/test_cases.template.md` — Removed TO BE TESTED FOR row
+  - `.cursor/rules/test-case-draft-formatting.mdc` — Updated description to remove TO BE TESTED FOR reference
+- **Deleted files:**
+  - `.cursor/rules/to-be-tested-for-format.mdc` — Rule no longer needed
+  - `.cursor/skills/to-be-tested-for-executor-friendly/` — Entire skill directory removed
+- **Benefit:** Cleaner, more scannable prerequisite sections focused on essential pre-conditions, personas, and test data
+
+---
+
 ## 2026-04-14 — Test Coverage Insights (replaces Coverage Validation Checklist)
 
 ### Enhanced Coverage Section in Drafts
