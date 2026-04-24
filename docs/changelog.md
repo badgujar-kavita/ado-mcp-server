@@ -4,6 +4,47 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-04-24 — Complete toBeTested Field Removal (Schema Fix)
+
+### Critical Bug Fix
+
+- **Fixed ZodError on server startup** — The schema validation in `src/config.ts` was still requiring `toBeTested` field even though it was removed from the codebase on 2026-04-15
+- **Root cause:** The 2026-04-15 removal was incomplete; the Zod schema and several TypeScript interfaces were not updated, causing validation failures
+
+### Files Updated
+
+- **Schema & Types:**
+  - `src/config.ts` — Removed `toBeTested: z.array(z.string()).nullable()` from prerequisiteDefaults schema
+  - `src/types.ts` — Removed `toBeTested` from `Prerequisites` interface and `ConventionsConfig.prerequisiteDefaults`
+
+- **Tool Schemas:**
+  - `src/tools/tc-drafts.ts` — Removed `toBeTested` from `PrerequisitesSchema` and `mergePrerequisites()` logic
+  - `src/tools/test-cases.ts` — Removed `toBeTested` from `PrerequisitesSchema` and `CreateTestCaseParams` interface
+
+- **Helper Logic:**
+  - `src/helpers/tc-draft-formatter.ts` — Removed entire TO BE TESTED FOR section rendering (lines 182-193), removed from TypeScript interfaces
+  - `src/helpers/tc-draft-parser.ts` — Removed TO BE TESTED FOR parsing logic (18 lines of parsing code)
+  - `src/helpers/prerequisites.ts` — Removed `toBeTested` case from `renderSection()` switch statement
+
+- **Configuration:**
+  - `conventions.config.json` — Removed `"toBeTested": null` from prerequisiteDefaults (also reformatted file for readability)
+
+- **Documentation:**
+  - `docs/changelog.md` — Updated 2026-04-15 entry to list all files that should have been changed
+  - `docs/implementation.md` — Removed `toBeTested` from config examples and prerequisite structure examples
+  - `docs/ado-test-case-update-guide.md` — Changed structured prerequisites format from `{ personas?, preConditions, toBeTested, testData }` to `{ personas?, preConditions, testData }`
+  - `docs/test-case-writing-style-reference.md` — Updated prerequisite field description
+  - `docs/prerequisite-field-table-compatibility.md` — Removed `toBeTested` from all JSON examples and table format proposals
+  - `.cursor/skills/update-test-case-prerequisites/SKILL.md` — Updated structure definition and removed from example
+
+### Impact
+
+- **Server now starts successfully** — No more ZodError on startup
+- **Prerequisites simplified** — Only Persona, Pre-requisite, and Test Data sections remain
+- **Breaking change for drafts created before 2026-04-15** — Old drafts with `toBeTested` will have that field ignored during parsing
+
+---
+
 ## v1.1.0 — 2026-04-24 — State-Aware Welcome and Status Updates
 
 - Added first-run detection via `~/.ado-testforge-mcp/.ado-testforge-initialized` so `check_status` shows the full welcome only once per version.
