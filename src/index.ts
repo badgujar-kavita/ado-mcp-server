@@ -7,6 +7,7 @@ import { createConfluenceClient } from "./confluence-client.ts";
 import { registerAllTools } from "./tools/index.ts";
 import { registerSetupTools } from "./tools/setup.ts";
 import { registerAllPrompts } from "./prompts/index.ts";
+import { getCurrentVersion } from "./version.ts";
 
 async function main() {
   loadConventionsConfig();
@@ -32,7 +33,7 @@ async function main() {
 
   const server = new McpServer({
     name: "ado-testforge",
-    version: "1.0.0",
+    version: getCurrentVersion(),
   });
 
   registerAllTools(server, adoClient, confluenceClient);

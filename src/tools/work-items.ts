@@ -152,7 +152,7 @@ async function extractUserStoryContext(
         const page = await confluenceClient.getPageContent(pageId);
         solutionDesignContent = `# ${page.title}\n\n${page.body}`;
       } catch {
-        solutionDesignContent = `[Failed to fetch Confluence page ${pageId} -- check permissions or page ID]`;
+        solutionDesignContent = null;
       }
     }
   }

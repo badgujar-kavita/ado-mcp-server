@@ -133,15 +133,11 @@ Wait for the completion message in the chat.
 
 ### Step 6: Verify Setup
 
-In Cursor's AI chat, type `/ado-testforge/check_status` and run it. You should see:
+In Cursor's AI chat, type `/ado-testforge/check_status` and run it.
 
-```
-Credentials file: EXISTS
-ADO PAT: Configured
-ADO Org: YourOrgName
-ADO Project: YourProjectName
-Status: READY -- all tools and commands are available.
-```
+- On the **first successful run** for the current version, you will see a full welcome message plus setup status.
+- On **later runs**, you will see a brief `ADO TestForge MCP v1.1.0 | Status: ✓ Ready` header plus component status.
+- After a future deploy, `check_status` will show a one-time **What's New** summary.
 
 If you see **READY**, setup is complete.
 

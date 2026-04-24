@@ -4,6 +4,16 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## v1.1.0 — 2026-04-24 — State-Aware Welcome and Status Updates
+
+- Added first-run detection via `~/.ado-testforge-mcp/.ado-testforge-initialized` so `check_status` shows the full welcome only once per version.
+- Added state-aware status output with distinct first-run, returning-user, setup-incomplete, and version-update experiences.
+- Added version-aware update summaries in `check_status`, driven by the current package version and top changelog highlights.
+- Changed `get_user_story` so Confluence fetch failures are silently skipped and return `solutionDesignContent = null` instead of leaking warning text into the ADO workflow.
+- Added deployment backups and rollback notes so `npm run deploy` preserves the previously deployed build before overwrite.
+
+---
+
 ## 2026-04-15 — Automation-Friendly Expected Result Patterns
 
 ### Enhanced Expected Result Formatting for Automation

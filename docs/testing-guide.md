@@ -101,7 +101,12 @@ Credentials are stored per-user at `~/.ado-testforge-mcp/credentials.json` (your
 
 ### Checking Status
 
-Use `/ado-testforge/check_status` to verify your setup is complete. It checks for the credentials file and validates that all required fields are filled in.
+Use `/ado-testforge/check_status` to verify your setup is complete.
+
+- **First successful run for a version:** shows the full welcome message and quick-start CTA
+- **Later runs on the same version:** show a brief `ADO TestForge MCP vX.Y.Z | Status: ✓ Ready` header
+- **After an update:** shows a one-time "What's New" summary pulled from the changelog
+- **If Confluence is not configured:** the status remains fully healthy; no warnings are shown for the optional integration
 
 ---
 
@@ -232,8 +237,8 @@ Fetch user story {YOUR_US_ID} from ADO
 - Description and acceptance criteria are present
 - `parentId` is populated if the US is linked to an EPIC
 - `iterationPath` contains the correct sprint (this will be inherited by test cases)
-- If the US has a Confluence link in Solution Notes, `solutionDesignUrl` shows the URL and `solutionDesignContent` shows the page content
-- If Confluence is not configured or the field is empty, both fields are `null`
+- If the US has a Confluence link in Solution Notes and Confluence is reachable, `solutionDesignUrl` shows the URL and `solutionDesignContent` shows the page content
+- If Confluence is not configured, the field is empty, or the Confluence fetch fails, `solutionDesignContent` stays `null` and the rest of the ADO response remains usable
 
 ---
 
@@ -408,7 +413,7 @@ Use a User Story that has a Confluence link in the **Solution Notes** field (ADO
 **Verify:**
 - The content matches what you see when opening the Confluence page in a browser
 - If the Technical Solution field is empty, both values are `null`
-- If Confluence credentials are missing, `solutionDesignContent` is `null` even when a URL is present
+- If Confluence credentials are missing or the fetch fails, `solutionDesignContent` is `null` even when a URL is present
 
 #### 9c: Test case creation with Solution Design context
 

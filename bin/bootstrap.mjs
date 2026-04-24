@@ -24,12 +24,35 @@ const PROJECT_ROOT = join(__dirname, "..");
 const CREDENTIALS_DIR = join(homedir(), ".ado-testforge-mcp");
 const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
 const CURSOR_MCP_CONFIG = join(homedir(), ".cursor", "mcp.json");
+const PACKAGE_JSON = join(PROJECT_ROOT, "package.json");
 
 const PLACEHOLDER_VALUES = [
   "your-personal-access-token",
   "your-organization-name",
   "your-project-name",
 ];
+
+function getCurrentVersion() {
+  try {
+    const pkg = JSON.parse(readFileSync(PACKAGE_JSON, "utf-8"));
+    return pkg.version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+function buildSetupIncompleteMessage(details) {
+  return [
+    "ADO TestForge MCP — Setup Incomplete",
+    "",
+    "Your ADO credentials are missing or invalid, or installation is incomplete. Core ADO tools will not work until this is resolved.",
+    "",
+    "Details:",
+    ...details.map((detail) => `- ${detail}`),
+    "",
+    "Run /ado-testforge/install or follow the setup guide: docs/setup-guide.md",
+  ];
+}
 
 // ── Readiness checks ──
 
@@ -263,7 +286,7 @@ function runInstallerServer() {
           tools: { listChanged: false },
           prompts: { listChanged: false },
         },
-        serverInfo: { name: "ado-testforge", version: "1.0.0" },
+        serverInfo: { name: "ado-testforge", version: getCurrentVersion() },
       }));
       return;
     }
@@ -282,21 +305,18 @@ function runInstallerServer() {
       // ── check_setup_status tool ──
       if (toolName === "check_setup_status") {
         const missing = [];
-        if (!hasNodeModules() && !hasDist()) missing.push("Distribution or node_modules not found");
-        if (!hasValidCredentials()) missing.push("Credentials not configured");
+        if (!hasNodeModules() && !hasDist()) {
+          missing.push("Distribution package or node_modules not found.");
+        }
+        if (!existsSync(CREDENTIALS_FILE)) {
+          missing.push(`Credentials file not found at ${CREDENTIALS_FILE}.`);
+        } else if (!hasValidCredentials()) {
+          missing.push(`Credentials file exists at ${CREDENTIALS_FILE} but still contains placeholders or missing required values.`);
+        }
 
-        const lines = [
-          "ADO TestForge MCP Setup Status",
-          "",
-          missing.length === 0
-            ? "All prerequisites met. Server is ready."
-            : "Missing:",
-          ...missing.map((m) => `  - ${m}`),
-          "",
-          missing.length > 0
-            ? "Run /ado-testforge/install to complete setup."
-            : "Restart Cursor to load the full server.",
-        ];
+        const lines = buildSetupIncompleteMessage(
+          missing.length > 0 ? missing : ["Installation is incomplete. Restart Cursor after setup finishes."]
+        );
 
         send(makeResponse(id, {
           content: [{ type: "text", text: lines.join("\n") }],

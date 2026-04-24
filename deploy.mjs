@@ -8,8 +8,8 @@
  */
 
 import { execSync } from "child_process";
-import { copyFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from "fs";
-import { join, dirname } from "path";
+import { copyFileSync, mkdirSync, existsSync, readFileSync, readdirSync, cpSync } from "fs";
+import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -30,6 +30,27 @@ function getDeployPath() {
   process.exit(1);
 }
 
+function getDeployedVersion(deployPath) {
+  const deployedPackage = join(deployPath, "package.json");
+  if (!existsSync(deployedPackage)) return null;
+
+  try {
+    const pkg = JSON.parse(readFileSync(deployedPackage, "utf-8"));
+    return pkg.version || null;
+  } catch {
+    return null;
+  }
+}
+
+function buildBackupPath(deployPath, version) {
+  const parent = dirname(deployPath);
+  const base = join(parent, `dist-package-v${version}-backup`);
+  if (!existsSync(base)) return base;
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${base}-${timestamp}`;
+}
+
 function main() {
   const deployPath = getDeployPath();
   console.log("Building distribution...");
@@ -37,6 +58,14 @@ function main() {
 
   console.log("Deploying to:", deployPath);
   mkdirSync(deployPath, { recursive: true });
+
+  const previousVersion = getDeployedVersion(deployPath);
+  if (previousVersion) {
+    const backupPath = buildBackupPath(deployPath, previousVersion);
+    cpSync(deployPath, backupPath, { recursive: true });
+    console.log(`Backup created at: ${backupPath}`);
+    console.log(`Rollback note: restore by replacing ${basename(deployPath)} with ${basename(backupPath)} if needed.`);
+  }
 
   for (const entry of readdirSync(DIST, { withFileTypes: true })) {
     const srcPath = join(DIST, entry.name);

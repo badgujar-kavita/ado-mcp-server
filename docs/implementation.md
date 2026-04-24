@@ -617,7 +617,7 @@ ADO TestForge MCP/
 - **`get_user_story`** -- Fetch a User Story by ID with all QA-relevant fields + Solution Design from Confluence
   - API: `GET /wit/workitems/{id}?$expand=relations` (fetches all fields including `Custom.TechnicalSolution`)
   - Returns: title, description (HTML), acceptance criteria (HTML), area path, iteration path, state, **parent work item ID + title** (EPIC or Parent US), all relations, **solutionDesignUrl**, **solutionDesignContent**
-  - Auto-enrichment: If the "Technical Solution" field (UI label: "Solution Notes") contains a Confluence URL and Confluence credentials are configured, the tool automatically extracts the page ID, fetches the page content, and returns it as `solutionDesignContent`
+  - Auto-enrichment: If the "Technical Solution" field (UI label: "Solution Notes") contains a Confluence URL and Confluence credentials are configured, the tool automatically extracts the page ID and attempts to fetch the page content. If the fetch fails, it is silently skipped and `solutionDesignContent` remains `null`.
   - Purpose: Provides full context for test case generation (including Solution Design) AND determines suite folder placement (parent vs non-epic)
 - **`list_test_cases_linked_to_user_story`** -- Get test case work item IDs linked to a User Story via Tests/Tested By relation
   - API: `GET /wit/workitems/{userStoryId}?$expand=relations`
@@ -799,6 +799,30 @@ The parser handles all three formats and returns the numeric page ID.
 
 ---
 
+## Setup Status Welcome Flow
+
+The `check_setup_status` tool now behaves as a lightweight orientation surface instead of a static checklist. It uses a flag file at `~/.ado-testforge-mcp/.ado-testforge-initialized` plus the current package version to decide what to show:
+
+- **First successful run for a version** -- full welcome message, quick-start CTA, and setup status
+- **Returning user on same version** -- brief header only (`ADO TestForge MCP vX.Y.Z | Status: ✓ Ready`) plus component status
+- **User after an update** -- one-time "What's New" summary derived from the latest changelog section, then status
+- **Setup incomplete** -- degraded message with install/setup guide guidance instead of the welcome
+
+Flag file structure:
+
+```json
+{
+  "initialized": true,
+  "lastSeenVersion": "1.1.0",
+  "firstRunDate": "2026-04-24T10:30:00.000Z",
+  "lastCheckDate": "2026-04-24T15:45:00.000Z"
+}
+```
+
+This keeps the welcome useful without repeating the full orientation on every status check.
+
+---
+
 ## Cursor MCP Configuration
 
 Add to `.cursor/mcp.json`:
@@ -932,7 +956,7 @@ Suite types by level:
 - Validate all inputs via Zod schemas before making API calls
 - Catch ADO API errors and return readable messages (not raw HTTP responses)
 - Handle common errors: 401 (invalid PAT), 403 (insufficient scope), 404 (project/plan not found)
-- Confluence errors are non-fatal (tool returns a message suggesting manual check)
+- Confluence errors are non-fatal. `get_user_story` silently keeps `solutionDesignContent = null` so the core ADO flow remains usable.
 
 ### Build and Run
 

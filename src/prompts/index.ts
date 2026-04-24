@@ -9,7 +9,7 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "Check if the ADO TestForge MCP server is fully configured using the check_setup_status tool. Show the status of each component.",
+        text: "Check if the ADO TestForge MCP server is fully configured using the check_setup_status tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
       },
     }],
   }));

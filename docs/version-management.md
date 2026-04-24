@@ -1,7 +1,7 @@
 # Version Management Strategy
 
-**Current Version:** 1.0.0  
-**Last Updated:** 2026-04-15
+**Current Version:** 1.1.0  
+**Last Updated:** 2026-04-24
 
 ---
 
@@ -92,14 +92,14 @@ Increment when making **bug fixes** or **documentation updates** that don't add 
    - Creates a git commit (e.g., "Release v1.1.0 - Add automation-friendly patterns")
    - Creates a git tag (e.g., "v1.1.0")
 
-3. **Update `src/index.ts` manually:**
+3. **Ensure runtime version stays in sync:**
    ```typescript
    const server = new McpServer({
      name: "ado-testforge",
-     version: "1.1.0",  // Update this to match package.json
+     version: getCurrentVersion(),
    });
    ```
-   > **TODO:** Automate this by reading from package.json
+   The runtime now reads the version from `package.json` through `src/version.ts`, so no manual edit is required in `src/index.ts`.
 
 4. **Update `docs/changelog.md`:**
    - Add new section with version number:
@@ -155,38 +155,19 @@ Use **version numbers + dates** in changelog headers:
 | File | Purpose | Update When |
 |------|---------|-------------|
 | `package.json` | Primary version source | Every release (via `npm version`) |
-| `src/index.ts` | MCP server version metadata | Every release (manual, should automate) |
+| `src/version.ts` | Runtime version helper used by the MCP server and setup status flow | Updated only if version-loading logic changes |
 | `docs/changelog.md` | Version history with changes | Every release (manual) |
 | Git tags | Release markers | Every release (via `npm version`) |
 | Welcome message flag file | User's last seen version | Automatically by server |
 
 ---
 
-## Current Gaps
+## Current State
 
-### 🔴 High Priority
-1. **Version sync issue:** `src/index.ts` has hardcoded version, not reading from `package.json`
-   - **Fix:** Create a version helper that imports package.json version
-
-2. **Changelog format:** Currently using dates only, no version numbers in headers
-   - **Fix:** Add version numbers to all changelog entries going forward
-
-3. **No automated version bump script:** Manual process is error-prone
-   - **Fix:** Create `scripts/bump-version.sh` that handles all steps
-
-### 🟡 Medium Priority
-4. **No release notes in git tags:** Tags are created but have no description
-   - **Fix:** Use annotated tags with release notes
-
-5. **No version in welcome message:** Users don't see current version easily
-   - **Fix:** Add version to welcome message header (part of onboarding plan)
-
-### 🟢 Low Priority
-6. **No CHANGELOG.md in root:** Using `docs/changelog.md` instead
-   - **Consider:** Move to root for standard npm convention
-
-7. **No automated changelog generation:** All manual
-   - **Consider:** Use conventional commits + changelog generator
+- Runtime version metadata is sourced from `package.json`, so server metadata and `check_setup_status` stay aligned.
+- Version-aware onboarding uses `~/.ado-testforge-mcp/.ado-testforge-initialized` to track first run and last seen version.
+- `docs/changelog.md` now uses versioned headers for current releases so update summaries can reuse the latest section.
+- Release tags are still created through the normal `npm version` workflow when used for a release.
 
 ---
 
@@ -194,14 +175,14 @@ Use **version numbers + dates** in changelog headers:
 
 | Version | Date | Type | Summary |
 |---------|------|------|---------|
+| 1.1.0 | 2026-04-24 | Minor | State-aware welcome flow, version-aware status updates, and silent Confluence skip |
 | 1.0.0 | 2026-04-10 | Initial | First stable release with core features |
-| (Future) 1.1.0 | 2026-04-15 | Minor | Automation-friendly patterns + test case asset management |
 
 ---
 
-## Recommended: Automated Version Bump Script
+## Optional: Automated Version Bump Script
 
-Create `scripts/bump-version.sh`:
+If release steps become repetitive, a helper script can wrap the standard workflow:
 
 ```bash
 #!/bin/bash
@@ -216,20 +197,8 @@ npm version $TYPE -m "Release v%s - $MESSAGE"
 # 2. Get new version
 VERSION=$(node -p "require('./package.json').version")
 
-# 3. Update src/index.ts
-sed -i '' "s/version: \".*\"/version: \"$VERSION\"/" src/index.ts
-
-# 4. Stage the change
-git add src/index.ts
-
-# 5. Amend the version commit
-git commit --amend --no-edit
-
-# 6. Re-tag with updated commit
-git tag -f "v$VERSION"
-
 echo "✓ Version bumped to $VERSION"
-echo "✓ Updated package.json, src/index.ts, created tag v$VERSION"
+echo "✓ Updated package.json and created tag v$VERSION"
 echo ""
 echo "Next steps:"
 echo "1. Update docs/changelog.md with v$VERSION section"
@@ -244,7 +213,7 @@ echo "3. Run: git push && git push --tags"
 1. **Always version before deploy:** Never deploy without bumping version
 2. **Update changelog first:** Write changelog entry before deploying
 3. **Test before tagging:** Ensure changes work before creating version tag
-4. **Keep versions in sync:** package.json and src/index.ts must match
+4. **Keep runtime version single-sourced:** `package.json` is the source of truth, read by `src/version.ts`
 5. **Tag releases:** Always create git tags for traceability
 6. **Document breaking changes:** Clearly mark breaking changes in changelog
 7. **Follow SemVer strictly:** Don't break semantic versioning rules
@@ -269,9 +238,7 @@ A: No. dist-package inherits version from main package.json.
 
 ## Future Enhancements
 
-- [ ] Automate version sync between package.json and src/index.ts
 - [ ] Create bump-version.sh script
-- [ ] Add version to welcome message
 - [ ] Generate changelog from conventional commits
 - [ ] Add release notes to git tags
 - [ ] Consider moving changelog to root (CHANGELOG.md)

@@ -28,6 +28,7 @@ Welcome to the ADO TestForge MCP server. This guide walks you through the comple
 5. **Restart Cursor** (or reload MCP in Settings > MCP)
 
 After setup, ADO TestForge MCP is available in **all workspaces** — you don't need to have the ADO TestForge MCP folder open.
+On your first successful `/ado-testforge/check_status`, you'll see a full welcome message for the current version. Later status checks show a brief version header unless a newer version has been deployed.
 
 ---
 
@@ -263,7 +264,7 @@ When you fetch a User Story with `get_user_story`, the tool:
 4. Fetches the page content from Confluence
 5. Returns it as `solutionDesignContent` alongside the other User Story fields
 
-If Confluence is not configured or the field is empty, `solutionDesignUrl` and `solutionDesignContent` will be `null` -- all other functionality works normally.
+If Confluence is not configured, the field is empty, or the linked page cannot be fetched, `solutionDesignUrl` and `solutionDesignContent` will stay `null` — the core ADO workflow continues normally with no degraded experience.
 
 ---
 
@@ -278,40 +279,59 @@ If Confluence is not configured or the field is empty, `solutionDesignUrl` and `
 
 ## Step 6: Verify Everything Works
 
-In Cursor's AI chat, type `/ado-testforge` and select **check_status**. You should see a welcome message followed by your setup status:
+In Cursor's AI chat, type `/ado-testforge` and select **check_status**.
+
+### First Successful Run
+
+On the first successful run for a given version, you should see a full welcome message followed by your setup status:
 
 ```
-Welcome to ADO TestForge MCP
-============================
+Welcome to ADO TestForge MCP v1.1.0
 
-ADO TestForge MCP connects your Cursor IDE directly to Azure DevOps, giving you
-AI-assisted test case management without leaving your editor. It reads User Stories,
-fetches Solution Design context from Confluence, and helps you draft, review, and
-push test cases — all through natural-language commands.
+Your AI-powered QA co-pilot is ready.
 
-What You Can Do
----------------
-• User Story Context — Fetch US with acceptance criteria + auto-linked Solution Design
-• Test Suite Management — Auto-build suite folder hierarchy from just a User Story ID
-• Test Case Drafting — Draft test cases in markdown, review, then push approved drafts to ADO
-• Test Case CRUD — Create, read, update, and delete test cases with convention-driven formatting
-• Clone & Enhance — Clone test cases across User Stories with context-aware adaptation
-• Configuration-Driven — All naming patterns, formats, and defaults live in conventions.config.json
+ADO TestForge MCP connects Cursor IDE directly to Azure DevOps — so you can draft,
+review, and push test cases without ever leaving your editor.
+
+Two ways to work — pick what feels natural:
+- Slash command: /ado-testforge/draft_test_cases
+- Plain English: "Draft test cases for User Story #12345"
+
+Ready? Start here:
+- /ado-testforge/get_user_story — Fetch a User Story with full QA context
+- /ado-testforge/draft_test_cases — Generate test cases ready for ADO
+- /ado-testforge/check_status — Verify your setup anytime
+
+Quick start: Try /ado-testforge/get_user_story or say "Draft test cases for User Story #12345".
 
 Setup Status
 ------------
-Credentials file: EXISTS
 ADO PAT: Configured
 ADO Org: YourOrgName
 ADO Project: YourProjectName
-Confluence: Not configured (optional)
+TC Drafts: /Users/you/.ado-testforge-mcp/tc-drafts
 
 Status: READY — all tools and commands are available.
-
-Quick Start: Type /ado-testforge in the AI chat to see available commands.
 ```
 
-If you see **READY**, setup is complete. The welcome message and feature summary appear every time you run `check_status`, so it doubles as a quick reference for what's available.
+### Returning User (Same Version)
+
+After the first run, the status output becomes brief:
+
+```
+ADO TestForge MCP v1.1.0 | Status: ✓ Ready
+
+ADO PAT: Configured
+ADO Org: YourOrgName
+ADO Project: YourProjectName
+TC Drafts: /Users/you/.ado-testforge-mcp/tc-drafts
+```
+
+### After a New Deploy
+
+If a newer version has been deployed, `check_status` shows a short "What's New" summary once, then updates your local first-run flag.
+
+If you see **READY**, setup is complete.
 
 ### Post-Setup: Verify Tools & Commands
 
@@ -352,6 +372,26 @@ You can now use any of the available commands. Type `/ado-testforge` in the chat
 | `/ado-testforge/clone_and_enhance_test_cases` | Clone TCs from source US to target US — analyzes target + Solution Design, classifies impact, preview → APPROVED creates in ADO |
 
 You can also use natural language instead of commands. For example, type "Fetch user story 1273966 from ADO" and the AI will call the right tool.
+
+---
+
+## Best Practices
+
+### Scalability
+
+- All naming conventions and formatting rules live in `conventions.config.json`, so many future adjustments do not require code changes.
+- Most workflows are composed in prompts and skills, which keeps the MCP tools focused and reusable across projects.
+
+### Reliability
+
+- Run `/ado-testforge/check_status` after setup or deployment to verify the current version and status before starting work.
+- Confluence is optional. If it is not configured or a linked page cannot be fetched, the core ADO workflow still works and `solutionDesignContent` stays `null`.
+- The welcome flow uses a first-run flag file so users see the full orientation once per version instead of on every status check.
+
+### Maintainability
+
+- `npm run deploy` now creates a backup of the previously deployed build before overwrite and prints a rollback note in the terminal output.
+- Version-aware status output makes it easy to confirm which deployed build a user is currently running.
 
 ---
 

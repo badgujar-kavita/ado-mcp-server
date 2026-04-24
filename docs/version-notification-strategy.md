@@ -25,7 +25,7 @@ The MCP server reports its version in metadata (visible in Cursor's MCP settings
 // src/index.ts
 const server = new McpServer({
   name: "ado-testforge",
-  version: "1.0.0",  // Visible in Cursor Settings → MCP
+  version: getCurrentVersion(),  // Visible in Cursor Settings → MCP
 });
 ```
 
@@ -36,16 +36,18 @@ const server = new McpServer({
 
 ## Channel 2: Welcome Message via `check_setup_status` (Active on Demand)
 
-### Implementation (Part of Post-Install Onboarding Plan)
+### Current Implementation
 
 When users run `check_setup_status` or when credentials are verified:
 
 ```
 ADO TestForge MCP v1.1.0 | Status: ✓ Ready
 
-Azure DevOps: Connected to org/project
+ADO PAT: Configured
+ADO Org: <org>
+ADO Project: <project>
 Confluence: Configured
-Test Plan Mappings: 2 configured
+TC Drafts: <path>
 ```
 
 **Features:**
@@ -244,7 +246,7 @@ Add version to test case draft metadata:
 
 **Benefit:** Users can track which MCP version generated each draft
 
-### 2. Welcome Message (Already Planned)
+### 2. Welcome Message (Implemented)
 
 ```
 Welcome to ADO TestForge MCP v1.1.0
@@ -280,7 +282,7 @@ Status: ✓ Ready
 When a new version is deployed:
 
 1. **Automatic Sync** — Google Drive syncs the updated `dist-package/` folder to all users
-2. **Hook Notification** — Next session/tool use, Cursor hook shows update notification
+2. **Status Check Notification** — The next `/ado-testforge/check_status` run shows a one-time "What's New" summary for the new version
 3. **User Action** — User can:
    - Continue working (no action needed, backward-compatible)
    - Run `/ado-testforge/check_status` to see "What's New" details
@@ -294,12 +296,17 @@ When a new version is deployed:
 ### Flag File Format
 
 ```
-~/.ado-testforge-mcp/.version-check
+~/.ado-testforge-mcp/.ado-testforge-initialized
 ```
 
-**Contents:** Simple version string
-```
-1.1.0
+**Contents:** JSON with first-run and last-seen version metadata
+```json
+{
+  "initialized": true,
+  "lastSeenVersion": "1.1.0",
+  "firstRunDate": "2026-04-24T10:30:00.000Z",
+  "lastCheckDate": "2026-04-24T15:45:00.000Z"
+}
 ```
 
 ### Comparison Logic
@@ -328,10 +335,10 @@ fi
 - [ ] Create `.cursor/hooks/version-check.sh` script
 - [ ] Make script executable (`chmod +x`)
 - [ ] Test hook by deploying new version
-- [ ] Add version to `check_setup_status` output
+- [x] Add version to `check_setup_status` output
 - [ ] Add version to test case draft headers
 - [ ] Add version to error messages (optional)
-- [ ] Document version check in user-setup-guide.md
+- [x] Document version check in user-setup-guide.md
 - [ ] Include hooks.json and hooks/ in build-dist.mjs deployment
 
 ---
@@ -407,9 +414,9 @@ If MCP SDK adds banner/notification support in the future, we could:
 | Method | Visibility | Timing | User Action | Status |
 |--------|-----------|--------|-------------|--------|
 | **Cursor Hook** | High | Automatic (session start) | None | **Recommended** ✅ |
-| **check_setup_status** | Medium | On-demand | Run command | Planned |
+| **check_setup_status** | Medium | On-demand | Run command | Implemented |
 | **MCP Settings** | Low | Manual check | Open settings | Available now |
 | **Test Case Headers** | Medium | When drafting TCs | None | Can add |
 | **Changelog.md** | Low | Manual read | Open file | Available now |
 
-**Best Practice:** Implement **Cursor hook + check_setup_status** combination for comprehensive coverage.
+**Best Practice:** The implemented baseline is **check_setup_status + changelog + MCP metadata**. Hooks remain an optional future enhancement if more proactive notifications are needed.
