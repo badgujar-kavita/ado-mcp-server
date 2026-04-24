@@ -188,7 +188,14 @@ Follow existing project conventions:
 - **Format:** See `docs/test-case-writing-style-reference.md` and `conventions.config.json`
 - **Title:** `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]` (≤ 256 chars). Keep it simple, clear, and to the point.
 - **Feature Tags:** Use generic feature tags derived from the Acceptance Criteria and documented business language. Do not assume project-specific entities unless they appear in the source material.
-- **Expected results:** Use "should" form (e.g., `you should be able to do so`, `X should be updated`)
+- **Expected results (AUTOMATION-FRIENDLY):** Use "should" form with structured, measurable outcomes. When a single test step produces multiple validations, format as a numbered list using automation-friendly patterns:
+  - **Field validation:** `Object.Field__c should = Value` (e.g., `Promotion.Status__c should = Adjusted`)
+  - **UI element:** `UI_Element should be state` (e.g., `Edit button should be enabled`)
+  - **Action outcome:** `Action should outcome` (e.g., `Save action should succeed`)
+  - **Message/Error:** `Message should [not] be displayed` (e.g., `Error message should = "Required fields missing"`)
+  - **Rule logic:** `Rule Order N: condition → outcome should happen` (e.g., `Rule Order 1: Category = Technical → Technical Queue should be assigned`)
+  - **Avoid vague:** NEVER use "should work properly", "appropriate access", "should be correct"
+  - **Single outcomes:** Use simple form: `you should be able to do so` or single assertion
 - **Steps:** Imperative actions; use `**bold**` for emphasis; use "A. X B. Y" or "A. X<br>B. Y" for multi-point expected results (server converts to proper lists)
 - **Personas:** Use the configured default personas for the active project. Include them consistently unless the project conventions or source material explicitly require a different set.
 - **Pre-requisite:** Object.Field = Value; use `[Config should be setup/available]` when config is required

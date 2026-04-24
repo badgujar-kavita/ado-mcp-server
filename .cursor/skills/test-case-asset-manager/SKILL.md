@@ -199,6 +199,106 @@ Each test case must have:
 - Precise expected result ("should" form)
 - **Reuse confirmed logic** from the linked solution summary and QA cheat sheet
 
+### Expected Result Formatting (Automation-Friendly)
+
+**Core Rule:** When a single test step produces multiple validations or outcomes, format the Expected Result as a numbered list using automation-friendly patterns.
+
+**Formatting (ADO Compatible & Automation-Ready):**
+- Use plain numbering: `1.` `2.` `3.` for main points
+- Use `1.1` `1.2` for sub-points (if needed)
+- Each point on a new line
+- NO bold, italics, or special formatting (ADO compatibility)
+- Keep each line short, direct, and parseable
+
+**When to Apply:**
+Apply numbered formatting when Expected Result includes:
+- Multiple fields to validate
+- Multiple conditions
+- Ordered rules / logic
+- Multiple UI validations
+- Combined outcomes (visibility + editability + data change)
+
+**When NOT to Apply:**
+- Only one simple outcome exists
+- Do NOT merge multiple test steps into one just to create a list
+
+**Automation-Friendly Pattern (MANDATORY):**
+
+Use this structured format for maximum automation compatibility:
+
+```
+1. <Object>.<Field> should <operator> <Value>
+2. <UI_Element> should be <state>
+3. <Action> should <outcome>
+4. <Message/Error> should [not] be displayed
+```
+
+**Writing Style Rules:**
+- **Specific targets:** Name the object, field, or UI element explicitly
+- **Clear operators:** Use `=`, `!=`, `CONTAINS`, `IN`, `>`, `<`
+- **Measurable states:** `enabled`, `disabled`, `visible`, `hidden`, `displayed`
+- **Deterministic outcomes:** `succeed`, `fail`, `be assigned`, `be updated`
+- **Avoid vague language:** Never use "should work properly", "should be correct", "appropriate access", "as expected"
+
+**Examples by Category:**
+
+**1. Field Validation (API/Data validation):**
+```
+1. Promotion.Status__c should = Adjusted
+2. Promotion.Approved_By__c should = [Current User]
+3. Promotion.Approval_Date__c should = [Today's Date]
+4. Tactic.Planned_Rate__c should != NULL
+```
+*Automation mapping: Direct field assertions*
+
+**2. UI Element Validation (UI automation):**
+```
+1. Edit button should be visible
+2. Save button should be enabled
+3. Delete button should not be visible
+4. Error banner should not be displayed
+```
+*Automation mapping: Element state checks*
+
+**3. Ordered Logic/Rules (Rule engine testing):**
+```
+Rule Order 1: Case_Category__c = Technical → Technical Support Queue should be assigned
+Rule Order 2: Case_Category__c = Billing → Billing Support Queue should be assigned
+Rule Order 3: Case_Category__c = blank/other → Default Support Queue should be assigned
+```
+*Automation mapping: Conditional assertions*
+
+**4. Access Control (Combined validation):**
+```
+1. CBP record should be visible in list view
+2. Detail page should open successfully
+3. Record.Access_Level__c should = Full Access
+4. Edit action should be available
+5. Save action should succeed
+```
+*Automation mapping: Multi-layer validation (list → detail → field → action)*
+
+**5. Negative Test Cases (Error validation):**
+```
+1. Save action should fail
+2. Error message should = "Required fields are missing: Name, Status"
+3. Promotion.Status__c should = Draft (unchanged)
+4. User should remain on edit page
+```
+*Automation mapping: Failure assertions + state verification*
+
+**❌ Bad Examples (NOT automation-friendly):**
+- "User should have appropriate access" (vague)
+- "System should work correctly" (not measurable)
+- "Fields should be updated properly" (no specific fields/values)
+- "Should have read access" (ambiguous - what does "read" mean?)
+
+**✅ Good Examples (Automation-friendly):**
+- "Record.Access_Level__c should = Read Only"
+- "Edit button should be disabled"
+- "Record should be visible in list view"
+- "Save action should succeed"
+
 **Content Quality:** For test case content rules (coverage matrix, logic interpretation, step format), reference the [draft-test-cases-salesforce-tpm](../draft-test-cases-salesforce-tpm/SKILL.md) skill.
 
 ---

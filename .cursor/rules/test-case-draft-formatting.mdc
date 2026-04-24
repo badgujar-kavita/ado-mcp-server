@@ -28,13 +28,15 @@ alwaysApply: false
 
 8. **Expected result "should" form** — Every expected result must use "should" (e.g., `you should be able to do so`, `Tactic should be updated`). Avoid present tense ("is updated", "are generated").
 
-9. **Steps format** — Actions: imperative, short. Use `<br>` for numbered lists in steps/expected results.
+9. **Expected result numbered format (AUTOMATION-FRIENDLY)** — When a single test step produces multiple validations or outcomes, format the Expected Result as a numbered list using automation-friendly patterns: `Object.Field should = Value`, `UI_Element should be state`, `Action should outcome`, `Message should [not] be displayed`. Use plain numbering (`1.` `2.` `3.`, no bold/italics). Apply when result includes: multiple fields, multiple conditions, ordered rules, multiple UI validations, or combined outcomes. Do NOT apply for single simple outcomes. Use specific, measurable statements with clear operators (=, !=, CONTAINS, IN). Avoid vague: "should work properly", "appropriate access", "should be correct".
 
-10. **Reference** — See `docs/test-case-writing-style-reference.md` for full styling (title pattern, pre-requisite format, admin validation, etc.).
+10. **Steps format** — Actions: imperative, short. Use `<br>` for numbered lists in steps/expected results.
+
+11. **Reference** — See `docs/test-case-writing-style-reference.md` for full styling (title pattern, pre-requisite format, admin validation, etc.).
 
 ## Folder Structure
 
-11. **US Folder Convention** — Test case drafts should be organized in per-US folders inside `tc-drafts/`:
+12. **US Folder Convention** — Test case drafts should be organized in per-US folders inside `tc-drafts/`:
    - Folder: `tc-drafts/US_<ID>/`
    - Files: `US_<ID>_test_cases.md`, `US_<ID>_solution_design_summary.md`, `US_<ID>_qa_cheat_sheet.md`
    - Main draft must include relative links to supporting documents

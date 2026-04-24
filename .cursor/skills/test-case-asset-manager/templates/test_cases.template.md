@@ -74,10 +74,10 @@ OR text-based:
 | -------------------- | -------------------- |
 | **Pre-requisite**    | Object.Field = Value |
 
-| Step | Action            | Expected Result             |
-| ---- | ----------------- | --------------------------- |
-| 1    | Login as KAM User | you should be able to do so |
-| 2    |                   |                             |
+| Step | Action            | Expected Result                                                  |
+| ---- | ----------------- | ---------------------------------------------------------------- |
+| 1    | Login as KAM User | you should be able to do so                                      |
+| 2    | Perform action with multiple validations | 1. Object.Field__c should = Value<br>2. UI_Element should be enabled<br>3. Action should succeed<br>4. Error message should not be displayed |
 
 ---
 

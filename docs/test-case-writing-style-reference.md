@@ -91,6 +91,8 @@ Always use generic feature tags based on the Acceptance Criteria to keep titles 
 - `Choose a Tactic Template -> Fund Template -> Edit -> Set Default checkbox`
 
 ### Expected Result
+
+#### "Should" Form (Mandatory)
 - **Format:** Expected results **must** use the **"should" form** consistently. Write so the executor (business user or QA) clearly understands what to verify.
   - ✅ `you should be able to do so` (standard for simple actions)
   - ✅ `Tactic record should be updated with GL mapping data`
@@ -103,6 +105,137 @@ Always use generic feature tags based on the Acceptance Criteria to keep titles 
   - `User should be able to set the default fund template for any given tactic template.`
   - `User should not see Standard Manage Funds action button under the Funds section on tactic detail page.`
   - `User should see these listed columns along with From, To, Fund Type fields.`
+
+#### Numbered Format (Automation-Friendly Pattern)
+- **Core Rule:** When a single test step produces multiple validations or outcomes, format the Expected Result as a numbered list using automation-friendly patterns.
+- **Formatting (ADO Compatible & Automation-Ready):**
+  - Use plain numbering: `1.` `2.` `3.` for main points
+  - Use `1.1` `1.2` for sub-points (if needed)
+  - Each point on a new line
+  - NO bold, italics, or special formatting (ADO compatibility)
+  - Keep each line short, direct, and parseable
+- **When to Apply:** Apply when Expected Result includes:
+  - Multiple fields to validate
+  - Multiple conditions
+  - Ordered rules / logic
+  - Multiple UI validations
+  - Combined outcomes (visibility + editability + data change)
+- **When NOT to Apply:**
+  - Only one simple outcome exists
+  - Do NOT merge multiple test steps into one just to create a list
+
+**Automation-Friendly Pattern (MANDATORY):**
+
+Use this structured format for maximum automation compatibility:
+
+```
+1. <Object>.<Field> should <operator> <Value>
+2. <UI_Element> should be <state>
+3. <Action> should <outcome>
+4. <Message/Error> should [not] be displayed
+```
+
+**Writing Style Rules:**
+- **Specific targets:** Name the object, field, or UI element explicitly
+- **Clear operators:** Use `=`, `!=`, `CONTAINS`, `IN`, `>`, `<`
+- **Measurable states:** `enabled`, `disabled`, `visible`, `hidden`, `displayed`
+- **Deterministic outcomes:** `succeed`, `fail`, `be assigned`, `be updated`
+- **Avoid vague language:** NEVER use "should work properly", "should be correct", "appropriate access", "as expected"
+
+**Examples by Category:**
+
+**1. Field Validation (API/Data validation):**
+```
+1. Promotion.Status__c should = Adjusted
+2. Promotion.Approved_By__c should = [Current User]
+3. Promotion.Approval_Date__c should = [Today's Date]
+4. Tactic.Planned_Rate__c should != NULL
+```
+**Automation mapping:**
+```python
+assert promotion.status == "Adjusted"
+assert promotion.approved_by == current_user
+assert promotion.approval_date == today
+assert tactic.planned_rate is not None
+```
+
+**2. UI Element Validation (UI automation):**
+```
+1. Edit button should be visible
+2. Save button should be enabled
+3. Delete button should not be visible
+4. Error banner should not be displayed
+```
+**Automation mapping:**
+```python
+assert page.edit_button.is_visible() == True
+assert page.save_button.is_enabled() == True
+assert page.delete_button.is_visible() == False
+assert page.error_banner.is_displayed() == False
+```
+
+**3. Ordered Logic/Rules (Rule engine testing):**
+```
+Rule Order 1: Case_Category__c = Technical → Technical Support Queue should be assigned
+Rule Order 2: Case_Category__c = Billing → Billing Support Queue should be assigned
+Rule Order 3: Case_Category__c = blank/other → Default Support Queue should be assigned
+```
+**Automation mapping:**
+```python
+if case.category == "Technical":
+    assert case.queue == "Technical Support Queue"
+elif case.category == "Billing":
+    assert case.queue == "Billing Support Queue"
+else:
+    assert case.queue == "Default Support Queue"
+```
+
+**4. Access Control (Combined validation):**
+```
+1. CBP record should be visible in list view
+2. Detail page should open successfully
+3. Record.Access_Level__c should = Full Access
+4. Edit action should be available
+5. Save action should succeed
+```
+**Automation mapping:**
+```python
+assert cbp_record in list_view.get_visible_records()
+detail_page = list_view.click_record(cbp_record)
+assert detail_page.is_loaded()
+assert detail_page.get_field_value("Access_Level__c") == "Full Access"
+assert detail_page.is_action_available("Edit") == True
+assert detail_page.perform_action("Save") == "success"
+```
+
+**5. Negative Test Cases (Error validation):**
+```
+1. Save action should fail
+2. Error message should = "Required fields are missing: Name, Status"
+3. Promotion.Status__c should = Draft (unchanged)
+4. User should remain on edit page
+```
+**Automation mapping:**
+```python
+result = page.click_save()
+assert result.success == False
+assert result.error_message == "Required fields are missing: Name, Status"
+assert promotion.status == "Draft"
+assert page.current_page == "edit"
+```
+
+**❌ Bad Examples (NOT automation-friendly):**
+- "User should have appropriate access" → **Too vague, not measurable**
+- "System should work correctly" → **No specific validation**
+- "Fields should be updated properly" → **Which fields? What values?**
+- "Should have read access" → **What does "read" mean in this context?**
+
+**✅ Good Examples (Automation-friendly):**
+- "Record.Access_Level__c should = Read Only"
+- "Edit button should be disabled"
+- "Record should be visible in list view"
+- "Save action should succeed"
+- "Error message should = 'Insufficient Privileges'"
 
 ### Validation step phrasing
 - Use **Verify** for validation: `Verify Standard Manage Funds action button is no longer displayed to the user`
