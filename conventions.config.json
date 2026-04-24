@@ -1,1 +1,137 @@
-{"testCaseTitle":{"prefix":"TC","separator":" -> ","numberPadding":2,"template":"{prefix}_{usId}_{tcNumber}{separator}{featureTags}{separator}{summary}","maxLength":256},"prerequisites":{"heading":"Prerequisites for Test:","sections":[{"key":"personas","label":"Persona","required":true},{"key":"preConditions","label":"Pre-requisite","required":true},{"key":"testData","label":"Test Data","required":false}],"preConditionFormat":{"style":"technical","description":"Prefer Object.Field = Value for config/field conditions. Use narrative when describing scenario setup (e.g. 'Entity without X config', 'Record for which no mapping exists'). Use [Config should be setup/available] or [Config should be setup] as optional bracket hints.","operators":["=","!=","!=  NULL","= NULL","= TRUE","= FALSE",">","<",">=","<=","IN","NOT IN","CONTAINS","OR"],"examples":["Promotion.Status = Adjusted","Tactic.CompensationModel = Planned $ Per Case OR Planned % Per Case","Tactic.Planned_Dollar_Per_Case__c != NULL","TPM_Tactic_SAP_GLAccount_Mapping__c = [Config should be setup/available]","TacticTemplate.Tactic_Template_Condition_Creation_Def__c = [Config should be setup/available]","Tactic Template without Tactic Template Condition Creation Def config OR Tactic for which no mapping exists","Workflow State Transition Action [Approved->Committed] => [Config should be setup]","User.Sales Organization = 1111","Lightning Action: \"Save and Refresh\" assigned to Promotion Page Layout"]}},"prerequisiteDefaults":{"personas":{"SystemAdministrator":{"label":"System Administrator","profile":"System Admin","tpmRoles":"—","psg":"—"},"AdminUser":{"label":"\"ADMIN User\" User","profile":"TPM_User_Profile","user":"\"ADMIN User\" User","tpmRoles":"ADMIN","psg":"TPM Global ADMIN Users"},"KAM":{"label":"Key Account Manager (KAM) User","profile":"TPM_User_Profile","tpmRoles":"KAM","psg":"TPM Global KAM Users PSG"}},"commonPreConditions":[],"testData":"N/A"},"suiteStructure":{"sprintPrefix":"SFTPM_","parentUsSeparator":" | ","parentUsTemplate":"{id}{separator}{title}","usTemplate":"{id}{separator}{title}","nonEpicFolderName":"Non-Epic US TCs","testPlanMapping":[{"planId":1066479,"areaPathContains":["DHub","D-HUB"]},{"planId":1066480,"areaPathContains":["EHub","E-HUB"]}]},"testCaseDefaults":{"state":"Design","priority":2},"solutionDesign":{"adoFieldRef":"Custom.TechnicalSolution","uiLabel":"Solution Notes","usageRules":{"useFor":["Business process and functionality context","New fields (Object.Field__c) introduced in the solution","New configurations, settings, or feature flags","Pre-requisite conditions in technical format","Admin validation: verify fields/settings accessible to System Administrator"],"ignore":["Code snippets, Apex, JavaScript, LWC, triggers","Implementation or deployment details","Test steps (belong in Steps section)"],"adminValidationTemplate":"Verify {fieldOrSetting} is accessible and present in the system for System Administrator"},"extractionHints":["Look for: New custom fields (__c suffix), new picklist values, new page layouts, new Lightning actions","Look for: Configuration tables, setup requirements, permission/PSG changes","Output pre-requisites as: Object.Field = Value (see preConditionFormat)"]},"prerequisiteFieldRef":"Custom.PrerequisiteforTest"}
+{
+  "testCaseTitle": {
+    "prefix": "TC",
+    "separator": " -> ",
+    "numberPadding": 2,
+    "template": "{prefix}_{usId}_{tcNumber}{separator}{featureTags}{separator}{summary}",
+    "maxLength": 256
+  },
+  "prerequisites": {
+    "heading": "Prerequisites for Test:",
+    "sections": [
+      {
+        "key": "personas",
+        "label": "Persona",
+        "required": true
+      },
+      {
+        "key": "preConditions",
+        "label": "Pre-requisite",
+        "required": true
+      },
+      {
+        "key": "testData",
+        "label": "Test Data",
+        "required": false
+      }
+    ],
+    "preConditionFormat": {
+      "style": "technical",
+      "description": "Prefer Object.Field = Value for config/field conditions. Use narrative when describing scenario setup (e.g. 'Entity without X config', 'Record for which no mapping exists'). Use [Config should be setup/available] or [Config should be setup] as optional bracket hints.",
+      "operators": [
+        "=",
+        "!=",
+        "!=  NULL",
+        "= NULL",
+        "= TRUE",
+        "= FALSE",
+        ">",
+        "<",
+        ">=",
+        "<=",
+        "IN",
+        "NOT IN",
+        "CONTAINS",
+        "OR"
+      ],
+      "examples": [
+        "Promotion.Status = Adjusted",
+        "Tactic.CompensationModel = Planned $ Per Case OR Planned % Per Case",
+        "Tactic.Planned_Dollar_Per_Case__c != NULL",
+        "TPM_Tactic_SAP_GLAccount_Mapping__c = [Config should be setup/available]",
+        "TacticTemplate.Tactic_Template_Condition_Creation_Def__c = [Config should be setup/available]",
+        "Tactic Template without Tactic Template Condition Creation Def config OR Tactic for which no mapping exists",
+        "Workflow State Transition Action [Approved->Committed] => [Config should be setup]",
+        "User.Sales Organization = 1111",
+        "Lightning Action: \"Save and Refresh\" assigned to Promotion Page Layout"
+      ]
+    }
+  },
+  "prerequisiteDefaults": {
+    "personas": {
+      "SystemAdministrator": {
+        "label": "System Administrator",
+        "profile": "System Admin",
+        "tpmRoles": "—",
+        "psg": "—"
+      },
+      "AdminUser": {
+        "label": "\"ADMIN User\" User",
+        "profile": "TPM_User_Profile",
+        "user": "\"ADMIN User\" User",
+        "tpmRoles": "ADMIN",
+        "psg": "TPM Global ADMIN Users"
+      },
+      "KAM": {
+        "label": "Key Account Manager (KAM) User",
+        "profile": "TPM_User_Profile",
+        "tpmRoles": "KAM",
+        "psg": "TPM Global KAM Users PSG"
+      }
+    },
+    "commonPreConditions": [],
+    "testData": "N/A"
+  },
+  "suiteStructure": {
+    "sprintPrefix": "SFTPM_",
+    "parentUsSeparator": " | ",
+    "parentUsTemplate": "{id}{separator}{title}",
+    "usTemplate": "{id}{separator}{title}",
+    "nonEpicFolderName": "Non-Epic US TCs",
+    "testPlanMapping": [
+      {
+        "planId": 1066479,
+        "areaPathContains": [
+          "DHub",
+          "D-HUB"
+        ]
+      },
+      {
+        "planId": 1066480,
+        "areaPathContains": [
+          "EHub",
+          "E-HUB"
+        ]
+      }
+    ]
+  },
+  "testCaseDefaults": {
+    "state": "Design",
+    "priority": 2
+  },
+  "solutionDesign": {
+    "adoFieldRef": "Custom.TechnicalSolution",
+    "uiLabel": "Solution Notes",
+    "usageRules": {
+      "useFor": [
+        "Business process and functionality context",
+        "New fields (Object.Field__c) introduced in the solution",
+        "New configurations, settings, or feature flags",
+        "Pre-requisite conditions in technical format",
+        "Admin validation: verify fields/settings accessible to System Administrator"
+      ],
+      "ignore": [
+        "Code snippets, Apex, JavaScript, LWC, triggers",
+        "Implementation or deployment details",
+        "Test steps (belong in Steps section)"
+      ],
+      "adminValidationTemplate": "Verify {fieldOrSetting} is accessible and present in the system for System Administrator"
+    },
+    "extractionHints": [
+      "Look for: New custom fields (__c suffix), new picklist values, new page layouts, new Lightning actions",
+      "Look for: Configuration tables, setup requirements, permission/PSG changes",
+      "Output pre-requisites as: Object.Field = Value (see preConditionFormat)"
+    ]
+  },
+  "prerequisiteFieldRef": "Custom.PrerequisiteforTest"
+}

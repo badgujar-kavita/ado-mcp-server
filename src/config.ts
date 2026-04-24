@@ -39,7 +39,6 @@ const ConventionsConfigSchema = z.object({
   prerequisiteDefaults: z.object({
     personas: z.record(PersonaConfigSchema),
     commonPreConditions: z.array(z.string()),
-    toBeTested: z.array(z.string()).nullable(),
     testData: z.string(),
   }),
   suiteStructure: z.object({

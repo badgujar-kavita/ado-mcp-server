@@ -20,7 +20,6 @@ const StepSchema = z.object({
 const PrerequisitesSchema = z.object({
   personas: z.union([z.string(), z.array(z.string()), z.null()]).optional(),
   preConditions: z.array(z.string()).nullable().optional(),
-  toBeTested: z.array(z.string()).nullable().optional(),
   testData: z.string().nullable().optional(),
 }).optional();
 
@@ -205,7 +204,6 @@ export interface CreateTestCaseParams {
   prerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
-    toBeTested?: string[] | null;
     testData?: string | null;
   };
   steps: Array<{ action: string; expectedResult: string }>;

@@ -56,7 +56,6 @@ const StepSchema = z.object({
 const PrerequisitesSchema = z.object({
   personas: z.union([z.string(), z.array(z.string()), z.null()]).optional(),
   preConditions: z.array(z.string()).nullable().optional(),
-  toBeTested: z.array(z.string()).nullable().optional(),
   testData: z.string().nullable().optional(),
 }).optional();
 
@@ -418,7 +417,6 @@ function mergePrerequisites(
   return {
     personas: undefined, // Always use config defaults (all three); no override
     preConditions: [...(common?.preConditions ?? []), ...(tc?.preConditions ?? [])],
-    toBeTested: tc?.toBeTested ?? common?.toBeTested,
     testData: tc?.testData ?? common?.testData,
   };
 }

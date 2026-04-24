@@ -13,10 +13,9 @@ Guide AI when updating test case prerequisites in Azure DevOps via `update_test_
 
 1. **Always pass structured prerequisites** — Pass the structured prerequisites object to `update_test_case`, never raw HTML. The MCP server uses `buildPrerequisitesHtml()` to convert it to ADO-compatible HTML.
 
-2. **Structure** — Use `{ personas?, preConditions, toBeTested, testData }`:
+2. **Structure** — Use `{ personas?, preConditions, testData }`:
    - `personas` — Optional; use defaults from `conventions.config.json` (prerequisiteDefaults.personas) unless override needed
    - `preConditions` — Array of strings (Object.Field = Value format)
-   - `toBeTested` — Array of strings (executor-friendly; see to-be-tested-for-executor-friendly skill)
    - `testData` — String or "N/A"
 
 3. **Source from draft** — Use structured data from the draft (e.g., `tc-drafts/US_*_test_cases.md` or `.json`), not from `get_test_case` HTML. The HTML in ADO is already rendered; parsing it back is error-prone.
@@ -34,10 +33,6 @@ Guide AI when updating test case prerequisites in Azure DevOps via `update_test_
     "preConditions": [
       "Promotion.Status = Adjusted",
       "Tactic.Planned_Dollar_Per_Case__c != NULL"
-    ],
-    "toBeTested": [
-      "Rate change → Pending Reapproval (auto)",
-      "No rate change → stays Adjusted"
     ],
     "testData": "N/A"
   }

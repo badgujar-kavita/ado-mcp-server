@@ -396,7 +396,6 @@ All naming patterns, formats, and labels are externalized into a single JSON con
       "Entity.TemplateMapping != NULL",
       "Validation field set is available"
     ],
-    "toBeTested": null,
     "testData": "N/A"
   },
 
@@ -536,12 +535,6 @@ Relations: Tested By                       | Auto-linked to userStoryId
 
     preConditions: ["..."],             // REQUIRED per user story; always unique. Generate from US + Solution Design.
                                         // Technical format: Object.Field = Value per preConditionFormat
-
-    toBeTested: [                       // optional: omitted from output when null
-      "At least one ZREP is added",
-      "At least one Tactic is added",
-      "Consolidated Required fields missing validation"
-    ],
 
     testData: null                      // null = defaults to "N/A" from config
                                         // or override: "Account with 3+ Customer Managers linked"
@@ -707,9 +700,7 @@ Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-
 
 **Distribution packaging:** `build-dist.mjs` copies the full `.cursor/skills` directory tree into `dist-package`, including nested assets inside skill folders, so deployed skills remain complete in the Google Drive distribution.
 
-**TO BE TESTED FOR Skill:** `.cursor/skills/to-be-tested-for-executor-friendly/SKILL.md` guides writing the TO BE TESTED FOR section so QA executors understand it without reading the solution design. Use plain descriptions (e.g., "Rate change → Pending Reapproval"), not Flow 1/2/3 references.
-
-**Update Prerequisites Skill:** `.cursor/skills/update-test-case-prerequisites/SKILL.md` guides updating test case prerequisites via `update_test_case`: always pass structured `{ personas?, preConditions, toBeTested, testData }`, source from draft (not ADO HTML), restart MCP after formatting changes.
+**Update Prerequisites Skill:** `.cursor/skills/update-test-case-prerequisites/SKILL.md` guides updating test case prerequisites via `update_test_case`: always pass structured `{ personas?, preConditions, testData }`, source from draft (not ADO HTML), restart MCP after formatting changes.
 
 ### Confluence (Optional)
 

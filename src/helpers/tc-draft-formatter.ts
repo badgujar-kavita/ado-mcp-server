@@ -16,7 +16,6 @@ export interface TcDraftTestCase {
   prerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
-    toBeTested?: string[] | null;
     testData?: string | null;
   };
   steps: Array<{ action: string; expectedResult: string }>;
@@ -52,7 +51,6 @@ export interface TcDraftData {
   commonPrerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
-    toBeTested?: string[] | null;
     testData?: string | null;
   };
 }
@@ -178,20 +176,6 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
   }
   lines.push("");
 
-  // TO BE TESTED FOR
-  lines.push("### TO BE TESTED FOR");
-  lines.push("");
-  const toBeTested = common.toBeTested ?? defaults.toBeTested ?? [];
-  if (toBeTested.length === 0) {
-    lines.push("N/A");
-  } else {
-    lines.push("| # | Validation |");
-    lines.push("|---|---|");
-    toBeTested.forEach((v, i) => {
-      lines.push(`| ${i + 1} | ${escape(v)} |`);
-    });
-  }
-  lines.push("");
 
   // Test Data
   lines.push("### Test Data");

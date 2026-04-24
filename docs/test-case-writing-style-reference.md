@@ -354,7 +354,7 @@ Apply these when drafting future test cases:
 
 ### Push to ADO (create_test_cases command)
 - **Only test cases are pushed to ADO** — not the JSON file. The draft is stored as markdown until push; `push_tc_draft_to_ado` parses the markdown, creates test case work items in ADO, then generates JSON for reference. The JSON file is created only at push time.
-- **Prerequisite for Test field:** Common Prerequisites from the draft are written to ADO's Custom.PrerequisiteforTest field. When calling `save_tc_draft`, always pass `commonPrerequisites` with `preConditions`, `toBeTested`, and `testData` so all test cases get prerequisites when pushed. If the JSON lacks commonPrerequisites, the push tool parses the markdown to extract them.
+- **Prerequisite for Test field:** Common Prerequisites from the draft are written to ADO's Custom.PrerequisiteforTest field. When calling `save_tc_draft`, always pass `commonPrerequisites` with `preConditions` and `testData` so all test cases get prerequisites when pushed. If the JSON lacks commonPrerequisites, the push tool parses the markdown to extract them.
 
 ### Expected Result — "Should" Form (Business/QA Friendly)
 - **Rule:** Every expected result must use "should" so the executor understands what to verify. Avoid present tense (e.g., "is updated", "are generated").

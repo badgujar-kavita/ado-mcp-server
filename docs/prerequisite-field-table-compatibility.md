@@ -15,7 +15,7 @@
 
 ## 2. Current tc_draft Format (Lists)
 
-The MCP currently renders Pre-requisite and TO BE TESTED FOR as **numbered/bulleted lists** (`<ol>`, `<ul>`).
+The MCP currently renders Pre-requisite as **numbered lists** (`<ol>`).
 
 ### tc_draft JSON structure (current)
 
@@ -23,7 +23,6 @@ The MCP currently renders Pre-requisite and TO BE TESTED FOR as **numbered/bulle
 {
   "commonPrerequisites": {
     "preConditions": ["Condition 1", "Condition 2", "Condition 3"],
-    "toBeTested": ["Validation 1", "Validation 2"],
     "testData": "N/A"
   },
   "testCases": [
@@ -31,7 +30,6 @@ The MCP currently renders Pre-requisite and TO BE TESTED FOR as **numbered/bulle
       "tcNumber": 1,
       "prerequisites": {
         "preConditions": ["TC-specific condition"],
-        "toBeTested": null,
         "testData": null
       }
     }
@@ -40,7 +38,6 @@ The MCP currently renders Pre-requisite and TO BE TESTED FOR as **numbered/bulle
 ```
 
 - **preConditions:** `string[]` — each string becomes one `<li>` in an `<ol>`
-- **toBeTested:** `string[]` — each string becomes one `<li>` in a `<ul>`
 - **testData:** `string` — single value
 
 ---
@@ -60,15 +57,13 @@ If tables are needed later, the tc_draft JSON can support them without breaking 
       { "col1": "1", "col2": "Condition 1" },
       { "col1": "2", "col2": "Condition 2" }
     ],
-    "toBeTested": ["Validation 1"],
-    "toBeTestedTable": null,
     "testData": "N/A"
   }
 }
 ```
 
-- When `preConditionsTable` or `toBeTestedTable` is present and non-empty, render as `<table>`.
-- When absent, fall back to `preConditions` / `toBeTested` as lists (current behavior).
+- When `preConditionsTable` is present and non-empty, render as `<table>`.
+- When absent, fall back to `preConditions` as lists (current behavior).
 
 ### Option B: Use existing arrays with header hint
 
@@ -77,8 +72,7 @@ If tables are needed later, the tc_draft JSON can support them without breaking 
   "commonPrerequisites": {
     "preConditions": ["Condition 1", "Condition 2"],
     "preConditionsAsTable": true,
-    "toBeTested": ["Validation 1"],
-    "toBeTestedAsTable": false
+    "testData": "N/A"
   }
 }
 ```
@@ -110,6 +104,6 @@ The parser extracts the second column into `preConditions: ["Condition 1", "Cond
 | Item | Status |
 |------|--------|
 | **ADO field table support** | Yes, when field type is HTML |
-| **Current MCP output** | Lists (`<ol>`, `<ul>`) |
-| **Future table format** | Use `preConditionsTable` / `toBeTestedTable` or `*AsTable` flags; keep current arrays as fallback |
-| **tc_draft JSON** | Keep `preConditions: string[]` and `toBeTested: string[]`; add optional table fields when needed |
+| **Current MCP output** | Lists (`<ol>`) |
+| **Future table format** | Use `preConditionsTable` or `*AsTable` flags; keep current arrays as fallback |
+| **tc_draft JSON** | Keep `preConditions: string[]`; add optional table fields when needed |

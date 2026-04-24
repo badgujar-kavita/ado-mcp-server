@@ -31,7 +31,6 @@ function renderSection(
   defaults: {
     personas: Record<string, PersonaConfig>;
     commonPreConditions: string[];
-    toBeTested: string[] | null;
     testData: string;
   }
 ): string | null {
@@ -41,8 +40,6 @@ function renderSection(
     case "preConditions":
       // Pre-requisite is ALWAYS unique per user story; never use config baseline.
       return renderPreConditions(label, input?.preConditions, []);
-    case "toBeTested":
-      return renderOptionalList(label, input?.toBeTested, defaults.toBeTested, required);
     case "testData":
       return renderTestData(label, input?.testData, defaults.testData, required);
     default:

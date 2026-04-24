@@ -145,24 +145,8 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
     ? unescape(testDataBlock[1].trim())
     : "N/A";
 
-  // Extract TO BE TESTED FOR section only (between ### TO BE TESTED FOR and ### Test Data)
-  const toBeTestedStart = commonSection.indexOf("### TO BE TESTED FOR");
-  const toBeTestedEnd =
-    toBeTestedStart >= 0
-      ? (() => {
-          const idx = commonSection.indexOf("### Test Data", toBeTestedStart);
-          return idx >= 0 ? idx : commonSection.length;
-        })()
-      : 0;
-  const toBeTestedSection = toBeTestedStart >= 0 ? commonSection.slice(toBeTestedStart, toBeTestedEnd) : "";
-  const toBeTestedRows = toBeTestedSection.match(/\|\s*\d+\s*\|\s*([^|]+)\|/g);
-  const toBeTested = toBeTestedRows
-    ? toBeTestedRows.map((r) => unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim())).filter((v) => v && v !== "N/A" && v !== "Validation")
-    : [];
-
   const commonPrerequisites = {
     preConditions: preConditions.length > 0 ? preConditions : undefined,
-    toBeTested: toBeTested.length > 0 ? toBeTested : undefined,
     testData,
   };
 

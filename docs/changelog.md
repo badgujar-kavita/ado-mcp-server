@@ -133,7 +133,15 @@ All three artifacts (test cases, solution summary, cheat sheet) must be:
 
 - **TO BE TESTED FOR section permanently removed** from test case drafts due to verbosity and clutter
 - **Files updated:**
-  - `conventions.config.json` — Removed `toBeTested` from prerequisites.sections and prerequisiteDefaults
+  - `conventions.config.json` — Removed `toBeTested` from prerequisiteDefaults
+  - `src/config.ts` — Removed `toBeTested` from schema validation
+  - `src/types.ts` — Removed `toBeTested` from Prerequisites and ConventionsConfig interfaces
+  - `src/tools/tc-drafts.ts` — Removed `toBeTested` from PrerequisitesSchema and merge logic
+  - `src/tools/test-cases.ts` — Removed `toBeTested` from PrerequisitesSchema and interface
+  - `src/helpers/tc-draft-formatter.ts` — Removed TO BE TESTED FOR section rendering
+  - `src/helpers/tc-draft-parser.ts` — Removed TO BE TESTED FOR parsing logic
+  - `src/helpers/prerequisites.ts` — Removed `toBeTested` case from renderSection
+  - `docs/implementation.md` — Removed `toBeTested` references from examples
   - `.cursor/skills/test-case-asset-manager/templates/test_cases.template.md` — Removed TO BE TESTED FOR row
   - `.cursor/rules/test-case-draft-formatting.mdc` — Updated description to remove TO BE TESTED FOR reference
 - **Deleted files:**
@@ -396,7 +404,7 @@ The install command now checks:
 
 - **File:** `src/tools/test-cases.ts`
 - **New parameters:**
-  - `prerequisites` — Structured object `{ personas, preConditions, toBeTested, testData }`; when provided, call `buildPrerequisitesHtml()` and write to `prerequisiteFieldRef`
+  - `prerequisites` — Structured object `{ personas, preConditions, testData }`; when provided, call `buildPrerequisitesHtml()` and write to `prerequisiteFieldRef`
   - `areaPath` — Updated area path
   - `iterationPath` — Updated iteration path
 - **Behavior:** Accepts either `description` (raw HTML) or `prerequisites` (structured). When both are omitted, no prerequisite update is applied.

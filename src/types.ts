@@ -84,7 +84,6 @@ export interface TestStep {
 export interface Prerequisites {
   personas?: string | string[] | null;
   preConditions?: string[] | null;
-  toBeTested?: string[] | null;
   testData?: string | null;
 }
 
@@ -155,7 +154,6 @@ export interface ConventionsConfig {
   prerequisiteDefaults: {
     personas: Record<string, PersonaConfig>;
     commonPreConditions: string[];
-    toBeTested: string[] | null;
     testData: string;
   };
   suiteStructure: {
