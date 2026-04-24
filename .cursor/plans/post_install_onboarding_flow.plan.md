@@ -20,6 +20,9 @@ todos:
   - id: update-setup-guide
     status: pending
     content: Update docs/setup-guide.md to reference welcome experience and first-run flow
+  - id: confluence-silent-skip
+    status: pending
+    content: Ensure Confluence missing config or errors are silently skipped — no exceptions thrown, no warnings shown to user, core ADO flow unaffected
   - id: deploy
     status: pending
     content: Run npm run deploy after changes with rollback note
@@ -74,16 +77,23 @@ When a user completes installation (or runs `check_status` for the first time), 
 
 > **Welcome to ADO TestForge MCP v1.0.0**
 >
-> ADO TestForge MCP connects your Cursor IDE directly to Azure DevOps, giving you AI-assisted test case management without leaving your editor. It reads User Stories, [CONDITIONAL: fetches Solution Design context from Confluence,] and helps you draft, review, and push test cases — all through natural-language commands in Cursor's AI chat.
+> ADO TestForge MCP connects your Cursor IDE directly to Azure DevOps, giving you AI-assisted test case management without leaving your editor.
+>
+> **Two ways to work:**
+> 1. **Slash commands** — Direct, structured commands (e.g., `/ado-testforge/draft_test_cases`)
+> 2. **Natural language** — Conversational requests (e.g., "Get me the context for User Story #12345")
+>
+> *(If Confluence is configured, add:)*
+> It reads User Stories, fetches Solution Design context from Confluence, and helps you draft, review, and push test cases to ADO.
 >
 > Think of it as your QA co-pilot: it understands your User Story context, follows your team's naming conventions and formatting rules, and handles the repetitive ADO plumbing (folder structures, query-based suites, field mappings) so you can focus on test quality.
 >
 > **Ready? Start with:**
-> - `Get me the context for User Story #12345` — Fetch US with auto-linked Solution Design
-> - `/ado-testforge/draft_test_cases` — Draft test cases for a User Story
+> - `/ado-testforge/draft_test_cases` — Draft test cases for a User Story (or say: "Draft test cases for US #12345")
+> - `/ado-testforge/get_user_story` — Fetch US with auto-linked Solution Design (or say: "Get me User Story #12345")
 > - `/ado-testforge/check_status` — Verify your setup anytime
 >
-> **Tip:** All slash commands are available in Cursor's AI chat. Type `/ado-testforge/` to see the full list.
+> **20+ slash commands available.** Type `/ado-testforge/` in Cursor's AI chat to see them all, or just ask in plain English!
 
 **Tone:** Conversational but professional. No marketing fluff. Explain the "what" and "why" in plain language.
 
@@ -115,7 +125,8 @@ Keep update summaries to 3-5 bullet points max.
 ## Current Functionality
 
 ### User Story Context
-- Fetch User Stories with full QA context and auto-fetch linked Solution Design from Confluence
+- Fetch User Stories with full QA context
+- *(Optional)* Auto-fetch linked Solution Design from Confluence when `confluenceBaseUrl` is configured
 
 ### Test Suite Management
 - Auto-build the complete suite folder hierarchy from just a User Story ID
@@ -126,8 +137,10 @@ Keep update summaries to 3-5 bullet points max.
 ### Test Case Management
 - Create, read, update, and delete test cases with convention-driven formatting
 
-### Confluence Integration
-- Solution Design pages are fetched automatically when linked in the User Story
+### Confluence Integration *(Optional)*
+- Solution Design pages are fetched automatically when linked in the User Story — requires `confluenceBaseUrl` set in config
+- If Confluence is not configured, this feature is silently skipped — no errors, no warnings, no degraded experience
+- Core ADO functionality works fully without Confluence
 
 ### Configuration-Driven
 - All naming patterns, formats, and defaults are externalized in `conventions.config.json`
