@@ -154,6 +154,7 @@ export interface ConventionsConfig {
   prerequisiteDefaults: {
     personas: Record<string, PersonaConfig>;
     commonPreConditions: string[];
+    toBeTested: null | string[];
     testData: string;
   };
   suiteStructure: {

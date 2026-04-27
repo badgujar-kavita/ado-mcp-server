@@ -4,6 +4,37 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-04-27 — Added toBeTested Field to conventions.config.json
+
+### Bug Fix
+
+- **Fixed MCP server crash on initialization** — Added missing `toBeTested` field to `prerequisiteDefaults` in `conventions.config.json`, schema validation, and TypeScript types
+- **Root cause:** Cursor's MCP validation requires this field to be present in the config structure
+- **Error reported:** "ado-testforge is crashing because your MCP package's config is missing a required field: prerequisiteDefaults.toBeTested"
+
+### Files Updated
+
+- **Configuration:**
+  - `conventions.config.json` — Added `"toBeTested": null` to `prerequisiteDefaults` (line 83)
+  
+- **Schema & Types:**
+  - `src/config.ts` — Added `toBeTested: z.union([z.null(), z.array(z.string())])` to prerequisiteDefaults schema validation
+  - `src/types.ts` — Added `toBeTested: null | string[]` to `ConventionsConfig.prerequisiteDefaults` interface
+
+- **Documentation:**
+  - `docs/implementation.md` — Updated prerequisiteDefaults example to include `"toBeTested": null`
+  - `docs/changelog.md` — Documented this fix
+
+### Impact
+
+- **MCP server now initializes successfully** without crashing
+- The field is present in config, schema validation, and type definitions for consistency
+- The field is not actively used by the codebase logic (no rendering or processing)
+- Users can now toggle ado-testforge on/off without errors
+- All deployed files updated via `npm run deploy`
+
+---
+
 ## 2026-04-24 — Complete toBeTested Field Removal (Schema Fix)
 
 ### Critical Bug Fix
