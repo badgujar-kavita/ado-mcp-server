@@ -9,8 +9,9 @@ set -e
 # Configuration
 # ══════════════════════════════════════════════════════════════
 INSTALL_DIR="$HOME/.ado-testforge-mcp"
-REPO_URL="https://github.com/badgujar-kavita/ado-mcp-server.git"
+TARBALL_URL="https://github.com/badgujar-kavita/ado-mcp-server/archive/main.tar.gz"
 IS_UPGRADE=false
+CREDS_BACKED_UP=false
 
 # ══════════════════════════════════════════════════════════════
 # Colors & Formatting
@@ -104,53 +105,39 @@ print_tree_last "$(print_success "Node.js $(node -v)")"
 # ══════════════════════════════════════════════════════════════
 # Installation / Upgrade
 # ══════════════════════════════════════════════════════════════
+print_section "📥 Downloading"
+
+# Backup credentials if upgrading
 if [ "$IS_UPGRADE" = true ]; then
-    # Check if existing folder is a git repo
-    if [ -d "$INSTALL_DIR/.git" ]; then
-        print_section "📥 Fetching Updates"
-        print_tree_item "Resetting local changes..."
-        cd "$INSTALL_DIR"
-        git reset --hard --quiet
-        git clean -fd --quiet
-        print_tree_item "Pulling latest changes..."
-        git pull --quiet
-        print_tree_last "$(print_success "Source code updated")"
-    else
-        # Existing folder but not a git repo (old Google Drive install)
-        print_section "📥 Migrating from Previous Installation"
+    if [ -f "$INSTALL_DIR/credentials.json" ]; then
         print_tree_item "Backing up credentials..."
-        
-        # Preserve credentials if they exist
-        if [ -f "$INSTALL_DIR/credentials.json" ]; then
-            cp "$INSTALL_DIR/credentials.json" "/tmp/ado-testforge-creds-backup.json"
-            CREDS_BACKED_UP=true
-        fi
-        
-        print_tree_item "Removing old installation..."
-        rm -rf "$INSTALL_DIR"
-        
-        print_tree_item "Cloning fresh repository..."
-        git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-        cd "$INSTALL_DIR"
-        
-        # Restore credentials
-        if [ "$CREDS_BACKED_UP" = true ]; then
-            print_tree_item "Restoring credentials..."
-            cp "/tmp/ado-testforge-creds-backup.json" "$INSTALL_DIR/credentials.json"
-            rm -f "/tmp/ado-testforge-creds-backup.json"
-        fi
-        
-        print_tree_last "$(print_success "Migration complete")"
+        cp "$INSTALL_DIR/credentials.json" "/tmp/ado-testforge-creds-backup.json"
+        CREDS_BACKED_UP=true
     fi
-else
-    print_section "📥 Downloading"
-    print_tree_item "Cloning repository..."
-    git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-    cd "$INSTALL_DIR"
-    print_tree_last "$(print_success "Repository cloned")"
+    print_tree_item "Removing old installation..."
+    rm -rf "$INSTALL_DIR"
 fi
 
+# Download and extract tarball
+print_tree_item "Downloading latest version..."
+mkdir -p "$INSTALL_DIR"
+curl -sL "$TARBALL_URL" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
+
+# Restore credentials if backed up
+if [ "$CREDS_BACKED_UP" = true ]; then
+    print_tree_item "Restoring credentials..."
+    cp "/tmp/ado-testforge-creds-backup.json" "$INSTALL_DIR/credentials.json"
+    rm -f "/tmp/ado-testforge-creds-backup.json"
+fi
+
+print_tree_last "$(print_success "Download complete")"
+
+# ══════════════════════════════════════════════════════════════
+# Building
+# ══════════════════════════════════════════════════════════════
 print_section "🔧 Building"
+cd "$INSTALL_DIR"
+
 print_tree_item "Installing dependencies..."
 npm install --silent --no-fund --no-audit 2>/dev/null
 print_tree_item "$(print_success "Dependencies installed")"
@@ -199,6 +186,7 @@ print_tree_last "$(print_success "Cursor configured")"
 # Credentials Setup
 # ══════════════════════════════════════════════════════════════
 CREDS_FILE="$INSTALL_DIR/credentials.json"
+CREDS_CREATED=false
 
 print_section "🔑 Credentials"
 if [ ! -f "$CREDS_FILE" ]; then
