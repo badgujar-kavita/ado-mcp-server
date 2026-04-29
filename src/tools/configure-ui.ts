@@ -39,7 +39,8 @@ function loadExistingCredentials(): Partial<Credentials> {
 async function testAdoConnection(pat: string, org: string, project: string): Promise<{ success: boolean; message: string; details?: string }> {
   try {
     const authHeader = `Basic ${Buffer.from(":" + pat).toString("base64")}`;
-    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/projects/${encodeURIComponent(project)}?api-version=7.1`;
+    // Use the project API at organization level to verify access
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/projects/${encodeURIComponent(project)}?api-version=7.1`;
     
     const response = await fetch(url, {
       headers: {
@@ -49,11 +50,11 @@ async function testAdoConnection(pat: string, org: string, project: string): Pro
     });
 
     if (response.ok) {
-      const data = await response.json() as { name: string; description?: string };
+      const data = await response.json() as { name: string; description?: string; state?: string };
       return { 
         success: true, 
         message: "Connected successfully!", 
-        details: `Project: ${data.name}` 
+        details: `Project: ${data.name}${data.state ? ` (${data.state})` : ""}` 
       };
     }
 
