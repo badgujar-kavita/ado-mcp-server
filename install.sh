@@ -105,11 +105,40 @@ print_tree_last "$(print_success "Node.js $(node -v)")"
 # Installation / Upgrade
 # ══════════════════════════════════════════════════════════════
 if [ "$IS_UPGRADE" = true ]; then
-    print_section "📥 Fetching Updates"
-    print_tree_item "Pulling latest changes..."
-    cd "$INSTALL_DIR"
-    git pull --quiet
-    print_tree_last "$(print_success "Source code updated")"
+    # Check if existing folder is a git repo
+    if [ -d "$INSTALL_DIR/.git" ]; then
+        print_section "📥 Fetching Updates"
+        print_tree_item "Pulling latest changes..."
+        cd "$INSTALL_DIR"
+        git pull --quiet
+        print_tree_last "$(print_success "Source code updated")"
+    else
+        # Existing folder but not a git repo (old Google Drive install)
+        print_section "📥 Migrating from Previous Installation"
+        print_tree_item "Backing up credentials..."
+        
+        # Preserve credentials if they exist
+        if [ -f "$INSTALL_DIR/credentials.json" ]; then
+            cp "$INSTALL_DIR/credentials.json" "/tmp/ado-testforge-creds-backup.json"
+            CREDS_BACKED_UP=true
+        fi
+        
+        print_tree_item "Removing old installation..."
+        rm -rf "$INSTALL_DIR"
+        
+        print_tree_item "Cloning fresh repository..."
+        git clone --quiet "$REPO_URL" "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+        
+        # Restore credentials
+        if [ "$CREDS_BACKED_UP" = true ]; then
+            print_tree_item "Restoring credentials..."
+            cp "/tmp/ado-testforge-creds-backup.json" "$INSTALL_DIR/credentials.json"
+            rm -f "/tmp/ado-testforge-creds-backup.json"
+        fi
+        
+        print_tree_last "$(print_success "Migration complete")"
+    fi
 else
     print_section "📥 Downloading"
     print_tree_item "Cloning repository..."
