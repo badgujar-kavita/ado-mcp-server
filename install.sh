@@ -40,10 +40,10 @@ fi
 echo "📦 Installing dependencies..."
 npm install --silent --no-fund --no-audit
 
-# Build TypeScript (if src exists)
-if [ -d "src" ] && [ -f "tsconfig.json" ]; then
-    echo "🔨 Building from source..."
-    npm run build --silent
+# Build distribution (uses esbuild)
+if [ -f "build-dist.mjs" ]; then
+    echo "🔨 Building distribution..."
+    npm run build:dist --silent
 fi
 
 # Configure Cursor MCP
