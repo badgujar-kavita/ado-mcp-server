@@ -5,57 +5,142 @@
 
 set -e
 
+# ══════════════════════════════════════════════════════════════
+# Configuration
+# ══════════════════════════════════════════════════════════════
 INSTALL_DIR="$HOME/.ado-testforge-mcp"
 REPO_URL="https://github.com/badgujar-kavita/ado-mcp-server.git"
+IS_UPGRADE=false
 
-echo "🚀 Installing ADO TestForge MCP Server..."
-echo ""
+# ══════════════════════════════════════════════════════════════
+# Colors & Formatting
+# ══════════════════════════════════════════════════════════════
+BOLD='\033[1m'
+DIM='\033[2m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# ══════════════════════════════════════════════════════════════
+# Helper Functions
+# ══════════════════════════════════════════════════════════════
+print_banner() {
+    local text="$1"
+    echo ""
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    echo -e "   ${text}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+}
+
+print_section() {
+    echo ""
+    echo -e "${BOLD}$1${NC}"
+}
+
+print_tree_item() {
+    echo -e "  ${DIM}├──${NC} $1"
+}
+
+print_tree_last() {
+    echo -e "  ${DIM}└──${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}✔${NC} $1"
+}
+
+print_pending() {
+    echo -e "${BLUE}○${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC}  $1"
+}
+
+print_error() {
+    echo -e "${RED}✖${NC} $1"
+}
+
+print_divider() {
+    echo -e "${DIM}─────────────────────────────────────────────────────────────${NC}"
+}
+
+# ══════════════════════════════════════════════════════════════
+# Pre-flight Checks
+# ══════════════════════════════════════════════════════════════
+
+# Detect install vs upgrade
+if [ -d "$INSTALL_DIR" ]; then
+    IS_UPGRADE=true
+    print_banner "${BOLD}🔄  Upgrading ADO TestForge MCP${NC}"
+else
+    print_banner "${BOLD}🚀  Installing ADO TestForge MCP${NC}"
+fi
+
+print_section "📋 Pre-flight Checks"
 
 # Check Node.js
+print_tree_item "Checking Node.js..."
 if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is required. Please install Node.js 18+ first."
+    print_tree_last "$(print_error "Node.js not found")"
+    echo ""
+    echo -e "  ${YELLOW}Node.js 18+ is required.${NC}"
+    echo -e "  ${DIM}Download: https://nodejs.org${NC}"
+    echo ""
     exit 1
 fi
 
 NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
 if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "❌ Node.js 18+ is required. Current version: $(node -v)"
+    print_tree_last "$(print_error "Node.js 18+ required. Found: $(node -v)")"
     exit 1
 fi
+print_tree_last "$(print_success "Node.js $(node -v)")"
 
-echo "✅ Node.js $(node -v) detected"
-
-# Remove old installation if exists
-if [ -d "$INSTALL_DIR" ]; then
-    echo "📦 Updating existing installation..."
+# ══════════════════════════════════════════════════════════════
+# Installation / Upgrade
+# ══════════════════════════════════════════════════════════════
+if [ "$IS_UPGRADE" = true ]; then
+    print_section "📥 Fetching Updates"
+    print_tree_item "Pulling latest changes..."
     cd "$INSTALL_DIR"
     git pull --quiet
+    print_tree_last "$(print_success "Source code updated")"
 else
-    echo "📦 Downloading ADO TestForge MCP..."
+    print_section "📥 Downloading"
+    print_tree_item "Cloning repository..."
     git clone --quiet "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
+    print_tree_last "$(print_success "Repository cloned")"
 fi
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-npm install --silent --no-fund --no-audit
+print_section "🔧 Building"
+print_tree_item "Installing dependencies..."
+npm install --silent --no-fund --no-audit 2>/dev/null
+print_tree_item "$(print_success "Dependencies installed")"
 
-# Build distribution (uses esbuild)
 if [ -f "build-dist.mjs" ]; then
-    echo "🔨 Building distribution..."
-    npm run build:dist --silent
+    print_tree_item "Compiling TypeScript..."
+    npm run build:dist --silent > /dev/null 2>&1
+    print_tree_last "$(print_success "Build complete")"
 fi
 
-# Configure Cursor MCP
-echo "⚙️  Configuring Cursor..."
+# ══════════════════════════════════════════════════════════════
+# Cursor Configuration
+# ══════════════════════════════════════════════════════════════
+print_section "⚙️  Configuring Cursor"
 CURSOR_DIR="$HOME/.cursor"
 MCP_CONFIG="$CURSOR_DIR/mcp.json"
 BOOTSTRAP_PATH="$INSTALL_DIR/bin/bootstrap.mjs"
 
 mkdir -p "$CURSOR_DIR"
 
+print_tree_item "Updating MCP config..."
 if [ -f "$MCP_CONFIG" ]; then
-    # Update existing config using Node.js
     node -e "
         const fs = require('fs');
         const config = JSON.parse(fs.readFileSync('$MCP_CONFIG', 'utf-8'));
@@ -67,7 +152,6 @@ if [ -f "$MCP_CONFIG" ]; then
         fs.writeFileSync('$MCP_CONFIG', JSON.stringify(config, null, 2));
     "
 else
-    # Create new config
     echo '{
   "mcpServers": {
     "ado-testforge": {
@@ -77,36 +161,68 @@ else
   }
 }' > "$MCP_CONFIG"
 fi
+print_tree_last "$(print_success "Cursor configured")"
 
-# Create credentials directory
-CREDS_DIR="$HOME/.ado-testforge-mcp"
-CREDS_FILE="$CREDS_DIR/credentials.json"
-mkdir -p "$CREDS_DIR"
+# ══════════════════════════════════════════════════════════════
+# Credentials Setup
+# ══════════════════════════════════════════════════════════════
+CREDS_FILE="$INSTALL_DIR/credentials.json"
 
+print_section "🔑 Credentials"
 if [ ! -f "$CREDS_FILE" ]; then
+    print_tree_item "Creating credentials template..."
     echo '{
   "ado_pat": "your-personal-access-token",
   "ado_org": "your-organization-name",
-  "ado_project": "your-project-name"
+  "ado_project": "your-project-name",
+  "confluence_base_url": "",
+  "confluence_email": "",
+  "confluence_api_token": ""
 }' > "$CREDS_FILE"
     CREDS_CREATED=true
+    print_tree_last "$(print_success "Template created")"
+else
+    print_tree_last "$(print_success "Existing credentials preserved")"
+fi
+
+# ══════════════════════════════════════════════════════════════
+# Success Message
+# ══════════════════════════════════════════════════════════════
+echo ""
+print_divider
+
+if [ "$IS_UPGRADE" = true ]; then
+    echo ""
+    echo -e "  ${GREEN}${BOLD}✨ Upgrade Complete!${NC}"
+    echo -e "  ${DIM}ADO TestForge MCP has been updated to the latest version.${NC}"
+else
+    echo ""
+    echo -e "  ${GREEN}${BOLD}✨ Installation Complete!${NC}"
+    echo -e "  ${DIM}ADO TestForge MCP has been installed successfully.${NC}"
 fi
 
 echo ""
-echo "══════════════════════════════════════════════════"
-echo "🎉 Installation Complete!"
+print_divider
 echo ""
-echo "📍 Installed to: $INSTALL_DIR"
-echo ""
+echo -e "  ${BOLD}📍 Location:${NC} ${CYAN}${INSTALL_DIR}${NC}"
+
 if [ "$CREDS_CREATED" = true ]; then
-    echo "⚠️  NEXT STEP: Configure your credentials"
-    echo "   Edit: $CREDS_FILE"
     echo ""
-    echo "   Fill in:"
-    echo "   - ado_pat: Your Azure DevOps Personal Access Token"
-    echo "   - ado_org: Your organization (from dev.azure.com/{org})"
-    echo "   - ado_project: Your project name"
+    print_divider
     echo ""
+    echo -e "  ${YELLOW}${BOLD}⚠  Configure Credentials${NC}"
+    echo -e "  ${DIM}└──${NC} Edit: ${CYAN}${CREDS_FILE}${NC}"
+    echo ""
+    echo -e "  ${DIM}Required fields:${NC}"
+    echo -e "  ${DIM}├──${NC} ${BOLD}ado_pat${NC}      Azure DevOps Personal Access Token"
+    echo -e "  ${DIM}├──${NC} ${BOLD}ado_org${NC}      Organization ${DIM}(dev.azure.com/{org})${NC}"
+    echo -e "  ${DIM}└──${NC} ${BOLD}ado_project${NC}  Project name"
 fi
-echo "⚠️  Restart Cursor IDE to activate"
-echo "══════════════════════════════════════════════════"
+
+echo ""
+print_divider
+echo ""
+echo -e "  ${YELLOW}⚠  Restart Cursor IDE to activate${NC}"
+echo ""
+print_divider
+echo ""
