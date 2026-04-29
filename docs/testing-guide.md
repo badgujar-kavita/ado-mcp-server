@@ -28,22 +28,20 @@ This guide walks you through setting up, running, and testing the MCP server end
 
 ## 1. For New Team Members (Quick Start)
 
-The MCP server is self-installing. If you received the `ADO TestForge MCP` folder (via Google Drive or otherwise), here's all you need:
-
 **Prerequisites:** Node.js v18+ installed (`node -v` to check)
 
 **Steps:**
 
-1. Open the `ADO TestForge MCP` folder in **Cursor IDE**
-2. Go to **Cursor Settings > MCP** -- you should see `ado-testforge` listed
-3. In Cursor's AI chat, type `/ado-testforge/install` and run the command
-4. The installer checks prerequisites and creates a credentials template file
-5. Open the credentials file shown in the chat response (`~/.ado-testforge-mcp/credentials.json`)
-6. Fill in your **ADO PAT**, **organization name**, and **project name** -- save the file
-7. Restart the `ado-testforge` MCP server in **Cursor Settings > MCP**
-8. Done -- all tools and slash commands are now available under `ado-testforge`
+1. Run the installer in your terminal:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+   ```
+2. Open the credentials file (`~/.ado-testforge-mcp/credentials.json`)
+3. Fill in your **ADO PAT**, **organization name**, and **project name** \-\- save the file
+4. Restart Cursor IDE (or refresh MCP in **Cursor Settings > MCP**)
+5. Done \-\- all tools and slash commands are now available under `ado-testforge`
 
-Your credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` and are **never shared** with the team folder.
+Your credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` and are **never shared**.
 
 ---
 
@@ -70,34 +68,31 @@ Your credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` a
 
 ---
 
-## 3. First-Time Setup via Slash Command
+## 3. Installation Details
 
-The MCP server uses a bootstrap system that handles installation automatically.
+The MCP server is installed via a curl one\-liner that handles everything automatically.
 
-### How It Works
+### What the Installer Does
 
-When Cursor opens the `ADO TestForge MCP` folder, it reads `.cursor/mcp.json` and starts the `ado-testforge` MCP server.
+1. Clones the repository to `~/.ado-testforge-mcp`
+2. Installs dependencies and builds the project
+3. Creates `~/.ado-testforge-mcp/credentials.json` with a template
+4. Registers `ado-testforge` globally in `~/.cursor/mcp.json`
 
-- **Not ready (first time):** Shows `/ado-testforge/install` command with prerequisite checks (Google Drive, Node.js, folder structure). Registers the server globally after install.
-- **Ready:** Shows full ADO tools (`/ado-testforge/get_user_story`, `/ado-testforge/draft_test_cases`, etc.)
+### Configuring Credentials
 
-### Running Setup
+Open the credentials file and fill in:
 
-1. Type `/ado-testforge/install` in Cursor's AI chat
-2. The installer will:
-   - Check prerequisites (Google Drive app, Node.js v18+, folder structure)
-   - Create `~/.ado-testforge-mcp/credentials.json` with a template
-   - Register `ado-testforge` globally in `~/.cursor/mcp.json`
-3. Open the credentials file and fill in:
-   - `ado_pat`: Your Azure DevOps Personal Access Token
-   - `ado_org`: Organization name (from `https://dev.azure.com/{org}`)
-   - `ado_project`: Project name
-   - Confluence fields are optional
-4. Save the file and restart the `ado-testforge` MCP server in Cursor Settings > MCP
+* `ado_pat`: Your Azure DevOps Personal Access Token
+* `ado_org`: Organization name (from `https://dev.azure.com/{org}`)
+* `ado_project`: Project name
+* Confluence fields are optional
+
+Save the file and restart Cursor (or refresh MCP in Cursor Settings > MCP).
 
 ### Credential Storage
 
-Credentials are stored per-user at `~/.ado-testforge-mcp/credentials.json` (your home directory). They are **never stored in the shared project folder** and never appear in chat. This ensures PATs stay private even when the project is shared via Google Drive.
+Credentials are stored per\-user at `~/.ado-testforge-mcp/credentials.json` (your home directory). They are **never shared** and never appear in chat.
 
 ### Checking Status
 

@@ -700,7 +700,7 @@ Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-
 
 **Draft Test Cases Skill:** `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` defines an implementation-generic QA architect methodology: analyze US + Confluence Solution Design, extract business behavior (not implementation), derive project-specific terminology from the source material, validate coverage matrix (scope/config variations, trigger fields, status scenarios, configuration logic, backward compatibility), add Functionality Process Flow and Test Coverage Insights at draft start, and generate complete test cases.
 
-**Distribution packaging:** `build-dist.mjs` copies the full `.cursor/skills` directory tree into `dist-package`, including nested assets inside skill folders, so deployed skills remain complete in the Google Drive distribution.
+**Distribution packaging:** `build-dist.mjs` copies the full `.cursor/skills` directory tree into `dist-package`, including nested assets inside skill folders, so deployed skills remain complete.
 
 **Update Prerequisites Skill:** `.cursor/skills/update-test-case-prerequisites/SKILL.md` guides updating test case prerequisites via `update_test_case`: always pass structured `{ personas?, preConditions, testData }`, source from draft (not ADO HTML), restart MCP after formatting changes.
 

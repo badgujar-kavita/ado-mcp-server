@@ -176,9 +176,9 @@ chmod +x .cursor/hooks/version-check.sh
 
 ### 4. Test the Hook
 
-1. Deploy new version to Google Drive
-2. Users' folders sync automatically
-3. Next time they start a Cursor session in a workspace with the MCP folder open, they see:
+1. Push new version to GitHub
+2. Users update by re\-running the curl installer
+3. Next time they start a Cursor session, they see:
 
 ```
 🎉 ADO TestForge MCP Updated to v1.1.0
@@ -281,13 +281,16 @@ Status: ✓ Ready
 
 When a new version is deployed:
 
-1. **Automatic Sync** — Google Drive syncs the updated `dist-package/` folder to all users
-2. **Status Check Notification** — The next `/ado-testforge/check_status` run shows a one-time "What's New" summary for the new version
+1. **User Updates** — Re\-run the curl installer:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+   ```
+2. **Status Check Notification** — The next `/ado-testforge/check_status` run shows a one\-time "What's New" summary for the new version
 3. **User Action** — User can:
-   - Continue working (no action needed, backward-compatible)
-   - Run `/ado-testforge/check_status` to see "What's New" details
-   - Read `docs/changelog.md` for full changes
-4. **MCP Refresh** — If needed, refresh MCP in Settings → MCP (rare, only for breaking changes)
+   * Continue working (no action needed, backward\-compatible)
+   * Run `/ado-testforge/check_status` to see "What's New" details
+   * Read `docs/changelog.md` for full changes
+4. **MCP Refresh** — Restart Cursor or refresh MCP in Settings → MCP
 
 ---
 
