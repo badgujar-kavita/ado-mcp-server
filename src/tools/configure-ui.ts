@@ -970,17 +970,6 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       color: var(--accent);
     }
 
-    .copyright .heart {
-      display: inline-block;
-      color: var(--accent);
-      animation: heartbeat 1.5s ease infinite;
-    }
-
-    @keyframes heartbeat {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.2); }
-    }
-
     /* Responsive */
     @media (max-width: 640px) {
       .container {
@@ -1142,8 +1131,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     </div>
 
     <div class="copyright">
-      Made with <span class="heart">&#10084;</span> by <a href="#">Kavita Badgujar</a><br>
-      &copy; ${currentYear} ADO TestForge MCP. All rights reserved.
+      &copy; ${currentYear} ADO TestForge MCP by <a href="#">Kavita Badgujar</a>. All rights reserved.
     </div>
   </div>
 
