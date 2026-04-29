@@ -1,6 +1,19 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export function registerAllPrompts(server: McpServer) {
+  server.registerPrompt("configure", {
+    title: "Configure Credentials",
+    description: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing",
+  }, async () => ({
+    messages: [{
+      role: "user" as const,
+      content: {
+        type: "text" as const,
+        text: "Launch the configuration UI using the configure tool. This opens a web interface where I can enter my Azure DevOps and Confluence credentials, test the connections, and save them securely.",
+      },
+    }],
+  }));
+
   server.registerPrompt("check_status", {
     title: "Check Setup Status",
     description: "Check if the ADO TestForge MCP server is fully configured",
