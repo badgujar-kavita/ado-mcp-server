@@ -358,10 +358,16 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
     /* Container */
     .container {
-      max-width: 680px;
+      max-width: 620px;
       margin: 0 auto;
-      padding: 2rem;
+      padding: 1.25rem 1.5rem;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-content {
+      flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -370,7 +376,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     /* Header */
     .header {
       text-align: center;
-      margin-bottom: 2.5rem;
+      margin-bottom: 1.25rem;
       animation: fadeInDown 0.8s ease;
     }
 
@@ -382,21 +388,21 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     .logo-container {
       position: relative;
       display: inline-block;
-      margin-bottom: 1.75rem;
+      margin-bottom: 1rem;
     }
 
     .logo {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 88px;
-      height: 88px;
+      width: 72px;
+      height: 72px;
       background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 50%, var(--accent) 100%);
-      border-radius: 24px;
+      border-radius: 20px;
       position: relative;
       box-shadow: 
-        0 0 60px var(--primary-glow),
-        0 20px 40px rgba(0, 0, 0, 0.3),
+        0 0 40px var(--primary-glow),
+        0 15px 30px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
       animation: logoFloat 4s ease-in-out infinite;
       z-index: 1;
@@ -432,8 +438,8 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     }
 
     .logo svg {
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
       color: white;
       filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
     }
@@ -464,19 +470,19 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     }
 
     h1 {
-      font-size: 2.25rem;
+      font-size: 1.875rem;
       font-weight: 800;
       background: linear-gradient(135deg, var(--text-bright) 0%, var(--primary-light) 50%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
       letter-spacing: -0.02em;
     }
 
     .subtitle {
       color: var(--text-muted);
-      font-size: 1.05rem;
+      font-size: 0.95rem;
       font-weight: 400;
     }
 
@@ -490,9 +496,9 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2rem;
-      margin-bottom: 1.25rem;
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 0.875rem;
       position: relative;
       overflow: hidden;
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -544,20 +550,21 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     .card-header {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
     }
 
     .card-icon {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
       background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      border-radius: 14px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
-      box-shadow: 0 8px 20px var(--primary-glow);
+      box-shadow: 0 6px 16px var(--primary-glow);
+      flex-shrink: 0;
     }
 
     .card-icon::before {
@@ -569,20 +576,20 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     }
 
     .card-icon svg {
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       color: white;
     }
 
     .card-title {
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       font-weight: 700;
       color: var(--text-bright);
     }
 
     .card-badge {
       margin-left: auto;
-      padding: 0.35rem 1rem;
+      padding: 0.25rem 0.75rem;
       border-radius: 20px;
       font-size: 0.7rem;
       font-weight: 600;
@@ -604,15 +611,15 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
     /* Form */
     .form-group {
-      margin-bottom: 1.25rem;
+      margin-bottom: 0.875rem;
     }
 
     label {
       display: block;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       font-weight: 500;
       color: var(--text-muted);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.375rem;
       transition: color 0.2s ease;
     }
 
@@ -622,10 +629,10 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
     input {
       width: 100%;
-      padding: 1rem 1.25rem;
+      padding: 0.75rem 1rem;
       background: var(--bg-input);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 10px;
       color: var(--text);
       font-size: 0.95rem;
       font-family: inherit;
@@ -655,9 +662,9 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      padding: 0.875rem 1.5rem;
-      border-radius: 12px;
-      font-size: 0.95rem;
+      padding: 0.625rem 1.25rem;
+      border-radius: 10px;
+      font-size: 0.875rem;
       font-weight: 600;
       font-family: inherit;
       cursor: pointer;
@@ -731,7 +738,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     .btn-row {
       display: flex;
       gap: 0.75rem;
-      margin-top: 1.25rem;
+      margin-top: 0.875rem;
     }
 
     /* Status indicators */
@@ -794,7 +801,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
     /* Footer with save button */
     .footer {
-      margin-top: 2rem;
+      margin-top: 1.25rem;
       display: flex;
       justify-content: center;
       animation: fadeInUp 0.6s ease 0.3s forwards;
@@ -807,10 +814,10 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     }
 
     .btn-save {
-      min-width: 240px;
-      padding: 1.125rem 2.5rem;
-      font-size: 1.05rem;
-      border-radius: 14px;
+      min-width: 220px;
+      padding: 0.875rem 2rem;
+      font-size: 0.95rem;
+      border-radius: 12px;
     }
 
     /* Collapsible */
@@ -937,14 +944,16 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       font-size: 1.05rem;
     }
 
-    /* Copyright footer */
+    /* Copyright footer - sticky at bottom */
     .copyright {
       text-align: center;
-      padding: 2rem 0 1rem;
+      padding: 1rem 0 0.75rem;
       color: var(--text-dim);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       animation: fadeIn 0.6s ease 0.5s forwards;
       opacity: 0;
+      margin-top: auto;
+      flex-shrink: 0;
     }
 
     @keyframes fadeIn {
@@ -1013,6 +1022,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
   <div class="particles" id="particles"></div>
 
   <div class="container">
+    <div class="main-content">
     <div class="header">
       <div class="logo-container">
         <div class="logo-rings"></div>
@@ -1129,6 +1139,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
         Save Configuration
       </button>
     </div>
+    </div>
 
     <div class="copyright">
       Made with <span class="heart">&#10084;</span> by <a href="#">Kavita Badgujar</a><br>
@@ -1146,7 +1157,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       </div>
       <h2 class="success-title">Configuration Saved!</h2>
       <p class="success-message">Restart Cursor IDE to apply changes</p>
-      <button type="button" class="btn btn-success" onclick="window.close()">
+      <button type="button" class="btn btn-success" onclick="closeAndShutdown()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 6L6 18M6 6l12 12"/>
         </svg>
@@ -1314,6 +1325,15 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
         btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Configuration';
       }
     }
+
+    async function closeAndShutdown() {
+      try {
+        await fetch('/api/shutdown', { method: 'POST' });
+      } catch (e) {
+        // Server may already be closing, ignore errors
+      }
+      window.close();
+    }
   </script>
 </body>
 </html>`;
@@ -1349,7 +1369,9 @@ function openBrowser(url: string): void {
 
 export async function startConfigServer(): Promise<{ port: number; close: () => void }> {
   return new Promise((resolve, reject) => {
-    const server = createServer(async (req, res) => {
+    let serverInstance: ReturnType<typeof createServer>;
+    
+    serverInstance = createServer(async (req, res) => {
       const url = req.url || "/";
       const method = req.method || "GET";
 
@@ -1380,6 +1402,10 @@ export async function startConfigServer(): Promise<{ port: number; close: () => 
           const body = JSON.parse(await parseBody(req)) as Credentials;
           saveCredentials(body);
           sendJson(res, { success: true, message: "Credentials saved" });
+        } else if (url === "/api/shutdown" && method === "POST") {
+          sendJson(res, { success: true, message: "Server shutting down" });
+          // Close server after response is sent
+          setTimeout(() => serverInstance.close(), 100);
         } else {
           res.writeHead(404);
           res.end("Not found");
@@ -1390,20 +1416,20 @@ export async function startConfigServer(): Promise<{ port: number; close: () => 
     });
 
     // Find available port
-    server.listen(0, "127.0.0.1", () => {
-      const addr = server.address();
+    serverInstance.listen(0, "127.0.0.1", () => {
+      const addr = serverInstance.address();
       if (addr && typeof addr === "object") {
         const port = addr.port;
         resolve({
           port,
-          close: () => server.close(),
+          close: () => serverInstance.close(),
         });
       } else {
         reject(new Error("Failed to get server address"));
       }
     });
 
-    server.on("error", reject);
+    serverInstance.on("error", reject);
   });
 }
 
