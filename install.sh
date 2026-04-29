@@ -108,8 +108,11 @@ if [ "$IS_UPGRADE" = true ]; then
     # Check if existing folder is a git repo
     if [ -d "$INSTALL_DIR/.git" ]; then
         print_section "📥 Fetching Updates"
-        print_tree_item "Pulling latest changes..."
+        print_tree_item "Resetting local changes..."
         cd "$INSTALL_DIR"
+        git reset --hard --quiet
+        git clean -fd --quiet
+        print_tree_item "Pulling latest changes..."
         git pull --quiet
         print_tree_last "$(print_success "Source code updated")"
     else
