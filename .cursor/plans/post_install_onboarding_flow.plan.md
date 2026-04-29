@@ -4,28 +4,28 @@ overview: A concise, user-friendly welcome experience that introduces ADO TestFo
 todos:
   - id: first-run-detection
     content: Add first-run detection via flag file (.ado-testforge-initialized) or conventions.config.json field
-    status: in_progress
+    status: completed
   - id: welcome-message
     content: Implement state-aware welcome message in check_setup_status output (conditional on Confluence/ADO setup)
-    status: pending
+    status: completed
   - id: quick-start-cta
     content: Add quick-start call-to-action to welcome message with example command
-    status: pending
+    status: completed
   - id: version-tracking
     content: Add version number to welcome header and support version-aware updates
-    status: pending
+    status: completed
   - id: reliability-best-practices
     content: Add Reliability section to Best Practices
-    status: pending
+    status: completed
   - id: update-setup-guide
     content: Update docs/setup-guide.md to reference welcome experience and first-run flow
-    status: pending
+    status: completed
   - id: confluence-silent-skip
     content: Ensure Confluence missing config or errors are silently skipped — no exceptions thrown, no warnings shown to user, core ADO flow unaffected
-    status: pending
+    status: completed
   - id: deploy
     content: Run npm run deploy after changes with rollback note
-    status: pending
+    status: completed
 isProject: true
 ---
 
