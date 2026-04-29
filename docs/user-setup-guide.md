@@ -66,6 +66,18 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
 
 ### Step 2: Configure Your Credentials
 
+**Option A: Use the Configuration UI (Recommended)**
+
+After restarting Cursor, run this in the AI chat:
+
+```
+/ado-testforge/configure
+```
+
+This opens a web interface where you can enter credentials and **test connections before saving**.
+
+**Option B: Edit Manually**
+
 1. Open the credentials file:
 
    **Mac:**
@@ -88,7 +100,7 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
 
 3. **Save the file.**
 
-> **Important:** Never paste your PAT in Cursor's chat. Edit the file directly. Your credentials stay on your machine and are never shared.
+> **Important:** Never paste your PAT in Cursor's chat. Your credentials stay on your machine and are never shared.
 
 **Optional fields** (leave empty if not used):
 

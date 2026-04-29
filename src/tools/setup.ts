@@ -10,6 +10,7 @@ import {
 import { dirname, join } from "path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { getCurrentVersion, getLatestChangelogHighlights, isNewerVersion } from "../version.ts";
+import { launchConfigUI } from "./configure-ui.ts";
 
 const INITIALIZED_FLAG = ".ado-testforge-initialized";
 
@@ -165,8 +166,47 @@ function appendReadyStatus(lines: string[], version: string, creds: Credentials,
 
 export function registerSetupTools(server: McpServer) {
   server.tool(
+    "configure",
+    "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing. This is the recommended way to set up your credentials.",
+    {},
+    async () => {
+      try {
+        const url = await launchConfigUI();
+        return {
+          content: [{
+            type: "text" as const,
+            text: [
+              "🚀 Configuration UI launched!",
+              "",
+              `Opening in your browser: ${url}`,
+              "",
+              "In the configuration UI you can:",
+              "• Enter your Azure DevOps credentials (PAT, Organization, Project)",
+              "• Optionally configure Confluence integration",
+              "• Test connections before saving",
+              "• Save credentials securely to ~/.ado-testforge-mcp/credentials.json",
+              "",
+              "After saving, restart Cursor to apply the changes.",
+              "",
+              "💡 The server will automatically close after 10 minutes of inactivity.",
+            ].join("\n"),
+          }],
+        };
+      } catch (err) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Failed to launch configuration UI: ${err}`,
+          }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
     "setup_credentials",
-    "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat.",
+    "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /ado-testforge/configure instead.",
     {},
     async () => {
       const credPath = createCredentialsTemplate();
@@ -176,7 +216,7 @@ export function registerSetupTools(server: McpServer) {
         return {
           content: [{
             type: "text" as const,
-            text: `Credentials are already configured at: ${credPath}\n\nTo update them, edit the file directly.`,
+            text: `Credentials are already configured at: ${credPath}\n\nTo update them, edit the file directly or use /ado-testforge/configure for a guided setup.`,
           }],
         };
       }
@@ -195,6 +235,8 @@ export function registerSetupTools(server: McpServer) {
             "Confluence fields are optional -- leave empty if not needed.",
             "",
             "After saving the file, restart the MCP server in Cursor Settings > MCP.",
+            "",
+            "💡 Tip: Use /ado-testforge/configure for a guided setup with connection testing.",
           ].join("\n"),
         }],
       };

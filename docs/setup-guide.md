@@ -110,9 +110,26 @@ This is only relevant for production/shared deployments. For individual use, PAT
 
 ## Step 2: Configure Your Credentials
 
-The installer created a template file. Now you need to fill in your actual values.
+### Option A: Use the Configuration UI (Recommended)
 
-1. Open the credentials file in your editor:
+After restarting Cursor, run this command in the AI chat:
+
+```
+/ado-testforge/configure
+```
+
+This opens a beautiful web interface where you can:
+
+* Enter your Azure DevOps credentials
+* Optionally configure Confluence
+* **Test connections before saving**
+* Save credentials securely
+
+### Option B: Edit Manually
+
+If you prefer to edit the file directly:
+
+1. Open the credentials file:
 
 **Mac:**
 
@@ -151,7 +168,7 @@ The Confluence fields are **optional** \-\- leave them empty if you don't use Co
 
 4. **Save the file**
 
-**Important:** Never paste your PAT in Cursor's chat. Always edit the file directly in your editor. Your credentials are stored locally and are never shared.
+**Important:** Never paste your PAT in Cursor's chat. Your credentials are stored locally and are never shared.
 
 ---
 

@@ -240,6 +240,12 @@ if [ "$CREDS_CREATED" = true ]; then
     print_divider
     echo ""
     echo -e "  ${YELLOW}${BOLD}⚠  Configure Credentials${NC}"
+    echo ""
+    echo -e "  ${BOLD}Option 1: Use the Configuration UI ${DIM}(Recommended)${NC}"
+    echo -e "  ${DIM}└──${NC} Run ${CYAN}/ado-testforge/configure${NC} in Cursor's AI chat"
+    echo -e "  ${DIM}   Opens a beautiful web UI with connection testing${NC}"
+    echo ""
+    echo -e "  ${BOLD}Option 2: Edit manually${NC}"
     echo -e "  ${DIM}└──${NC} Edit: ${CYAN}${CREDS_FILE}${NC}"
     echo ""
     echo -e "  ${DIM}Required fields:${NC}"
