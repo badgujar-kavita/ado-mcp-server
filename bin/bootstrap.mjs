@@ -493,8 +493,14 @@ function runInstallerServer() {
 
 // ── Entry point ──
 
-if (isReady()) {
-  launchFullServer();
-} else {
-  runInstallerServer();
-}
+// MODIFIED: Always launch full server so all tools are visible after installation.
+// Credentials check should happen at runtime (when tool is called), not at startup.
+// This allows users to see available tools even before configuring credentials.
+launchFullServer();
+
+// ORIGINAL CODE (commented out for reference):
+// if (isReady()) {
+//   launchFullServer();
+// } else {
+//   runInstallerServer();
+// }
