@@ -74,30 +74,92 @@ async function testAdoConnection(pat: string, org: string, project: string): Pro
   }
 }
 
+/** Extract site host from base URL, e.g. your-org.atlassian.net from https://your-org.atlassian.net/wiki */
+function extractSiteHost(baseUrl: string): string | null {
+  try {
+    const u = new URL(baseUrl);
+    return u.hostname;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch cloud ID from tenant_info (no auth required) */
+async function fetchCloudId(siteHost: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://${siteHost}/_edge/tenant_info`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { cloudId?: string };
+    return data.cloudId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function testConfluenceConnection(baseUrl: string, email: string, apiToken: string): Promise<{ success: boolean; message: string; details?: string }> {
   try {
     const cleanUrl = baseUrl.replace(/\/+$/, "");
     const authHeader = `Basic ${Buffer.from(email + ":" + apiToken).toString("base64")}`;
-    const url = `${cleanUrl}/rest/api/space?limit=1`;
     
-    const response = await fetch(url, {
+    // Try the user/current endpoint first (simpler, works with most tokens)
+    const userUrl = `${cleanUrl}/rest/api/user/current`;
+    const userResponse = await fetch(userUrl, {
       headers: {
         Authorization: authHeader,
         Accept: "application/json",
       },
     });
 
-    if (response.ok) {
-      const data = await response.json() as { results?: Array<{ name: string }> };
+    if (userResponse.ok) {
+      const data = await userResponse.json() as { displayName?: string; username?: string };
+      const userName = data.displayName || data.username || "User verified";
+      return { success: true, message: "Connected successfully!", details: `User: ${userName}` };
+    }
+
+    // If user endpoint fails, try space list
+    const spaceUrl = `${cleanUrl}/rest/api/space?limit=1`;
+    const spaceResponse = await fetch(spaceUrl, {
+      headers: {
+        Authorization: authHeader,
+        Accept: "application/json",
+      },
+    });
+
+    if (spaceResponse.ok) {
+      const data = await spaceResponse.json() as { results?: Array<{ name: string }> };
       const spaceName = data.results?.[0]?.name || "Spaces accessible";
       return { success: true, message: "Connected successfully!", details: spaceName };
     }
 
-    if (response.status === 401) {
-      return { success: false, message: "Authentication failed", details: "Check email and API token" };
+    // If 401, try the Atlassian Cloud API fallback (for scoped API tokens)
+    if (userResponse.status === 401 || spaceResponse.status === 401) {
+      const siteHost = extractSiteHost(cleanUrl);
+      if (siteHost && siteHost.includes("atlassian.net")) {
+        const cloudId = await fetchCloudId(siteHost);
+        if (cloudId) {
+          const cloudUrl = `https://api.atlassian.com/ex/confluence/${cloudId}/rest/api/user/current`;
+          const cloudResponse = await fetch(cloudUrl, {
+            headers: {
+              Authorization: authHeader,
+              Accept: "application/json",
+            },
+          });
+
+          if (cloudResponse.ok) {
+            const data = await cloudResponse.json() as { displayName?: string };
+            return { success: true, message: "Connected via Cloud API!", details: data.displayName || "User verified" };
+          }
+        }
+      }
+      return { 
+        success: false, 
+        message: "Authentication failed", 
+        details: "Check: (1) Email matches your Atlassian account, (2) API token is valid (create new at id.atlassian.com/manage-profile/security/api-tokens), (3) Base URL format: https://yoursite.atlassian.net/wiki" 
+      };
     }
 
-    return { success: false, message: `Error (${response.status})`, details: await response.text() };
+    const errorBody = await spaceResponse.text().catch(() => "");
+    return { success: false, message: `Error (${spaceResponse.status})`, details: errorBody || "Unknown error" };
   } catch (err) {
     return { success: false, message: "Connection failed", details: String(err) };
   }
@@ -121,12 +183,16 @@ function saveCredentials(creds: Credentials): void {
 }
 
 function getHtmlContent(existingCreds: Partial<Credentials>): string {
+  const currentYear = new Date().getFullYear();
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ADO TestForge MCP - Configure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -135,19 +201,31 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     }
 
     :root {
-      --primary: #6366f1;
-      --primary-dark: #4f46e5;
-      --primary-light: #818cf8;
+      --primary: #8b5cf6;
+      --primary-dark: #7c3aed;
+      --primary-light: #a78bfa;
+      --primary-glow: rgba(139, 92, 246, 0.5);
+      --secondary: #06b6d4;
+      --secondary-dark: #0891b2;
+      --accent: #f472b6;
+      --accent-glow: rgba(244, 114, 182, 0.4);
       --success: #10b981;
-      --error: #ef4444;
+      --success-glow: rgba(16, 185, 129, 0.4);
+      --error: #f43f5e;
+      --error-glow: rgba(244, 63, 94, 0.4);
       --warning: #f59e0b;
-      --bg-dark: #0f0f23;
-      --bg-card: #1a1a2e;
-      --bg-input: #16162a;
-      --text: #e2e8f0;
+      --bg-dark: #030712;
+      --bg-darker: #000000;
+      --bg-card: rgba(15, 23, 42, 0.6);
+      --bg-card-hover: rgba(30, 41, 59, 0.7);
+      --bg-input: rgba(15, 23, 42, 0.8);
+      --text: #f1f5f9;
+      --text-bright: #ffffff;
       --text-muted: #94a3b8;
-      --border: #334155;
-      --glow: rgba(99, 102, 241, 0.4);
+      --text-dim: #64748b;
+      --border: rgba(148, 163, 184, 0.15);
+      --border-hover: rgba(139, 92, 246, 0.5);
+      --glass: rgba(255, 255, 255, 0.03);
     }
 
     body {
@@ -156,45 +234,76 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
+      line-height: 1.6;
     }
 
-    /* Animated background */
+    /* Stunning animated background */
     .bg-animation {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: -1;
+      z-index: -2;
       overflow: hidden;
+      background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.15), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(6, 182, 212, 0.1), transparent),
+        radial-gradient(ellipse 50% 30% at 0% 100%, rgba(244, 114, 182, 0.08), transparent),
+        var(--bg-dark);
     }
 
-    .bg-animation::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
-      animation: pulse 8s ease-in-out infinite;
-    }
-
-    .bg-animation::after {
-      content: '';
-      position: absolute;
+    /* Animated mesh gradient */
+    .mesh-gradient {
+      position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: 
-        radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
-        radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+      z-index: -1;
+      opacity: 0.4;
+      filter: blur(100px);
     }
 
-    @keyframes pulse {
-      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.5; }
-      50% { transform: scale(1.1) rotate(5deg); opacity: 0.8; }
+    .mesh-gradient .blob {
+      position: absolute;
+      border-radius: 50%;
+      animation: blobMove 20s ease-in-out infinite;
+    }
+
+    .mesh-gradient .blob-1 {
+      width: 600px;
+      height: 600px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      top: -200px;
+      left: -100px;
+      animation-delay: 0s;
+    }
+
+    .mesh-gradient .blob-2 {
+      width: 500px;
+      height: 500px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
+      bottom: -150px;
+      right: -100px;
+      animation-delay: -5s;
+    }
+
+    .mesh-gradient .blob-3 {
+      width: 400px;
+      height: 400px;
+      background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation-delay: -10s;
+    }
+
+    @keyframes blobMove {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(50px, -30px) scale(1.05); }
+      50% { transform: translate(-20px, 40px) scale(0.95); }
+      75% { transform: translate(30px, 20px) scale(1.02); }
     }
 
     /* Floating particles */
@@ -210,24 +319,46 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
     .particle {
       position: absolute;
-      width: 4px;
-      height: 4px;
-      background: var(--primary-light);
       border-radius: 50%;
-      opacity: 0.3;
-      animation: float 15s infinite;
+      opacity: 0;
+      animation: particleFloat 20s infinite;
     }
 
-    @keyframes float {
-      0%, 100% { transform: translateY(100vh) scale(0); opacity: 0; }
-      10% { opacity: 0.3; }
-      90% { opacity: 0.3; }
-      100% { transform: translateY(-100vh) scale(1); opacity: 0; }
+    .particle-glow {
+      box-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+    }
+
+    @keyframes particleFloat {
+      0% { 
+        transform: translateY(100vh) translateX(0) scale(0);
+        opacity: 0;
+      }
+      5% { opacity: 0.6; transform: translateY(90vh) translateX(10px) scale(1); }
+      95% { opacity: 0.6; }
+      100% { 
+        transform: translateY(-20vh) translateX(-10px) scale(0.5);
+        opacity: 0;
+      }
+    }
+
+    /* Grid lines */
+    .grid-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background-image: 
+        linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black, transparent);
     }
 
     /* Container */
     .container {
-      max-width: 640px;
+      max-width: 680px;
       margin: 0 auto;
       padding: 2rem;
       min-height: 100vh;
@@ -239,74 +370,142 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     /* Header */
     .header {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 2.5rem;
+      animation: fadeInDown 0.8s ease;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-container {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 1.75rem;
     }
 
     .logo {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
-      width: 72px;
-      height: 72px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      border-radius: 20px;
-      margin-bottom: 1.5rem;
+      width: 88px;
+      height: 88px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 50%, var(--accent) 100%);
+      border-radius: 24px;
       position: relative;
-      box-shadow: 0 0 40px var(--glow);
-      animation: logoFloat 3s ease-in-out infinite;
+      box-shadow: 
+        0 0 60px var(--primary-glow),
+        0 20px 40px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      animation: logoFloat 4s ease-in-out infinite;
+      z-index: 1;
     }
 
-    @keyframes logoFloat {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
-    }
-
-    .logo svg {
-      width: 40px;
-      height: 40px;
-      color: white;
+    .logo::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      background: linear-gradient(135deg, var(--primary-light), var(--accent), var(--secondary), var(--primary));
+      border-radius: 26px;
+      z-index: -1;
+      animation: borderRotate 6s linear infinite;
+      opacity: 0.7;
     }
 
     .logo::after {
       content: '';
       position: absolute;
-      inset: -2px;
-      background: linear-gradient(135deg, var(--primary-light), transparent, var(--primary));
-      border-radius: 22px;
-      z-index: -1;
-      animation: rotate 4s linear infinite;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+      border-radius: 24px;
     }
 
-    @keyframes rotate {
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-12px) rotate(2deg); }
+    }
+
+    @keyframes borderRotate {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
 
+    .logo svg {
+      width: 44px;
+      height: 44px;
+      color: white;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+
+    .logo-rings {
+      position: absolute;
+      inset: -20px;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 50%;
+      animation: ringPulse 3s ease-in-out infinite;
+    }
+
+    .logo-rings:nth-child(2) {
+      inset: -35px;
+      animation-delay: 0.5s;
+      border-color: rgba(139, 92, 246, 0.15);
+    }
+
+    .logo-rings:nth-child(3) {
+      inset: -50px;
+      animation-delay: 1s;
+      border-color: rgba(139, 92, 246, 0.1);
+    }
+
+    @keyframes ringPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.5; }
+    }
+
     h1 {
-      font-size: 1.875rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--text) 0%, var(--primary-light) 100%);
+      font-size: 2.25rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--text-bright) 0%, var(--primary-light) 50%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
     }
 
     .subtitle {
       color: var(--text-muted);
-      font-size: 0.95rem;
+      font-size: 1.05rem;
+      font-weight: 400;
+    }
+
+    .subtitle span {
+      color: var(--primary-light);
     }
 
     /* Card */
     .card {
       background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.75rem;
-      margin-bottom: 1rem;
+      border-radius: 20px;
+      padding: 2rem;
+      margin-bottom: 1.25rem;
       position: relative;
       overflow: hidden;
-      transition: all 0.3s ease;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: cardFadeIn 0.6s ease forwards;
+      opacity: 0;
+    }
+
+    .card:nth-child(1) { animation-delay: 0.1s; }
+    .card:nth-child(2) { animation-delay: 0.2s; }
+
+    @keyframes cardFadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .card::before {
@@ -315,10 +514,27 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       top: 0;
       left: 0;
       right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--primary), var(--primary-light), var(--primary));
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary-light), var(--accent), transparent);
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.4s ease;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--glass) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .card:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+      transform: translateY(-4px);
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.3),
+        0 0 40px var(--primary-glow);
     }
 
     .card:hover::before {
@@ -328,54 +544,67 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     .card-header {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
     }
 
     .card-icon {
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
       background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      border-radius: 10px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      box-shadow: 0 8px 20px var(--primary-glow);
+    }
+
+    .card-icon::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%);
+      border-radius: 14px;
     }
 
     .card-icon svg {
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       color: white;
     }
 
     .card-title {
-      font-size: 1.125rem;
-      font-weight: 600;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-bright);
     }
 
     .card-badge {
       margin-left: auto;
-      padding: 0.25rem 0.75rem;
+      padding: 0.35rem 1rem;
       border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 500;
+      font-size: 0.7rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
     }
 
     .badge-required {
-      background: rgba(99, 102, 241, 0.15);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(244, 114, 182, 0.2));
       color: var(--primary-light);
+      border: 1px solid rgba(139, 92, 246, 0.3);
     }
 
     .badge-optional {
-      background: rgba(148, 163, 184, 0.15);
+      background: rgba(148, 163, 184, 0.1);
       color: var(--text-muted);
+      border: 1px solid rgba(148, 163, 184, 0.2);
     }
 
     /* Form */
     .form-group {
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
     }
 
     label {
@@ -384,28 +613,40 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       font-weight: 500;
       color: var(--text-muted);
       margin-bottom: 0.5rem;
+      transition: color 0.2s ease;
+    }
+
+    .form-group:focus-within label {
+      color: var(--primary-light);
     }
 
     input {
       width: 100%;
-      padding: 0.875rem 1rem;
+      padding: 1rem 1.25rem;
       background: var(--bg-input);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 12px;
       color: var(--text);
       font-size: 0.95rem;
-      transition: all 0.2s ease;
+      font-family: inherit;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    input:hover {
+      border-color: rgba(139, 92, 246, 0.3);
     }
 
     input:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--glow);
+      box-shadow: 
+        0 0 0 4px var(--primary-glow),
+        0 4px 20px rgba(0, 0, 0, 0.2);
+      background: rgba(15, 23, 42, 0.9);
     }
 
     input::placeholder {
-      color: var(--text-muted);
-      opacity: 0.6;
+      color: var(--text-dim);
     }
 
     /* Buttons */
@@ -415,43 +656,70 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       justify-content: center;
       gap: 0.5rem;
       padding: 0.875rem 1.5rem;
-      border-radius: 10px;
+      border-radius: 12px;
       font-size: 0.95rem;
       font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       border: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .btn:hover::before {
+      opacity: 1;
     }
 
     .btn-primary {
       background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
       color: white;
-      box-shadow: 0 4px 15px var(--glow);
+      box-shadow: 
+        0 8px 25px var(--primary-glow),
+        0 2px 10px rgba(0, 0, 0, 0.2);
     }
 
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px var(--glow);
+      transform: translateY(-3px);
+      box-shadow: 
+        0 15px 35px var(--primary-glow),
+        0 5px 15px rgba(0, 0, 0, 0.3);
     }
 
     .btn-primary:active {
-      transform: translateY(0);
+      transform: translateY(-1px);
     }
 
     .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: var(--primary-light);
     }
 
     .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(139, 92, 246, 0.2);
       border-color: var(--primary);
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.2);
     }
 
     .btn-success {
       background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
       color: white;
+      box-shadow: 0 8px 25px var(--success-glow);
+    }
+
+    .btn-success:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 35px var(--success-glow);
     }
 
     .btn:disabled {
@@ -463,48 +731,49 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     .btn-row {
       display: flex;
       gap: 0.75rem;
-      margin-top: 1rem;
+      margin-top: 1.25rem;
     }
 
     /* Status indicators */
     .status {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      border-radius: 10px;
-      margin-top: 1rem;
-      font-size: 0.875rem;
-      animation: slideIn 0.3s ease;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      border-radius: 14px;
+      margin-top: 1.25rem;
+      font-size: 0.9rem;
+      animation: statusSlide 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
+    @keyframes statusSlide {
+      from { opacity: 0; transform: translateY(-15px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .status-success {
-      background: rgba(16, 185, 129, 0.15);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
       border: 1px solid rgba(16, 185, 129, 0.3);
       color: var(--success);
     }
 
     .status-error {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.3);
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.15), rgba(244, 63, 94, 0.05));
+      border: 1px solid rgba(244, 63, 94, 0.3);
       color: var(--error);
     }
 
     .status-loading {
-      background: rgba(99, 102, 241, 0.15);
-      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05));
+      border: 1px solid rgba(139, 92, 246, 0.3);
       color: var(--primary-light);
     }
 
     .status-icon {
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
       flex-shrink: 0;
+      margin-top: 1px;
     }
 
     .spinner {
@@ -519,20 +788,29 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     .status-details {
       color: var(--text-muted);
       font-size: 0.8rem;
-      margin-top: 0.25rem;
+      margin-top: 0.35rem;
+      line-height: 1.5;
     }
 
-    /* Footer */
+    /* Footer with save button */
     .footer {
-      margin-top: 1.5rem;
+      margin-top: 2rem;
       display: flex;
       justify-content: center;
+      animation: fadeInUp 0.6s ease 0.3s forwards;
+      opacity: 0;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .btn-save {
-      min-width: 200px;
-      padding: 1rem 2rem;
-      font-size: 1rem;
+      min-width: 240px;
+      padding: 1.125rem 2.5rem;
+      font-size: 1.05rem;
+      border-radius: 14px;
     }
 
     /* Collapsible */
@@ -541,42 +819,49 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       align-items: center;
       cursor: pointer;
       user-select: none;
+      transition: all 0.2s ease;
     }
 
-    .collapsible-header svg {
-      width: 20px;
-      height: 20px;
+    .collapsible-header:hover .card-title {
+      color: var(--primary-light);
+    }
+
+    .collapsible-header .chevron {
+      width: 22px;
+      height: 22px;
       color: var(--text-muted);
-      transition: transform 0.2s ease;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       margin-left: auto;
     }
 
-    .collapsible-header.open svg {
+    .collapsible-header.open .chevron {
       transform: rotate(180deg);
+      color: var(--primary-light);
     }
 
     .collapsible-content {
       max-height: 0;
       overflow: hidden;
-      transition: max-height 0.3s ease;
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .collapsible-content.open {
-      max-height: 500px;
+      max-height: 600px;
     }
 
     /* Success overlay */
     .success-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 15, 35, 0.95);
+      background: rgba(3, 7, 18, 0.97);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 100;
       opacity: 0;
       visibility: hidden;
-      transition: all 0.3s ease;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
     }
 
     .success-overlay.show {
@@ -586,81 +871,163 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
     .success-content {
       text-align: center;
-      animation: scaleIn 0.5s ease;
+      animation: successPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    @keyframes scaleIn {
-      from { transform: scale(0.8); opacity: 0; }
+    @keyframes successPop {
+      from { transform: scale(0.5); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
     }
 
     .success-icon {
-      width: 100px;
-      height: 100px;
+      width: 120px;
+      height: 120px;
       background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 1.5rem;
-      box-shadow: 0 0 60px rgba(16, 185, 129, 0.4);
+      margin: 0 auto 2rem;
+      box-shadow: 
+        0 0 80px var(--success-glow),
+        0 20px 40px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    .success-icon::before {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border: 2px solid rgba(16, 185, 129, 0.3);
+      border-radius: 50%;
+      animation: successRing 2s ease-out infinite;
+    }
+
+    @keyframes successRing {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
     }
 
     .success-icon svg {
-      width: 50px;
-      height: 50px;
+      width: 60px;
+      height: 60px;
       color: white;
-      animation: checkmark 0.5s ease 0.2s forwards;
-      stroke-dasharray: 50;
-      stroke-dashoffset: 50;
+      animation: checkmarkDraw 0.6s ease 0.3s forwards;
+      stroke-dasharray: 60;
+      stroke-dashoffset: 60;
     }
 
-    @keyframes checkmark {
+    @keyframes checkmarkDraw {
       to { stroke-dashoffset: 0; }
     }
 
     .success-title {
-      font-size: 1.5rem;
+      font-size: 1.75rem;
       font-weight: 700;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, var(--text-bright), var(--success));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .success-message {
       color: var(--text-muted);
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
+      font-size: 1.05rem;
+    }
+
+    /* Copyright footer */
+    .copyright {
+      text-align: center;
+      padding: 2rem 0 1rem;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      animation: fadeIn 0.6s ease 0.5s forwards;
+      opacity: 0;
+    }
+
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+
+    .copyright a {
+      color: var(--primary-light);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .copyright a:hover {
+      color: var(--accent);
+    }
+
+    .copyright .heart {
+      display: inline-block;
+      color: var(--accent);
+      animation: heartbeat 1.5s ease infinite;
+    }
+
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
     }
 
     /* Responsive */
     @media (max-width: 640px) {
       .container {
-        padding: 1rem;
+        padding: 1.25rem;
       }
       
       .card {
-        padding: 1.25rem;
+        padding: 1.5rem;
+        border-radius: 16px;
+      }
+      
+      h1 {
+        font-size: 1.75rem;
+      }
+
+      .logo {
+        width: 72px;
+        height: 72px;
       }
       
       .btn-row {
         flex-direction: column;
+      }
+
+      .btn-save {
+        width: 100%;
       }
     }
   </style>
 </head>
 <body>
   <div class="bg-animation"></div>
+  <div class="mesh-gradient">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+  <div class="grid-overlay"></div>
   <div class="particles" id="particles"></div>
 
   <div class="container">
     <div class="header">
-      <div class="logo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
-        </svg>
+      <div class="logo-container">
+        <div class="logo-rings"></div>
+        <div class="logo-rings"></div>
+        <div class="logo-rings"></div>
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
       </div>
       <h1>ADO TestForge MCP</h1>
-      <p class="subtitle">Configure your credentials securely</p>
+      <p class="subtitle">Configure your credentials <span>securely</span></p>
     </div>
 
     <!-- ADO Section -->
@@ -707,7 +1074,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     <!-- Confluence Section -->
     <div class="card">
       <div class="card-header collapsible-header" onclick="toggleConfluence()">
-        <div class="card-icon" style="background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%);">
+        <div class="card-icon" style="background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%); box-shadow: 0 8px 20px rgba(0, 82, 204, 0.4);">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
@@ -715,13 +1082,13 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
         </div>
         <span class="card-title">Confluence</span>
         <span class="card-badge badge-optional">Optional</span>
-        <svg id="confluence-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="chevron" id="confluence-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </div>
 
       <div id="confluence-content" class="collapsible-content">
-        <div style="padding-top: 1rem;">
+        <div style="padding-top: 1.25rem;">
           <div class="form-group">
             <label for="confluence_base_url">Base URL</label>
             <input type="text" id="confluence_base_url" placeholder="https://your-org.atlassian.net/wiki" value="${existingCreds.confluence_base_url || ""}">
@@ -762,6 +1129,11 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
         Save Configuration
       </button>
     </div>
+
+    <div class="copyright">
+      Made with <span class="heart">&#10084;</span> by <a href="#">Kavita Badgujar</a><br>
+      &copy; ${currentYear} ADO TestForge MCP. All rights reserved.
+    </div>
   </div>
 
   <!-- Success Overlay -->
@@ -784,14 +1156,21 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
   </div>
 
   <script>
-    // Create floating particles
+    // Create floating particles with variety
     const particlesContainer = document.getElementById('particles');
-    for (let i = 0; i < 20; i++) {
+    const colors = ['#8b5cf6', '#06b6d4', '#f472b6', '#a78bfa', '#10b981'];
+    
+    for (let i = 0; i < 30; i++) {
       const particle = document.createElement('div');
-      particle.className = 'particle';
+      particle.className = 'particle' + (Math.random() > 0.5 ? ' particle-glow' : '');
+      const size = 2 + Math.random() * 4;
+      particle.style.width = size + 'px';
+      particle.style.height = size + 'px';
       particle.style.left = Math.random() * 100 + '%';
-      particle.style.animationDelay = Math.random() * 15 + 's';
-      particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+      particle.style.color = colors[Math.floor(Math.random() * colors.length)];
+      particle.style.background = particle.style.color;
+      particle.style.animationDelay = Math.random() * 20 + 's';
+      particle.style.animationDuration = (15 + Math.random() * 15) + 's';
       particlesContainer.appendChild(particle);
     }
 
@@ -799,8 +1178,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
     function toggleConfluence() {
       const content = document.getElementById('confluence-content');
-      const chevron = document.getElementById('confluence-chevron');
-      const header = chevron.closest('.collapsible-header');
+      const header = document.querySelector('.collapsible-header');
       
       content.classList.toggle('open');
       header.classList.toggle('open');
