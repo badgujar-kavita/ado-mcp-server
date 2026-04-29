@@ -8,9 +8,9 @@ alwaysApply: false
 
 ## Draft Rules
 
-1. **Use workspaceRoot or draftsPath** — When calling `get_tc_draft`, `list_tc_drafts`, `save_tc_draft`, `push_tc_draft_to_ado`, ALWAYS pass `workspaceRoot` (open folder) or `draftsPath` (user-specified location). Drafts go to `workspaceRoot/tc-drafts/` (created if missing) or exact `draftsPath`. No hardcoded default.
+1. **Use workspaceRoot or draftsPath** — When calling `get_tc_draft`, `list_tc_drafts`, `save_tc_draft`, `save_tc_supporting_doc`, `push_tc_draft_to_ado`, ALWAYS pass `workspaceRoot` (open folder) or `draftsPath` (user-specified location). Drafts go to `workspaceRoot/tc-drafts/US_<id>/` (per-US subfolder, created automatically). No hardcoded default. Legacy flat layout (`tc-drafts/US_<id>_test_cases.md`) is supported for backward compatibility.
 
-2. **Markdown-only until push** — `save_tc_draft` writes only `.md`. JSON is generated only when `push_tc_draft_to_ado` runs (avoids drift during revisions). The markdown header includes **Drafted By** (OS username).
+2. **Markdown-only until push** — `save_tc_draft` writes only `.md` with auto-generated **Supporting Documents** links to solution_design_summary and qa_cheat_sheet. JSON is generated only when `push_tc_draft_to_ado` runs (avoids drift during revisions). The markdown header includes **Drafted By** (OS username). Use `save_tc_supporting_doc` for solution summary and QA cheat sheet files.
 
 3. **Use latest version** — Never use an older draft. The version number in the header indicates revision; prefer the highest version.
 

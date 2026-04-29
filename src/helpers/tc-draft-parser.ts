@@ -1,6 +1,8 @@
 /**
  * Parses markdown draft back to TcDraftData for push to ADO.
  * Used when JSON is deferred until push.
+ * Supports drafts from tc-drafts/US_<id>/US_<id>_test_cases.md (new layout)
+ * and tc-drafts/US_<id>_test_cases.md (legacy flat layout).
  */
 
 import { loadConventionsConfig } from "../config.ts";
@@ -52,12 +54,14 @@ function parseStepsTable(section: string): Array<{ action: string; expectedResul
 export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null {
   const config = loadConventionsConfig();
 
-  const headerTable = mdContent.slice(0, 800);
-  const status = parseTableValue(headerTable, "Status") ?? "DRAFT";
-  const versionStr = parseTableValue(headerTable, "Version");
+  // Extract header section: from start to first ## heading (robust against new sections like Supporting Documents)
+  const firstH2 = mdContent.indexOf("\n## ");
+  const headerSection = firstH2 >= 0 ? mdContent.slice(0, firstH2) : mdContent.slice(0, 1500);
+  const status = parseTableValue(headerSection, "Status") ?? "DRAFT";
+  const versionStr = parseTableValue(headerSection, "Version");
   const version = versionStr ? parseInt(versionStr, 10) : 1;
-  const lastUpdated = parseTableValue(headerTable, "Last Updated") ?? new Date().toISOString().slice(0, 10);
-  const planIdStr = parseTableValue(headerTable, "Plan ID");
+  const lastUpdated = parseTableValue(headerSection, "Last Updated") ?? new Date().toISOString().slice(0, 10);
+  const planIdStr = parseTableValue(headerSection, "Plan ID");
   const planId = planIdStr && planIdStr !== "To be derived" ? parseInt(planIdStr, 10) : undefined;
 
   const titleMatch = mdContent.match(/^# Test Cases: US #(\d+) — (.+)$/m);

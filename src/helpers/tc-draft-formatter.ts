@@ -1,6 +1,7 @@
 /**
  * Formats structured test case draft data into reviewable markdown with tables.
- * Used by save_tc_draft to produce tc-drafts/US_xxx_test_cases.md
+ * Used by save_tc_draft to produce tc-drafts/US_<id>/US_<id>_test_cases.md
+ * Includes Supporting Documents links to solution_design_summary and qa_cheat_sheet.
  */
 
 import { loadConventionsConfig } from "../config.ts";
@@ -70,6 +71,15 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
   lines.push(`| **Last Updated** | ${data.lastUpdated} |`);
   lines.push(`| **Drafted By** | ${escape(draftedBy)} |`);
   lines.push(`| **Plan ID** | ${data.planId ?? "To be derived"} |`);
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+
+  // Supporting Documents (relative links to other files in the same US folder)
+  lines.push("## Supporting Documents");
+  lines.push("");
+  lines.push(`- Solution Design Summary: [Open](./US_${data.userStoryId}_solution_design_summary.md)`);
+  lines.push(`- QA Cheat Sheet: [Open](./US_${data.userStoryId}_qa_cheat_sheet.md)`);
   lines.push("");
   lines.push("---");
   lines.push("");

@@ -4,6 +4,51 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-04-29 — Per-US Folder Structure for Test Case Drafts
+
+### Feature
+
+- **Drafts now organized per User Story** — Test case drafts are saved in `tc-drafts/US_<id>/` subfolders instead of flat files
+- **New `save_tc_supporting_doc` tool** — Save supporting documents (solution_design_summary, qa_cheat_sheet, regression_tests) to the same US folder
+- **Auto-generated Supporting Documents links** — Main test cases file includes relative links to solution_design_summary and qa_cheat_sheet
+- **Backward-compatible readers** — `get_tc_draft`, `list_tc_drafts`, and `push_tc_draft_to_ado` support both new subfolder layout and legacy flat layout
+
+### Files Updated
+
+- **Tools:**
+  - `src/tools/tc-drafts.ts` — Updated `save_tc_draft` to create per-US subfolders, added `save_tc_supporting_doc` tool, updated all read tools for backward compatibility
+  
+- **Formatter/Parser:**
+  - `src/helpers/tc-draft-formatter.ts` — Added "Supporting Documents" section with relative links after metadata
+  - `src/helpers/tc-draft-parser.ts` — Made header parsing robust against new sections by anchoring to first H2
+
+- **Prompts:**
+  - `src/prompts/index.ts` — Updated `draft_test_cases` and `create_test_cases` to use `save_tc_supporting_doc` for supporting documents
+
+- **Documentation:**
+  - `docs/implementation.md` — Documented new folder structure and `save_tc_supporting_doc` tool
+  - `docs/testing-guide.md` — Updated tool quick reference
+  - `.cursor/rules/test-case-draft-formatting.mdc` — Updated rule 1 wording for new folder structure
+
+### Folder Structure
+
+```
+tc-drafts/
+└── US_1399001/
+    ├── US_1399001_test_cases.md          (main draft, ADO push source)
+    ├── US_1399001_solution_design_summary.md  (business logic reference)
+    ├── US_1399001_qa_cheat_sheet.md      (execution aid)
+    └── US_1399001_test_cases.json        (generated on push)
+```
+
+### Backward Compatibility
+
+- Legacy flat drafts (`tc-drafts/US_<id>_test_cases.md`) are still readable and pushable
+- `list_tc_drafts` shows both layouts with `(legacy flat)` suffix for old files
+- New drafts always use the subfolder structure
+
+---
+
 ## 2026-04-27 — Added toBeTested Field to conventions.config.json
 
 ### Bug Fix

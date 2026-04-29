@@ -412,14 +412,27 @@ See [docs/test-case-writing-style-reference.md](docs/test-case-writing-style-ref
 
 | Method | When to Use |
 |--------|-------------|
-| **workspaceRoot** | Open a folder in your workspace. The AI passes `workspaceRoot`; drafts go to `workspaceRoot/tc-drafts/` (created if missing). |
+| **workspaceRoot** | Open a folder in your workspace. The AI passes `workspaceRoot`; drafts go to `workspaceRoot/tc-drafts/US_<id>/` (folder created automatically). |
 | **draftsPath** | When you say "save to X" or "create under folder Y", the AI passes `draftsPath` with your chosen location. |
 | **tc_drafts_path** | Set in `~/.ado-testforge-mcp/credentials.json` for a fixed path. Optional. |
 | **TC_DRAFTS_PATH** | Environment variable. Optional. |
 
-**Behavior:** If you open a fresh folder and ask to draft TCs, the command creates `tc-drafts/` under that folder and saves there. If you add a folder to workspace and ask to create TCs under it, drafts go to that folder (or its `tc-drafts/` subfolder).
+**Folder Structure:** Each User Story gets its own subfolder:
 
-**Deferred JSON:** Only markdown is saved until you push. When you confirm push to ADO, the tool parses the markdown and generates JSON with correct mappings. This avoids JSON drift during multiple revisions.
+```
+tc-drafts/
+└── US_1399001/
+    ├── US_1399001_test_cases.md              (main draft)
+    ├── US_1399001_solution_design_summary.md (business logic reference)
+    ├── US_1399001_qa_cheat_sheet.md          (QA execution aid)
+    └── US_1399001_test_cases.json            (generated on push)
+```
+
+**Behavior:** If you open a fresh folder and ask to draft TCs, the command creates `tc-drafts/US_<id>/` under that folder and saves all three files there. The main test cases file includes relative links to the supporting documents.
+
+**Backward Compatibility:** Legacy flat drafts (`tc-drafts/US_<id>_test_cases.md`) are still readable and pushable.
+
+**Deferred JSON:** Only markdown is saved until you push. When you confirm push to ADO, the tool parses the markdown and generates JSON co-located with the markdown. This avoids JSON drift during multiple revisions.
 
 ---
 

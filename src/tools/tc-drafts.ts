@@ -35,6 +35,31 @@ function resolveTcDraftsDir(workspaceRoot?: string | null, draftsPath?: string |
   throw new Error(NO_PATH_MSG);
 }
 
+/** Resolve the per-US folder path: tc-drafts/US_<id>/ */
+function resolveUsFolder(tcDraftsDir: string, usId: number): string {
+  return join(tcDraftsDir, `US_${usId}`);
+}
+
+/**
+ * Resolve the test-cases markdown path with backward compat.
+ * Subfolder layout preferred, flat fallback for legacy drafts.
+ */
+function resolveTestCasesMdPath(tcDraftsDir: string, usId: number): string {
+  const subPath = join(resolveUsFolder(tcDraftsDir, usId), `US_${usId}_test_cases.md`);
+  if (existsSync(subPath)) return subPath;
+  const flatPath = join(tcDraftsDir, `US_${usId}_test_cases.md`);
+  if (existsSync(flatPath)) return flatPath; // legacy
+  return subPath; // default to new layout for writes
+}
+
+/** Check which supporting docs exist for a US folder */
+function checkSupportingDocs(usFolder: string, usId: number): { hasSummary: boolean; hasCheatSheet: boolean } {
+  return {
+    hasSummary: existsSync(join(usFolder, `US_${usId}_solution_design_summary.md`)),
+    hasCheatSheet: existsSync(join(usFolder, `US_${usId}_qa_cheat_sheet.md`)),
+  };
+}
+
 /** Parse header fields from markdown for list_tc_drafts. */
 function parseMarkdownHeader(mdContent: string): { userStoryId: number; title: string; status: string; version: number } | null {
   const titleMatch = mdContent.match(/^# Test Cases: US #(\d+) — (.+)$/m);
@@ -94,12 +119,13 @@ const SaveTcDraftShape = {
 export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   server.tool(
     "save_tc_draft",
-    "Save a test case draft to tc-drafts/ as markdown only. JSON is created only when pushing to ADO. Pass workspaceRoot (open folder) or draftsPath (user-specified location). Creates tc-drafts folder if missing. No hardcoded default path.",
+    "Save a test case draft to tc-drafts/US_<id>/ as markdown only. JSON is created only when pushing to ADO. Pass workspaceRoot (open folder) or draftsPath (user-specified location). Creates tc-drafts/US_<id>/ folder if missing. No hardcoded default path.",
     SaveTcDraftShape,
     async (input) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(input.workspaceRoot, input.draftsPath);
-        mkdirSync(tcDraftsDir, { recursive: true });
+        const usFolder = resolveUsFolder(tcDraftsDir, input.userStoryId);
+        mkdirSync(usFolder, { recursive: true });
 
         const now = new Date().toISOString().slice(0, 10);
         const data: TcDraftData = {
@@ -123,7 +149,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           commonPrerequisites: input.commonPrerequisites,
         };
 
-        const mdPath = join(tcDraftsDir, `US_${input.userStoryId}_test_cases.md`);
+        const mdPath = join(usFolder, `US_${input.userStoryId}_test_cases.md`);
 
         const markdown = formatTcDraftToMarkdown(data);
         writeFileSync(mdPath, markdown, "utf-8");
@@ -133,7 +159,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         return {
           content: [{
             type: "text" as const,
-            text: `Draft saved successfully!\n\n**File:** [${fileName}](${fileUri})\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO._`,
+            text: `Draft saved successfully!\n\n**File:** [${fileName}](${fileUri})\n**Folder:** tc-drafts/US_${input.userStoryId}/\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO. Use save_tc_supporting_doc to create solution_design_summary and qa_cheat_sheet files._`,
           }],
         };
       } catch (err) {
@@ -148,7 +174,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
   server.tool(
     "get_tc_draft",
-    "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath.",
+    "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout.",
     {
       userStoryId: z.number().int().positive(),
       workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
@@ -157,7 +183,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     async ({ userStoryId, workspaceRoot, draftsPath }) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
-        const mdPath = join(tcDraftsDir, `US_${userStoryId}_test_cases.md`);
+        const mdPath = resolveTestCasesMdPath(tcDraftsDir, userStoryId);
         if (!existsSync(mdPath)) {
           return {
             content: [{ type: "text" as const, text: `No draft found for US ${userStoryId}.` }],
@@ -180,7 +206,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
   server.tool(
     "list_tc_drafts",
-    "List all test case drafts in tc-drafts/ with US ID, title, status, and version. Pass workspaceRoot or draftsPath.",
+    "List all test case drafts in tc-drafts/ with US ID, title, status, version, and supporting docs. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout. Pass workspaceRoot or draftsPath.",
     {
       workspaceRoot: z.string().optional().describe("Project folder path; lists from workspaceRoot/tc-drafts"),
       draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
@@ -194,15 +220,60 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
 
-        const entries: Array<{ userStoryId: number; title: string; status: string; version: number }> = [];
-        const files = readdirSync(tcDraftsDir, { withFileTypes: true });
+        const entries: Array<{
+          userStoryId: number;
+          title: string;
+          status: string;
+          version: number;
+          layout: "subfolder" | "legacy";
+          hasSummary: boolean;
+          hasCheatSheet: boolean;
+        }> = [];
+        const seenUsIds = new Set<number>();
+        const items = readdirSync(tcDraftsDir, { withFileTypes: true });
 
-        for (const f of files) {
-          if (f.isFile() && f.name.endsWith(".md")) {
-            const match = f.name.match(/^US_(\d+)_test_cases\.md$/);
+        // First pass: check subfolders (new layout)
+        for (const item of items) {
+          if (item.isDirectory()) {
+            const folderMatch = item.name.match(/^US_(\d+)(_.*)?$/);
+            if (folderMatch) {
+              const usId = parseInt(folderMatch[1], 10);
+              const usFolder = join(tcDraftsDir, item.name);
+              const mdPath = join(usFolder, `US_${usId}_test_cases.md`);
+              if (existsSync(mdPath)) {
+                seenUsIds.add(usId);
+                const supportingDocs = checkSupportingDocs(usFolder, usId);
+                try {
+                  const raw = readFileSync(mdPath, "utf-8");
+                  const parsed = parseMarkdownHeader(raw);
+                  if (parsed) {
+                    entries.push({
+                      userStoryId: parsed.userStoryId,
+                      title: parsed.title,
+                      status: parsed.status,
+                      version: parsed.version,
+                      layout: "subfolder",
+                      ...supportingDocs,
+                    });
+                  } else {
+                    entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0, layout: "subfolder", ...supportingDocs });
+                  }
+                } catch {
+                  entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0, layout: "subfolder", ...supportingDocs });
+                }
+              }
+            }
+          }
+        }
+
+        // Second pass: check flat files (legacy layout)
+        for (const item of items) {
+          if (item.isFile() && item.name.endsWith(".md")) {
+            const match = item.name.match(/^US_(\d+)_test_cases\.md$/);
             if (match) {
               const usId = parseInt(match[1], 10);
-              const mdPath = join(tcDraftsDir, f.name);
+              if (seenUsIds.has(usId)) continue; // Skip if already found in subfolder
+              const mdPath = join(tcDraftsDir, item.name);
               try {
                 const raw = readFileSync(mdPath, "utf-8");
                 const parsed = parseMarkdownHeader(raw);
@@ -212,26 +283,38 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
                     title: parsed.title,
                     status: parsed.status,
                     version: parsed.version,
+                    layout: "legacy",
+                    hasSummary: false,
+                    hasCheatSheet: false,
                   });
                 } else {
-                  entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0 });
+                  entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0, layout: "legacy", hasSummary: false, hasCheatSheet: false });
                 }
               } catch {
-                entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0 });
+                entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0, layout: "legacy", hasSummary: false, hasCheatSheet: false });
               }
             }
           }
         }
 
-        const text =
-          entries.length === 0
-            ? "No drafts found."
-            : entries
-                .map(
-                  (e) =>
-                    `US_${e.userStoryId}: ${e.title} | Status: ${e.status} | v${e.version}`
-                )
-                .join("\n");
+        if (entries.length === 0) {
+          return {
+            content: [{ type: "text" as const, text: "No drafts found." }],
+          };
+        }
+
+        // Sort by US ID
+        entries.sort((a, b) => a.userStoryId - b.userStoryId);
+
+        const text = entries
+          .map((e) => {
+            const docs = e.layout === "subfolder"
+              ? ` | Docs: ${e.hasSummary ? "Summary" : ""}${e.hasSummary && e.hasCheatSheet ? ", " : ""}${e.hasCheatSheet ? "CheatSheet" : ""}${!e.hasSummary && !e.hasCheatSheet ? "None" : ""}`
+              : "";
+            const layoutTag = e.layout === "legacy" ? " (legacy flat)" : "";
+            return `US_${e.userStoryId}: ${e.title} | Status: ${e.status} | v${e.version}${layoutTag}${docs}`;
+          })
+          .join("\n");
 
         return {
           content: [{ type: "text" as const, text }],
@@ -282,7 +365,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
   server.tool(
     "push_tc_draft_to_ado",
-    "Push a reviewed test case draft to ADO. Creates all test cases and updates the draft markdown to APPROVED. Only call after explicit user confirmation (e.g. user typed YES). Pass workspaceRoot or draftsPath. Set repush=true to update existing test cases when draft was revised after initial push.",
+    "Push a reviewed test case draft to ADO. Creates all test cases and updates the draft markdown to APPROVED. Only call after explicit user confirmation (e.g. user typed YES). Pass workspaceRoot or draftsPath. Supports both new subfolder and legacy flat layout. Set repush=true to update existing test cases when draft was revised after initial push.",
     {
       userStoryId: z.number().int().positive(),
       workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
@@ -292,7 +375,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     async ({ userStoryId, workspaceRoot, draftsPath, repush }) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
-        const mdPath = join(tcDraftsDir, `US_${userStoryId}_test_cases.md`);
+        const mdPath = resolveTestCasesMdPath(tcDraftsDir, userStoryId);
 
         if (!existsSync(mdPath)) {
           return {
@@ -375,8 +458,9 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         const markdown = formatTcDraftToMarkdown(updatedData);
         writeFileSync(mdPath, markdown, "utf-8");
 
-        // Generate JSON only at push time (correct mappings for ADO)
-        const jsonPath = join(tcDraftsDir, `US_${userStoryId}_test_cases.json`);
+        // Generate JSON co-located with the markdown (same folder)
+        const mdDir = join(mdPath, "..");
+        const jsonPath = join(mdDir, `US_${userStoryId}_test_cases.json`);
         writeFileSync(
           jsonPath,
           JSON.stringify(
@@ -403,6 +487,48 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         const msg = err instanceof Error ? err.message : String(err);
         return {
           content: [{ type: "text" as const, text: msg.startsWith("No draft") || msg.startsWith("No ") ? msg : `Error pushing draft to ADO: ${msg}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "save_tc_supporting_doc",
+    "Save a supporting document (solution_design_summary, qa_cheat_sheet, or regression_tests) for a User Story into tc-drafts/US_<id>/. Creates the US folder if missing. Pass workspaceRoot or draftsPath.",
+    {
+      userStoryId: z.number().int().positive().describe("User Story work item ID"),
+      docType: z.enum(["solution_summary", "qa_cheat_sheet", "regression_tests"]).describe("Type of supporting document to save"),
+      markdown: z.string().describe("Full markdown content of the supporting document"),
+      workspaceRoot: z.string().optional().describe("Project folder path; saves to workspaceRoot/tc-drafts/US_<id>/"),
+      draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+    },
+    async ({ userStoryId, docType, markdown, workspaceRoot, draftsPath }) => {
+      try {
+        const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
+        const usFolder = resolveUsFolder(tcDraftsDir, userStoryId);
+        mkdirSync(usFolder, { recursive: true });
+
+        const fileMap: Record<string, string> = {
+          solution_summary: `US_${userStoryId}_solution_design_summary.md`,
+          qa_cheat_sheet: `US_${userStoryId}_qa_cheat_sheet.md`,
+          regression_tests: `US_${userStoryId}_regression_tests.md`,
+        };
+        const fileName = fileMap[docType];
+        const mdPath = join(usFolder, fileName);
+        writeFileSync(mdPath, markdown, "utf-8");
+
+        const fileUri = toFileUri(mdPath);
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Saved ${docType.replace("_", " ")} successfully!\n\n**File:** [${fileName}](${fileUri})\n**Folder:** tc-drafts/US_${userStoryId}/\n**Path:** ${mdPath}`,
+          }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text" as const, text: msg.startsWith("No draft") || msg.startsWith("No ") ? msg : `Error saving supporting doc: ${msg}` }],
           isError: true,
         };
       }

@@ -480,11 +480,12 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `delete_test_suite` | Delete a suite | `planId`, `suiteId` |
 | `list_test_suites` | List all suites in a plan | `planId` |
 | `get_test_suite` | Get suite details | `planId`, `suiteId` |
-| `save_tc_draft` | Save test case draft to markdown only | `userStoryId`, `testCases`, `planId` (optional - auto-derived during push), `functionalityProcessFlow` (optional), `testCoverageInsights` (optional), etc. |
+| `save_tc_draft` | Save test case draft to `tc-drafts/US_<id>/` (auto-creates folder + Supporting Documents links) | `userStoryId`, `testCases`, `planId` (optional - auto-derived during push), `functionalityProcessFlow` (optional), `testCoverageInsights` (optional), etc. |
+| `save_tc_supporting_doc` | Save supporting doc (solution_summary, qa_cheat_sheet, regression_tests) | `userStoryId`, `docType`, `markdown` |
 | `save_tc_clone_preview` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
-| `list_tc_drafts` | List saved drafts (from .md files) | *(none)* |
-| `get_tc_draft` | Get draft by user story ID | `userStoryId` |
-| `push_tc_draft_to_ado` | Push approved draft to ADO (auto-derives planId from US AreaPath if not in draft, creates suite hierarchy, creates TCs) | `userStoryId` |
+| `list_tc_drafts` | List saved drafts (subfolder + legacy layouts, shows supporting docs) | *(none)* |
+| `get_tc_draft` | Get draft by user story ID (subfolder + legacy) | `userStoryId` |
+| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs) | `userStoryId` |
 | `list_test_cases` | List TCs in a suite | `planId`, `suiteId` |
 | `get_test_case` | Get TC work item details | `workItemId` |
 | `update_test_case` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |
