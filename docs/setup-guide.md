@@ -1,4 +1,4 @@
-# ADO TestForge MCP -- Setup Guide
+# ADO TestForge MCP \-\- Setup Guide
 
 **Documentation index:** [docs/README.md](README.md) | **Changelog:** [docs/changelog.md](changelog.md)
 
@@ -6,35 +6,35 @@ Welcome to the ADO TestForge MCP server. This guide walks you through the comple
 
 ---
 
-## Quick Start: Add Folder and Run Install
+## Quick Start: One\-Command Installation
 
-1. **Add the ADO TestForge MCP folder to your workspace**  
-   - Open Cursor → **File > Add Folder to Workspace** (or **Open Folder** if starting fresh)  
-   - Select the `ADO TestForge MCP` folder (e.g., from Google Drive or your team share)
+**Run this single command in your terminal:**
 
-2. **Run the installer**  
-   - Open Cursor's **AI chat** (Cmd+L / Ctrl+L)  
-   - Type `/ado-testforge/install` and run the command
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+```
 
-3. **Follow the prompts**  
-   The installer will:
-   - Check prerequisites (Google Drive app, Node.js v18+, folder structure)
-   - Create a credentials template at `~/.ado-testforge-mcp/credentials.json`
-   - **Register ADO TestForge MCP globally** so it works in any project folder
+The installer will:
 
-4. **Configure credentials**  
-   - Open `~/.ado-testforge-mcp/credentials.json` and fill in your ADO PAT, org, and project (see [Step 4](#step-4-configure-your-credentials))
+* Check prerequisites (Node.js v18+)
+* Clone the repository to `~/.ado-testforge-mcp`
+* Install dependencies and build
+* Register ADO TestForge MCP in Cursor
+* Create a credentials template at `~/.ado-testforge-mcp/credentials.json`
 
-5. **Restart Cursor** (or reload MCP in Settings > MCP)
+**After installation:**
 
-After setup, ADO TestForge MCP is available in **all workspaces** — you don't need to have the ADO TestForge MCP folder open.
-On your first successful `/ado-testforge/check_status`, you'll see a full welcome message for the current version. Later status checks show a brief version header unless a newer version has been deployed.
+1. **Configure credentials** \-\- Edit `~/.ado-testforge-mcp/credentials.json` with your ADO PAT, org, and project (see [Step 2](#step-2-configure-your-credentials))
+2. **Restart Cursor** (or reload MCP in Settings > MCP)
+3. **Verify** \-\- Type `/ado-testforge/check_status` in AI chat
+
+After setup, ADO TestForge MCP is available in **all workspaces** automatically.
 
 ---
 
 ## Prerequisites
 
-The installer checks these automatically. Before you begin:
+Before you begin:
 
 | Requirement | How to Check |
 |---|---|
@@ -61,13 +61,13 @@ Replace `{your-org}` with your ADO organization name (e.g., `YourOrgName`).
 
 2. Click **+ New Token**
 3. Configure the token:
-   - **Name**: `ADO TestForge MCP` (or any name you prefer)
-   - **Expiration**: 90 days recommended
-   - **Scopes**: Select **Custom defined**, then enable the scopes listed below
+   * **Name**: `ADO TestForge MCP` (or any name you prefer)
+   * **Expiration**: 90 days recommended
+   * **Scopes**: Select **Custom defined**, then enable the scopes listed below
 4. Click **Create**
-5. **Copy the token immediately** -- you won't be able to see it again
+5. **Copy the token immediately** \-\- you won't be able to see it again
 
-Keep the token somewhere safe (e.g., a password manager). You'll need it in Step 3.
+Keep the token somewhere safe (e.g., a password manager). You'll need it in Step 2.
 
 ### ADO PAT -- Required Scopes
 
@@ -108,32 +108,7 @@ This is only relevant for production/shared deployments. For individual use, PAT
 
 ---
 
-## Step 2: Add the Folder to Your Workspace
-
-1. Locate the `ADO TestForge MCP` folder (shared via Google Drive or provided by your team)
-2. Open **Cursor IDE**
-3. Go to **File > Add Folder to Workspace** (or **Open Folder** if starting a new session)
-4. Select the `ADO TestForge MCP` folder
-
-As soon as the folder is in your workspace, the **ado-testforge** MCP server becomes available. You can verify in **Cursor Settings > MCP** — you should see **ado-testforge** listed.
-
----
-
-## Step 3: Run the Installer
-
-1. Open Cursor's **AI chat** (Cmd+L on Mac, Ctrl+L on Windows)
-2. Type `/ado-testforge/install` and run the command
-
-The installer will automatically:
-- **Check prerequisites** (Google Drive app, Node.js v18+, folder structure)
-- Create a credentials template file at `~/.ado-testforge-mcp/credentials.json`
-- **Register ADO TestForge MCP globally** in `~/.cursor/mcp.json` so it works in any project folder
-
-You'll see progress messages in the chat. Wait for it to complete.
-
----
-
-## Step 4: Configure Your Credentials
+## Step 2: Configure Your Credentials
 
 The installer created a template file. Now you need to fill in your actual values.
 
@@ -160,8 +135,7 @@ notepad "$env:USERPROFILE\.ado-testforge-mcp\credentials.json"
   "ado_project": "your-project-name",
   "confluence_base_url": "",
   "confluence_email": "",
-  "confluence_api_token": "",
-  "tc_drafts_path": ""
+  "confluence_api_token": ""
 }
 ```
 
@@ -173,17 +147,15 @@ notepad "$env:USERPROFILE\.ado-testforge-mcp\credentials.json"
 | `ado_org` | Your ADO organization name (from `https://dev.azure.com/{org}`) | `YourOrgName` |
 | `ado_project` | Your ADO project name | `TPM Product Ecosystem` |
 
-The Confluence fields are **optional** -- leave them empty if you don't use Confluence. See [Step 4b](#step-4b-configure-confluence-optional) for Confluence setup.
-
-**TC Drafts path** (`tc_drafts_path`): Test case drafts are saved to a user-local folder, never in the shared workspace. Default: `~/.ado-testforge-mcp/tc-drafts`. To use a different folder (e.g. your local project), set the absolute path: `"/Users/you/projects/my-tcs/tc-drafts"`.
+The Confluence fields are **optional** \-\- leave them empty if you don't use Confluence. See [Step 2b](#step-2b-configure-confluence-optional) for Confluence setup.
 
 4. **Save the file**
 
-**Important:** Never paste your PAT in Cursor's chat. Always edit the file directly in your editor. Your credentials are stored locally and are never shared with the team folder.
+**Important:** Never paste your PAT in Cursor's chat. Always edit the file directly in your editor. Your credentials are stored locally and are never shared.
 
 ---
 
-## Step 4b: Configure Confluence (Optional)
+## Step 2b: Configure Confluence (Optional)
 
 If your User Stories have Solution Design documents linked in the **Solution Notes** field (ADO field name: "Technical Solution"), you can configure Confluence so the MCP server automatically fetches that content when you run `get_user_story`. This gives the AI richer context for test case generation.
 
@@ -268,7 +240,7 @@ If Confluence is not configured, the field is empty, or the linked page cannot b
 
 ---
 
-## Step 5: Restart the MCP Server
+## Step 3: Restart the MCP Server
 
 1. Go to **Cursor Settings > MCP**
 2. Find **ado-testforge** in the list
@@ -277,7 +249,7 @@ If Confluence is not configured, the field is empty, or the linked page cannot b
 
 ---
 
-## Step 6: Verify Everything Works
+## Step 4: Verify Everything Works
 
 In Cursor's AI chat, type `/ado-testforge` and select **check_status**.
 
@@ -438,25 +410,28 @@ tc-drafts/
 
 ## Troubleshooting
 
-### I don't see `/ado-testforge/install` in the chat
-
-Add the ADO TestForge MCP folder to your workspace first: **File > Add Folder to Workspace** and select the folder. The install command is available only when that folder is part of your workspace.
-
-### "ado-testforge" shows a red dot
+### "ado\-testforge" shows a red dot
 
 The server can't start. Common causes:
-- Node.js is not installed or not in your PATH. Run `node -v` to verify.
-- The folder structure is invalid. Ensure you're using the CoE/MCP Servers folder.
 
-### ADO TestForge MCP doesn't appear when I open a different project folder
+* Node.js is not installed or not in your PATH. Run `node -v` to verify.
+* The installation may be corrupted. Re\-run the installer:
 
-Run `/ado-testforge/install` again (with the ADO TestForge MCP folder in your workspace) — it registers ado-testforge globally. If you've already run it, restart Cursor to reload the global MCP config.
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+```
 
-### npm install fails
+### ADO TestForge MCP doesn't appear in Cursor
 
-- Check your internet connection
-- Make sure you're not behind a corporate proxy that blocks npm
-- Try running `npm install` manually in a terminal from the `ADO TestForge MCP` folder
+* **Restart Cursor** after installation
+* Check **Cursor Settings > MCP** \-\- ado\-testforge should be listed
+* If missing, re\-run the installation command above
+
+### Installation fails
+
+* Check your internet connection
+* Make sure you're not behind a corporate proxy that blocks npm/git
+* Ensure Node.js v18+ is installed: `node -v`
 
 ### "No valid credentials found" after restart
 
@@ -502,21 +477,54 @@ When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when f
 
 ## How Global Registration Works
 
-The installer adds **ado-testforge** to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths. That means:
+The installer adds **ado\-testforge** to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths pointing to `~/.ado-testforge-mcp`. That means:
 
-- **ado-testforge** is available in **any project folder** you open — use `/ado-testforge` for all ADO commands
-- The install command (`/ado-testforge/install`) is available when the ADO TestForge MCP folder is in your workspace
-- If you move the ADO TestForge MCP folder, add it to workspace and run `/ado-testforge/install` again to update the paths
+* **ado\-testforge** is available in **any project folder** you open
+* Use `/ado-testforge` commands from any workspace
+* To update, simply re\-run the curl installation command
 
 ---
 
 ## Credential Security
 
-Your credentials are stored at `~/.ado-testforge-mcp/credentials.json` in your **home directory** -- not in the shared project folder. This means:
+Your credentials are stored at `~/.ado-testforge-mcp/credentials.json` in your **home directory**. This means:
 
-- Your PAT is never synced to Google Drive
-- Your PAT never appears in Cursor's chat history
-- Each team member has their own separate credentials
-- Deleting or re-sharing the project folder does not affect your credentials
+* Your PAT is stored locally only \-\- never synced or shared
+* Your PAT never appears in Cursor's chat history
+* Each team member has their own separate credentials
+* Re\-installing does not overwrite existing credentials
 
-To update your credentials at any time, edit the file directly or run `/ado-testforge/install` again.
+To update your credentials at any time, edit the file directly.
+
+---
+
+## Updating
+
+To update to the latest version, simply re\-run the installation command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+```
+
+The installer will:
+
+* Pull the latest changes
+* Rebuild the project
+* Preserve your existing credentials
+
+---
+
+## Uninstalling
+
+To completely remove ADO TestForge MCP:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/uninstall.sh | bash
+```
+
+This will:
+
+* Remove `~/.ado-testforge-mcp` directory
+* Remove the MCP registration from Cursor
+
+**Note:** The uninstaller will ask if you want to keep or delete your credentials file.

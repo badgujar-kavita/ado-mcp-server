@@ -20,7 +20,7 @@ Documentation for the ADO TestForge MCP server — Azure DevOps test case automa
 | [test-case-writing-style-reference.md](test-case-writing-style-reference.md) | Title format, "should" form, steps, admin validation |
 | [automation-friendly-test-patterns.md](automation-friendly-test-patterns.md) | **Automation-friendly expected result patterns** — Quick reference with mapping examples |
 | [version-management.md](version-management.md) | **Version management strategy** — SemVer rules, bump workflow, changelog format |
-| [distribution-guide.md](distribution-guide.md) | Build and deploy to Google Drive |
+| [distribution-guide.md](distribution-guide.md) | Distribution via GitHub \+ curl installer |
 | [repush-workflow.md](repush-workflow.md) | Re-push test cases (delete & re-create workflow) |
 | [ado-test-case-update-guide.md](ado-test-case-update-guide.md) | Updating prerequisites, TO BE TESTED FOR format, when to restart MCP and deploy |
 

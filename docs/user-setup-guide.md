@@ -1,6 +1,6 @@
 # ADO TestForge MCP — User Setup Guide
 
-**For organization-wide use.** This guide helps you set up ADO TestForge MCP in Cursor IDE on your own—no in-person guidance required. You can complete setup in about 10–15 minutes.
+**For organization\-wide use.** This guide helps you set up ADO TestForge MCP in Cursor IDE on your own—no in\-person guidance required. You can complete setup in about 5–10 minutes.
 
 ---
 
@@ -9,7 +9,7 @@
 | What | Details |
 |------|---------|
 | **What it does** | Lets you draft, review, and push test cases to Azure DevOps directly from Cursor's AI chat |
-| **Time to set up** | ~10–15 minutes |
+| **Time to set up** | ~5–10 minutes |
 | **Where credentials go** | Your computer only (`~/.ado-testforge-mcp/`) — never shared or synced |
 | **Works in** | Any project folder after setup (globally registered) |
 
@@ -19,20 +19,21 @@
 
 Check that you have:
 
-- [ ] **Node.js v18 or higher** — Run `node -v` in a terminal. If missing, install from [nodejs.org](https://nodejs.org) (LTS).
-- [ ] **Cursor IDE** — Latest version installed.
-- [ ] **Access to Azure DevOps** — You can log in to your ADO organization.
-- [ ] **The ADO TestForge MCP folder** — From your team's shared location (e.g., Google Drive: Center of Excellence (CoE) / MCP Servers).
+* [ ] **Node.js v18 or higher** — Run `node -v` in a terminal. If missing, install from [nodejs.org](https://nodejs.org) (LTS).
+* [ ] **Cursor IDE** — Latest version installed.
+* [ ] **Access to Azure DevOps** — You can log in to your ADO organization.
 
 ---
 
-## Quick Start (5 Steps)
+## Quick Start (4 Steps)
 
-1. **Add the folder** — In Cursor: **File → Add Folder to Workspace** → select the `ADO TestForge MCP` folder.
-2. **Run the installer** — Open AI chat (Cmd+L / Ctrl+L), type `/ado-testforge/install`, and run it.
-3. **Create an ADO Personal Access Token (PAT)** — See [Step 1](#step-1-create-your-ado-personal-access-token) below.
-4. **Configure credentials** — Edit `~/.ado-testforge-mcp/credentials.json` with your PAT, org, and project.
-5. **Restart MCP** — In Cursor: **Settings → MCP** → refresh/restart **ado-testforge**.
+1. **Run the installer** — Open a terminal and run:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+   ```
+2. **Create an ADO Personal Access Token (PAT)** — See [Step 1](#step-1-create-your-ado-personal-access-token) below.
+3. **Configure credentials** — Edit `~/.ado-testforge-mcp/credentials.json` with your PAT, org, and project.
+4. **Restart Cursor** — Close and reopen Cursor IDE (or go to **Settings → MCP** → refresh **ado\-testforge**).
 
 ---
 
@@ -63,33 +64,7 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
 
 ---
 
-### Step 2: Add the ADO TestForge MCP Folder to Cursor
-
-1. Locate the `ADO TestForge MCP` folder (from your team's shared drive or distribution).
-2. Open **Cursor IDE**.
-3. Go to **File → Add Folder to Workspace** (or **Open Folder** if starting fresh).
-4. Select the `ADO TestForge MCP` folder.
-
-The MCP server becomes available as soon as the folder is in your workspace. You can verify in **Cursor Settings → MCP** — **ado-testforge** should appear in the list.
-
----
-
-### Step 3: Run the Installer
-
-1. Open Cursor's **AI chat** (Cmd+L on Mac, Ctrl+L on Windows).
-2. Type `/ado-testforge/install` and run the command.
-
-The installer will:
-
-- Check prerequisites (Node.js, folder structure)
-- Create a credentials template at `~/.ado-testforge-mcp/credentials.json`
-- Register ADO TestForge MCP globally so it works in any project folder
-
-Wait for the completion message in the chat.
-
----
-
-### Step 4: Configure Your Credentials
+### Step 2: Configure Your Credentials
 
 1. Open the credentials file:
 
@@ -117,12 +92,11 @@ Wait for the completion message in the chat.
 
 **Optional fields** (leave empty if not used):
 
-- `confluence_base_url`, `confluence_email`, `confluence_api_token` — for Solution Design enrichment from Confluence. See [Confluence Setup (Optional)](#confluence-setup-optional) below.
-- `tc_drafts_path` — custom folder for test case drafts. Default: `~/.ado-testforge-mcp/tc-drafts`.
+* `confluence_base_url`, `confluence_email`, `confluence_api_token` — for Solution Design enrichment from Confluence. See [Confluence Setup (Optional)](#confluence-setup-optional) below.
 
 ---
 
-### Step 5: Restart the MCP Server
+### Step 3: Restart Cursor
 
 1. Go to **Cursor Settings → MCP**.
 2. Find **ado-testforge** in the list.
@@ -131,7 +105,7 @@ Wait for the completion message in the chat.
 
 ---
 
-### Step 6: Verify Setup
+### Step 4: Verify Setup
 
 In Cursor's AI chat, type `/ado-testforge/check_status` and run it.
 
@@ -181,24 +155,25 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ## Troubleshooting
 
-### I don't see `/ado-testforge/install` in the chat
-
-**Fix:** Add the ADO TestForge MCP folder to your workspace first: **File → Add Folder to Workspace** and select the folder. The install command is only available when that folder is in your workspace.
-
----
-
-### "ado-testforge" shows a red dot (server won't start)
+### "ado\-testforge" shows a red dot (server won't start)
 
 **Possible causes:**
 
-- Node.js is not installed or not in your PATH. Run `node -v` in a terminal to verify.
-- The folder structure is invalid. Ensure you're using the correct shared folder (e.g., CoE / MCP Servers).
+* Node.js is not installed or not in your PATH. Run `node -v` in a terminal to verify.
+* The installation may be corrupted. Re\-run the installer:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+  ```
 
 ---
 
-### ADO TestForge doesn't appear when I open a different project
+### ADO TestForge doesn't appear in Cursor
 
-**Fix:** Run `/ado-testforge/install` again (with the ADO TestForge MCP folder in your workspace). The installer registers it globally. If you've already run it, try restarting Cursor to reload the MCP config.
+**Fix:**
+
+* **Restart Cursor** after installation
+* Check **Cursor Settings → MCP** — ado\-testforge should be listed
+* If missing, re\-run the installation command above
 
 ---
 
@@ -233,40 +208,27 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ## Security & Privacy
 
-- **Credentials are local.** They are stored at `~/.ado-testforge-mcp/credentials.json` on your machine—never in the shared folder or Google Drive.
-- **Each user has their own.** Everyone creates their own PAT and configures their own credentials.
-- **Never share your PAT.** Don't paste it in chat, email, or shared documents.
-
----
-
-## Where to Get the ADO TestForge MCP Folder
-
-The folder is typically shared via:
-
-- **Google Drive:** Center of Excellence (CoE) / MCP Servers
-- **Team share:** Ask your QA lead or CoE contact for the location
-
-If you don't have access, contact your team administrator.
+* **Credentials are local.** They are stored at `~/.ado-testforge-mcp/credentials.json` on your machine—never shared or synced.
+* **Each user has their own.** Everyone creates their own PAT and configures their own credentials.
+* **Never share your PAT.** Don't paste it in chat, email, or shared documents.
+* **Re\-installing preserves credentials.** Your existing credentials are not overwritten when you update.
 
 ---
 
 ## Need Help?
 
-- **Setup issues:** Re-run `/ado-testforge/install` and `/ado-testforge/check_status` to diagnose.
-- **Detailed technical guide:** See the full [Setup Guide](setup-guide.md) in the project docs.
-- **Team support:** Reach out to your QA lead or Center of Excellence contact.
+* **Setup issues:** Re\-run the installation command and then `/ado-testforge/check_status` to diagnose.
+* **Detailed technical guide:** See the full [Setup Guide](setup-guide.md).
+* **Team support:** Reach out to your QA lead or project administrator.
 
 ---
 
-## Publishing to Confluence (For Administrators)
+## Updating
 
-To make this guide available organization-wide in Confluence:
+To update to the latest version:
 
-1. **Create a new Confluence page** in your team or CoE space.
-2. **Copy this document** — the full content is in `docs/user-setup-guide.md` in the ADO TestForge MCP folder.
-3. **Paste into Confluence** — Confluence supports markdown; paste as-is or use **Insert → Markup** if needed.
-4. **Add a table of contents** — Confluence can auto-generate one from headings.
-5. **Optional:** Add an **Info** or **Note** panel at the top with the MCP folder location (e.g., Google Drive path).
-6. **Link from your main CoE/QA space** so users can find it easily.
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+```
 
-**Suggested page title:** *ADO TestForge MCP — User Setup Guide*
+Your credentials will be preserved.
