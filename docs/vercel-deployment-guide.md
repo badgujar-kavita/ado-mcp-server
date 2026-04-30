@@ -1,4 +1,4 @@
-# Vercel Deployment Guide
+# Vercel Deployment Guide 
 
 This guide explains how to deploy ADO TestForge MCP to Vercel for distribution via a simple curl command.
 
