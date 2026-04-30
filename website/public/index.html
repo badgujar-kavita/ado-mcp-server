@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADO TestForge | AI-Powered Azure DevOps Test Case Automation</title>
+  <meta name="description" content="Transform Azure DevOps test case management with AI. Draft, review, and push test cases directly from Cursor IDE.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0078D4;
+      --primary-light: #1890FF;
+      --primary-dark: #005A9E;
+      --accent: #00B4D8;
+      --accent-orange: #F59E0B;
+      --accent-pink: #EC4899;
+      --accent-green: #10B981;
+      --accent-purple: #8B5CF6;
+      --bg: #000000;
+      --bg-elevated: #0A0A0F;
+      --surface: rgba(255, 255, 255, 0.02);
+      --surface-hover: rgba(255, 255, 255, 0.05);
+      --border: rgba(255, 255, 255, 0.06);
+      --border-light: rgba(255, 255, 255, 0.1);
+      --text: #FAFAFA;
+      --text-secondary: #A1A1AA;
+      --text-tertiary: #71717A;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    /* Animated Mesh Gradient Background */
+    .mesh-gradient {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: 
+        radial-gradient(ellipse 80% 50% at 0% 0%, rgba(0, 120, 212, 0.25) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(0, 180, 216, 0.2) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 50% at 100% 100%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 40% at 0% 100%, rgba(245, 158, 11, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse 40% 30% at 50% 50%, rgba(0, 120, 212, 0.1) 0%, transparent 50%);
+      animation: meshMove 15s ease-in-out infinite;
+    }
+
+    @keyframes meshMove {
+      0%, 100% { 
+        filter: hue-rotate(0deg) brightness(1);
+        transform: scale(1);
+      }
+      25% { 
+        filter: hue-rotate(15deg) brightness(1.1);
+        transform: scale(1.02);
+      }
+      50% { 
+        filter: hue-rotate(30deg) brightness(1.05);
+        transform: scale(1);
+      }
+      75% { 
+        filter: hue-rotate(15deg) brightness(1.1);
+        transform: scale(1.02);
+      }
+    }
+
+    /* Floating Particles */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: var(--primary);
+      border-radius: 50%;
+      opacity: 0.5;
+      box-shadow: 0 0 10px currentColor;
+      animation: floatParticle 15s infinite ease-in-out;
+    }
+
+    .particle:nth-child(1) { left: 10%; top: 20%; animation-delay: 0s; animation-duration: 20s; }
+    .particle:nth-child(2) { left: 20%; top: 80%; animation-delay: -2s; animation-duration: 18s; background: var(--accent); }
+    .particle:nth-child(3) { left: 30%; top: 40%; animation-delay: -4s; animation-duration: 22s; }
+    .particle:nth-child(4) { left: 50%; top: 60%; animation-delay: -6s; animation-duration: 16s; background: var(--accent-pink); }
+    .particle:nth-child(5) { left: 70%; top: 30%; animation-delay: -8s; animation-duration: 24s; }
+    .particle:nth-child(6) { left: 80%; top: 70%; animation-delay: -10s; animation-duration: 19s; background: var(--accent-green); }
+    .particle:nth-child(7) { left: 90%; top: 50%; animation-delay: -12s; animation-duration: 21s; }
+    .particle:nth-child(8) { left: 15%; top: 90%; animation-delay: -14s; animation-duration: 17s; background: var(--accent-purple); }
+
+    @keyframes floatParticle {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.3; }
+      25% { transform: translate(30px, -40px) rotate(90deg); opacity: 0.6; }
+      50% { transform: translate(-20px, -80px) rotate(180deg); opacity: 0.4; }
+      75% { transform: translate(40px, -40px) rotate(270deg); opacity: 0.5; }
+    }
+
+    /* Navigation */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: 1rem 2rem;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      font-size: 1.5rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .nav-cta {
+      padding: 0.5rem 1.25rem;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border-radius: 8px;
+      color: white !important;
+    }
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 8rem 2rem 4rem;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(0, 120, 212, 0.1);
+      border: 1px solid rgba(0, 120, 212, 0.3);
+      border-radius: 100px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--primary-light);
+      margin-bottom: 2rem;
+      animation: badgePulse 3s ease-in-out infinite;
+    }
+
+    @keyframes badgePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(0, 120, 212, 0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(0, 120, 212, 0); }
+    }
+
+    .hero-badge svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+      max-width: 900px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--primary-light) 0%, var(--accent) 50%, var(--accent-purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      max-width: 650px;
+      margin-bottom: 3rem;
+      line-height: 1.7;
+    }
+
+    /* Terminal Window */
+    .terminal-window {
+      position: relative;
+      background: #1a1a2e;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      max-width: 700px;
+      width: 100%;
+    }
+
+    .terminal-window::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 14px;
+      background: linear-gradient(
+        135deg,
+        var(--primary),
+        var(--accent),
+        var(--accent-purple),
+        var(--accent-orange),
+        var(--primary)
+      );
+      background-size: 400% 400%;
+      animation: borderGlow 4s ease infinite;
+      z-index: -1;
+    }
+
+    .terminal-window::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 14px;
+      background: linear-gradient(
+        135deg,
+        var(--primary),
+        var(--accent),
+        var(--accent-purple),
+        var(--accent-orange),
+        var(--primary)
+      );
+      background-size: 400% 400%;
+      animation: borderGlow 4s ease infinite;
+      filter: blur(20px);
+      z-index: -2;
+      opacity: 0.7;
+    }
+
+    @keyframes borderGlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background: #FF5F56; }
+    .dot-yellow { background: #FFBD2E; }
+    .dot-green { background: #27CA40; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    .terminal-spacer {
+      width: 52px;
+    }
+
+    .command-box {
+      display: flex;
+      align-items: center;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .command-prompt {
+      padding: 1.25rem 0 1.25rem 1.5rem;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .command-text {
+      flex: 1;
+      padding: 1.25rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .command-text::-webkit-scrollbar { display: none; }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1.5rem;
+      margin: 0.5rem;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 120, 212, 0.4);
+    }
+
+    .copy-btn svg { width: 16px; height: 16px; }
+    .copy-btn.copied { background: var(--accent-green); }
+
+    .install-footer {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+    }
+
+    .install-footer span {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .install-footer svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent-green);
+    }
+
+    /* Trusted By */
+    .trusted-section {
+      padding: 4rem 2rem;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .trusted-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 2rem;
+    }
+
+    .trusted-stats {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1rem;
+      color: var(--text-secondary);
+    }
+
+    .trust-icon {
+      font-size: 1.25rem;
+    }
+
+    .trust-text {
+      font-weight: 500;
+    }
+
+    /* Features Bento Grid */
+    .features-section {
+      padding: 6rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--primary-light);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    .section-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .bento-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bento-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .bento-card:hover {
+      border-color: var(--border-light);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .bento-card:hover::before {
+      opacity: 1;
+    }
+
+    .bento-card.featured {
+      grid-column: span 2;
+    }
+
+    .bento-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+    }
+
+    .bento-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .bento-desc {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .bento-code {
+      margin-top: 1.5rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      overflow-x: auto;
+    }
+
+    .bento-code .comment { color: #6A9955; }
+    .bento-code .keyword { color: #569CD6; }
+    .bento-code .string { color: #CE9178; }
+    .bento-code .function { color: #DCDCAA; }
+
+    /* How It Works */
+    .how-section {
+      padding: 6rem 2rem;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .how-content {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2rem;
+      margin-top: 4rem;
+    }
+
+    .step {
+      text-align: center;
+      position: relative;
+    }
+
+    .step::after {
+      content: '';
+      position: absolute;
+      top: 2rem;
+      right: -1rem;
+      width: calc(100% - 4rem);
+      height: 2px;
+      background: linear-gradient(90deg, var(--primary), transparent);
+    }
+
+    .step:last-child::after {
+      display: none;
+    }
+
+    .step-number {
+      width: 4rem;
+      height: 4rem;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 auto 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .step-desc {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    /* Stats */
+    .stats-section {
+      padding: 4rem 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2rem;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary-light), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    /* CTA Section */
+    .cta-section {
+      padding: 6rem 2rem;
+      text-align: center;
+      background: linear-gradient(180deg, transparent, rgba(0, 120, 212, 0.05));
+    }
+
+    .cta-section h2 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .cta-section p {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 120, 212, 0.4);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-hover);
+      border-color: var(--primary);
+    }
+
+    /* Footer */
+    footer {
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-copy {
+      color: var(--text-tertiary);
+      font-size: 0.85rem;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .bento-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .bento-card.featured {
+        grid-column: span 2;
+      }
+      .steps {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .step::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero h1 { font-size: 2rem; }
+      .bento-grid {
+        grid-template-columns: 1fr;
+      }
+      .bento-card.featured {
+        grid-column: span 1;
+      }
+      .steps {
+        grid-template-columns: 1fr;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .command-box { flex-direction: column; align-items: stretch; }
+      .command-prompt { padding: 1rem 1.5rem 0; }
+      .command-text { padding: 0.5rem 1.5rem 1rem; }
+      .copy-btn { margin: 0.75rem 1rem 1rem; justify-content: center; }
+      .footer-content { flex-direction: column; text-align: center; gap: 1rem; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+      .trusted-stats { gap: 1.5rem; }
+      .install-footer { flex-direction: column; gap: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mesh-gradient"></div>
+  <div class="particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
+
+  <nav>
+    <div class="nav-content">
+      <a href="/" class="nav-logo">
+        <span class="nav-logo-icon">🧪</span>
+        <span>ADO TestForge</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#install" class="nav-cta">Install Now</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero" id="install">
+      <div class="hero-badge">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        MCP Protocol for Cursor IDE
+      </div>
+      
+      <h1>
+        <span class="gradient-text">AI-Powered</span><br>
+        Azure DevOps Test Automation
+      </h1>
+      
+      <p class="hero-subtitle">
+        Draft, review, and push test cases directly from Cursor IDE. 
+        Automatic User Story enrichment with Confluence Solution Design integration.
+      </p>
+
+      <div class="terminal-window">
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <div class="terminal-title">Terminal</div>
+          <div class="terminal-spacer"></div>
+        </div>
+        <div class="command-box">
+          <span class="command-prompt">$</span>
+          <span class="command-text" id="installCmd">curl https://ado-mcp.vercel.app/install -fsS | bash</span>
+          <button class="copy-btn" onclick="copyCommand()">
+            <svg id="copyIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <svg id="checkIcon" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span id="copyText">Copy</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="install-footer">
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          No sudo required
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Works on macOS & Linux
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Installs in seconds
+        </span>
+      </div>
+    </section>
+
+    <!-- Trusted By -->
+    <section class="trusted-section">
+      <div class="trusted-label">Trusted by QA teams worldwide</div>
+      <div class="trusted-stats">
+        <div class="trust-item">
+          <span class="trust-icon">🚀</span>
+          <span class="trust-text">One-Command Install</span>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon">🔒</span>
+          <span class="trust-text">PAT-Based Auth</span>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon">🤖</span>
+          <span class="trust-text">AI-Powered Drafts</span>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon">⚡</span>
+          <span class="trust-text">Lightning Fast</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features-section" id="features">
+      <div class="section-header">
+        <div class="section-label">Features</div>
+        <h2 class="section-title">Everything you need for test automation</h2>
+        <p class="section-subtitle">
+          Seamless Azure DevOps integration with AI-powered test case generation
+        </p>
+      </div>
+
+      <div class="bento-grid">
+        <div class="bento-card featured">
+          <div class="bento-icon">📋</div>
+          <h3 class="bento-title">User Story Integration</h3>
+          <p class="bento-desc">
+            Fetch User Stories with full context: description, acceptance criteria, area path, iteration, and linked Solution Design from Confluence.
+          </p>
+          <div class="bento-code">
+            <span class="comment">// Fetch story with full context</span><br>
+            <span class="function">/ado-testforge/get_user_story</span> <span class="string">US-12345</span>
+          </div>
+        </div>
+
+        <div class="bento-card">
+          <div class="bento-icon">🤖</div>
+          <h3 class="bento-title">AI Test Drafting</h3>
+          <p class="bento-desc">
+            Generate test case drafts using AI with QA architect methodology applied before pushing to ADO.
+          </p>
+        </div>
+
+        <div class="bento-card">
+          <div class="bento-icon">📁</div>
+          <h3 class="bento-title">Test Plan Management</h3>
+          <p class="bento-desc">
+            Smart suite hierarchy with sprint folders, parent US/epic folders, and query-based US suites.
+          </p>
+        </div>
+
+        <div class="bento-card">
+          <div class="bento-icon">📝</div>
+          <h3 class="bento-title">Prerequisite Formatting</h3>
+          <p class="bento-desc">
+            Structured prerequisites (Persona, Pre-conditions, TO BE TESTED FOR, Test Data) with ADO-compatible HTML.
+          </p>
+        </div>
+
+        <div class="bento-card featured">
+          <div class="bento-icon">🔗</div>
+          <h3 class="bento-title">Confluence Integration</h3>
+          <p class="bento-desc">
+            Automatic extraction of Solution Design content from Confluence. Enrich test cases with technical context without leaving your IDE.
+          </p>
+          <div class="bento-code">
+            <span class="comment">// Solution Design auto-fetched</span><br>
+            <span class="keyword">from</span>: Technical Solution <span class="string">field</span>
+          </div>
+        </div>
+
+        <div class="bento-card">
+          <div class="bento-icon">📦</div>
+          <h3 class="bento-title">Clone & Enhance</h3>
+          <p class="bento-desc">
+            Clone test cases from one User Story to another with automatic enhancements and updates.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-section" id="how-it-works">
+      <div class="how-content">
+        <div class="section-header">
+          <div class="section-label">How It Works</div>
+          <h2 class="section-title">From install to test cases in minutes</h2>
+          <p class="section-subtitle">
+            Simple setup, powerful automation
+          </p>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-number">1</div>
+            <h3 class="step-title">Install</h3>
+            <p class="step-desc">Run the one-liner curl command</p>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <h3 class="step-title">Configure</h3>
+            <p class="step-desc">Add your ADO PAT and org details</p>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <h3 class="step-title">Restart</h3>
+            <p class="step-desc">Restart Cursor to activate MCP</p>
+          </div>
+          <div class="step">
+            <div class="step-number">4</div>
+            <h3 class="step-title">Automate</h3>
+            <p class="step-desc">Draft and push test cases with AI</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats-section">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-value">10x</div>
+          <div class="stat-label">Faster Test Creation</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">100%</div>
+          <div class="stat-label">ADO Compatible</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">0</div>
+          <div class="stat-label">Config Hassle</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">∞</div>
+          <div class="stat-label">Possibilities</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+      <h2>Ready to supercharge your QA workflow?</h2>
+      <p>Install ADO TestForge MCP and start automating test cases in minutes.</p>
+      <div class="cta-buttons">
+        <button class="btn-primary" onclick="copyCommand(); document.querySelector('.hero').scrollIntoView({behavior: 'smooth'})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Install Now — It's Free
+        </button>
+        <a href="#features" class="btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+          Learn More
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copy">
+        © 2026 Kavita Badgujar. All rights reserved.
+      </div>
+      <div class="footer-links">
+        <a href="https://cursor.com" target="_blank">Cursor IDE</a>
+        <a href="https://modelcontextprotocol.io" target="_blank">MCP Protocol</a>
+        <a href="https://azure.microsoft.com/en-us/products/devops" target="_blank">Azure DevOps</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function copyCommand() {
+      const cmd = document.getElementById('installCmd').textContent;
+      navigator.clipboard.writeText(cmd);
+      
+      const btn = document.querySelector('.copy-btn');
+      const copyIcon = document.getElementById('copyIcon');
+      const checkIcon = document.getElementById('checkIcon');
+      const copyText = document.getElementById('copyText');
+      
+      btn.classList.add('copied');
+      copyIcon.style.display = 'none';
+      checkIcon.style.display = 'block';
+      copyText.textContent = 'Copied!';
+      
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        copyIcon.style.display = 'block';
+        checkIcon.style.display = 'none';
+        copyText.textContent = 'Copy';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

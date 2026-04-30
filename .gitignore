@@ -6,3 +6,12 @@ dist-package/
 *.log
 .DS_Store
 tc-drafts/*.json
+
+# Vercel
+.vercel/
+website/public/ado-testforge.tar.gz
+
+# IDE
+.vscode/
+*.swp
+*.swo
