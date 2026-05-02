@@ -1,16 +1,16 @@
 ---
 name: Enhanced Context Interactive QA v2
-overview: "Read all meaningful fields from the User Story work item, fetch all linked Confluence pages across all context fields, surface a Source Discovery Report before drafting, and give the user a single clean coverage decision gate. Optional US signals (Priority, Risk, Tags) are always read and shown but only applied when explicitly requested."
+overview: Read all meaningful fields from the User Story work item, fetch all linked Confluence pages across all context fields, surface a Source Discovery Report before drafting, and give the user a single clean coverage decision gate. Optional US signals (Priority, Risk, Tags) are always read and shown but only applied when explicitly requested.
 todos:
   - id: prereq-field-names
-    content: "Run list_work_item_fields to confirm exact ADO reference names for Impact Assessment, Reference Documentation, Priority, Risk, Tags"
+    content: Run list_work_item_fields to confirm exact ADO reference names for Impact Assessment, Reference Documentation, Priority, Risk, Tags
     status: pending
   - id: phase1-config
     content: "Phase 1a: Add additionalContextFields (ImpactAssessment, ReferenceDocumentation) and optionalSignalFields (Priority, Risk, Tags) to conventions.config.json, types.ts, config.ts"
-    status: pending
+    status: cancelled
   - id: phase1-links
     content: "Phase 1b: Add extractAllLinks() with URL categorization to confluence-url.ts — extract ALL links from ALL context fields, not just first"
-    status: pending
+    status: cancelled
   - id: phase1-errors
     content: "Phase 1c: Add typed Confluence errors (401/403/404) to confluence-client.ts"
     status: pending
@@ -19,7 +19,7 @@ todos:
     status: pending
   - id: phase1-types
     content: "Phase 1e: Update UserStoryContext with solutionDesignPages[], unfetchedLinks[], additionalContext{}, optionalSignals{}"
-    status: pending
+    status: cancelled
   - id: phase2-prompt
     content: "Phase 2a: Update draft_test_cases prompt — Source Discovery Report, single coverage mode gate, optional signals display, UX formatting rules"
     status: pending
