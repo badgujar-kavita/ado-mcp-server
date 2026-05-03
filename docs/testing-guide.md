@@ -456,6 +456,11 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | Test case number always starts at 1 | The auto-increment queries existing TCs by title pattern; if no matches found, starts at 1 |
 | Prerequisites are empty | Persona always uses all three from config; pre-conditions must be generated per user story (never from config). Check `conventions.config.json` > `prerequisiteDefaults.personas` |
 | `US {id} — existing test cases detected` (A/B/C prompt) | The duplicate-TC preflight blocked the push because the US already has linked TCs in ADO but the draft has no ADO IDs. **A.** Proceed with `insertAnyway: true` to create new TCs alongside the existing ones. **B.** Investigate first — the agent should call `list_test_cases_linked_to_user_story` for IDs, then `get_test_case` for each title/steps, then re-ask. **C.** Cancel. To instead **update** existing TCs, add their ADO IDs to the draft and call with `repush: true` (see `docs/repush-workflow.md`). |
+| Confluence images show `skipped: "fetch-failed"` | Token lacks `read:attachment.download:confluence` scope. Use a classic unscoped token or add the scope at https://id.atlassian.com/manage-profile/security/api-tokens. |
+| ADO images show `skipped: "fetch-failed"` | Usually transient; retry. If persistent, verify PAT has `vso.work` scope. |
+| Response has only 1 content part despite images being present | `images.returnMcpImageParts` defaults to `false`. Flip to `true` in `conventions.config.json` and restart the MCP. |
+| Images appear as `skipped: "response-budget"` | Total base64 payload exceeds `images.maxTotalBytesPerResponse` (default 4 MiB). Raise the cap or reduce image count. |
+| `unfetchedLinks` contains cross-instance Confluence | The URL points at a different Atlassian tenant than configured in `confluence_base_url`. MCP only fetches the configured instance. |
 
 ---
 
@@ -466,7 +471,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `list_test_plans` | List all test plans | *(none)* |
 | `get_test_plan` | Get test plan details | `planId` |
 | `create_test_plan` | Create a new test plan (future use) | `name` |
-| `get_user_story` | Fetch US with context + Solution Design from Confluence; response includes `webUrl` for clickable linking | `workItemId` |
+| `get_user_story` | Fetch US with full context payload: primary fields (title, description, AC, area/iteration path, parent info, relations) + `namedFields`, `allFields` pass-through, `fetchedConfluencePages` (all linked Confluence pages with current-version images), `unfetchedLinks` (SharePoint/Figma/cross-instance Confluence etc.), `embeddedImages` (ADO rich-text attachments). Response includes `webUrl` for clickable linking. When `images.returnMcpImageParts: true`, also returns `{ type: "image" }` content parts for vision-capable clients. Deprecated `solutionDesignUrl` / `solutionDesignContent` aliases remain populated. | `workItemId` |
 | `list_test_cases_linked_to_user_story` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept) | `userStoryId` |
 | `list_work_item_fields` | List work item field definitions (reference names, types) | `expand` (optional) |
 | `ensure_suite_hierarchy` | Build sprint > parent > US suite tree | `planId`, `sprintNumber`, `userStoryId` |

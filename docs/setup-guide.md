@@ -257,6 +257,57 @@ If Confluence is not configured, the field is empty, or the linked page cannot b
 
 ---
 
+## Step 2c: Tune Context Richness (Optional)
+
+The following knobs in `conventions.config.json` control how much work-item context `get_user_story` returns. Both are optional — defaults work for most teams.
+
+### Enabling embedded image vision (optional)
+
+By default `get_user_story` returns work-item context as a single text content part. To let vision-capable MCP clients (Cursor, Claude Desktop) see ADO-attached screenshots and Confluence diagrams directly, flip this flag in `conventions.config.json`:
+
+```json
+{
+  "images": {
+    "returnMcpImageParts": true
+  }
+}
+```
+
+After editing, restart the MCP server. The tool now returns image bytes as additional content parts alongside the text JSON — the client renders them as vision input.
+
+**Confluence token scope:** downloading attachment bytes (not just listing them) requires the `read:attachment.download:confluence` scope on the Atlassian API token. If the scope is missing, images surface as `skipped: "fetch-failed"` in the response — the MCP reports this cleanly so the agent can prompt the user. Fix: use an unscoped/classic token at [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens), or add the download scope to an existing scoped token.
+
+**Response-size cap:** `images.maxTotalBytesPerResponse` (default 4 MiB) limits total base64 image payload per call so Claude's context window isn't blown by an image-heavy user story. Excess images are reported in the JSON with `skipped: "response-budget"` and their `originalUrl` remains clickable.
+
+### Adding custom fields to the agent's context
+
+The MCP scans the following ADO fields by default on every User Story fetch:
+
+- `System.Title`
+- `System.Description`
+- `Microsoft.VSTS.Common.AcceptanceCriteria`
+- `Custom.TechnicalSolution` (Solution Notes — configurable via `solutionDesign.adoFieldRef`)
+
+If your project uses additional custom fields (Impact Assessment, Reference Documentation, Business Justification, etc.) that contain test-design-relevant content, add them to `additionalContextFields` in `conventions.config.json`:
+
+```json
+{
+  "additionalContextFields": [
+    { "adoFieldRef": "Custom.ImpactAssessment", "label": "Impact Assessment", "fetchLinks": true, "fetchImages": true },
+    { "adoFieldRef": "Custom.ReferenceDocumentation", "label": "Reference Documentation", "fetchLinks": true, "fetchImages": true },
+    { "adoFieldRef": "Custom.BusinessJustification", "label": "Business Justification", "fetchLinks": false, "fetchImages": false }
+  ]
+}
+```
+
+Each entry adds the field to `namedFields` in the response. `fetchLinks` controls whether Confluence URLs found in the field are auto-fetched (default `true`); `fetchImages` controls whether embedded `<img>` attachments are downloaded (default `true`).
+
+To discover the `adoFieldRef` of a field you see in the ADO UI, use the `list_work_item_fields` tool — it returns both the display name and the reference name.
+
+Every other populated field (standard + custom) is still surfaced in `allFields` as a pass-through map, with system-noise fields filtered out by default. You don't need to register them — the agent scans the map for anything that looks relevant.
+
+---
+
 ## Step 3: Restart the MCP Server
 
 1. Go to **Cursor Settings > MCP**

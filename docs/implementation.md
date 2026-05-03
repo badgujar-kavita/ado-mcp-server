@@ -191,6 +191,152 @@ The **Solution Notes** field (ADO API: `Custom.TechnicalSolution`) is a rich tex
 
 ---
 
+## Work Item Context Payload
+
+`get_user_story` returns a full `UserStoryContext` payload that goes beyond the legacy "Description + AC + first Confluence page" shape. The payload carries every populated ADO field, every reachable Confluence page reachable from any context field, and every image embedded in ADO rich-text or Confluence storage HTML. Existing consumers keep working via deprecated aliases; new consumers read the richer fields directly.
+
+### 1. Response shape
+
+```typescript
+interface UserStoryContext {
+  // Primary (unchanged from pre-refactor):
+  id: number;
+  title: string;
+  description: string;
+  acceptanceCriteria: string;
+  areaPath: string;
+  iterationPath: string;
+  state: string;
+  parentId: number | null;
+  parentTitle: string | null;
+  relations: AdoRelation[];
+
+  // NEW — full named-field map (primary + additionalContextFields):
+  namedFields?: Record<string, { label: string; html: string; plainText: string }>;
+
+  // NEW — pass-through of every populated field (system-noise filtered):
+  allFields?: Record<string, unknown>;
+
+  // NEW — every reachable Confluence link fetched:
+  fetchedConfluencePages?: FetchedConfluencePage[];
+
+  // NEW — SharePoint/Figma/cross-instance/etc. links surfaced to the agent:
+  unfetchedLinks?: UnfetchedLink[];
+
+  // NEW — <img> attachments found in rich-text fields:
+  embeddedImages?: EmbeddedImage[];
+
+  // Deprecated aliases (still populated for backward compatibility):
+  /** @deprecated Use namedFields / fetchedConfluencePages instead. */
+  solutionDesignUrl: string | null;
+  /** @deprecated Use namedFields / fetchedConfluencePages instead. */
+  solutionDesignContent: string | null;
+}
+```
+
+Supporting types (full definitions in `src/types.ts`):
+
+```typescript
+type ExternalLinkType =
+  | "Confluence" | "SharePoint" | "Figma" | "LucidChart" | "GoogleDrive" | "Other";
+
+interface CategorizedLink {
+  url: string;
+  type: ExternalLinkType;
+  pageId?: string;          // present only for Confluence
+  sourceField: string;      // ADO field reference this link came from
+}
+
+interface FetchedConfluencePage {
+  pageId: string;
+  title: string;
+  url: string;
+  body: string;             // stripped, markdown-ish text
+  sourceField: string;      // ADO field this link came from
+  images: EmbeddedImage[];  // current-version attachments resolved from this page
+}
+
+interface UnfetchedLink {
+  url: string;
+  type: ExternalLinkType;
+  sourceField: string;
+  reason:
+    | "cross-instance" | "non-confluence" | "access-denied"
+    | "not-found" | "auth-failure" | "link-budget" | "time-budget";
+  workaround: string;       // actionable hint for the agent/user
+}
+
+interface EmbeddedImage {
+  source: "ado" | "confluence";
+  sourceField?: string;     // ADO field name (source=ado)
+  sourcePageId?: string;    // Confluence page id (source=confluence)
+  originalUrl: string;      // clickable source URL reviewers can open
+  filename: string;
+  mimeType: string;         // image/png, image/jpeg, image/svg+xml, …
+  bytes: number;            // bytes after downscale (if applied)
+  originalBytes?: number;   // bytes before downscale
+  downscaled?: boolean;
+  altText?: string;
+  svgInlineText?: string;   // raw SVG XML, when mimeType === "image/svg+xml"
+  localPath?: string;       // absolute disk path, only when images.saveLocally is true
+  relativeToDraft?: string; // relative to the draft markdown, only when saveLocally is true
+  skipped?:
+    | "too-small" | "too-large" | "unsupported-mime"
+    | "fetch-failed" | "response-budget" | "time-budget";
+}
+```
+
+**Empty-field rule:** `namedFields[key]` is omitted when the underlying ADO field is null/empty — reviewers don't see ghost entries with empty `html` / `plainText`. Same rule applies to `allFields` (noise-filter + populated-filter together).
+
+### 2. Resolution flow
+
+`extractUserStoryContext` in `src/tools/work-items.ts` runs the following pipeline:
+
+1. Read primary fields from `item.fields` (title, description, acceptance criteria, area path, iteration path, state).
+2. Resolve parent via `System.LinkTypes.Hierarchy-Reverse` relation with fallback to `System.Parent`.
+3. Build `allFields` pass-through, applying the system-noise filter (28 bookkeeping fields dropped by default) plus any `allFields.omitExtraRefs` from config.
+4. Build `namedFields` from the primary allowlist (Title, Description, Acceptance Criteria, Solution Notes) plus every `additionalContextFields` entry from config. Each entry has `{ label, html, plainText }`.
+5. Run `extractAllLinks()` across every scanned field to collect categorized links.
+6. Partition links: cross-instance Confluence → `unfetchedLinks`; non-Confluence (SharePoint, Figma, LucidChart, GoogleDrive, Other) → `unfetchedLinks` with workaround text; in-scope Confluence links → fetch queue capped at `context.maxConfluencePagesPerUserStory` (default 10) — overflow → `unfetchedLinks` with `reason: "link-budget"`.
+7. For each fetchable Confluence link, call `getPageContentRaw(pageId)` + `fetchCurrentVersionAttachments()` and append to `fetchedConfluencePages`. Respect the `context.maxTotalFetchSeconds` wall-clock budget (default 45s) — excess fetches → `unfetchedLinks` with `reason: "time-budget"`.
+8. Run `extractAndFetchAdoImages()` across every HTML-valued field in `namedFields` plus any `allFields` entry that contains an `<img>`. Enforce the combined `images.maxPerUserStory` cap.
+9. Populate the deprecated `solutionDesignUrl` / `solutionDesignContent` from the first fetched Confluence page so existing consumers keep working.
+10. Return the full `UserStoryContext`.
+
+**Dedupe rule:** if an `additionalContextFields` entry's `adoFieldRef` collides with a primary (Title, Description, Acceptance Criteria, Solution Notes), the primary wins and the duplicate is skipped.
+
+### 3. MCP tool response shape
+
+`buildGetUserStoryResponse` in `src/tools/work-items.ts` owns the final MCP content-array packing. When `images.returnMcpImageParts: true`, `get_user_story` returns:
+
+```typescript
+{
+  content: [
+    { type: "text", text: JSON.stringify(context, null, 2) },
+    { type: "image", mimeType: "image/png", data: "<base64>" },  // per successful image
+    // ...
+  ]
+}
+```
+
+Packing rules:
+
+- Images are collected from `embeddedImages` plus `fetchedConfluencePages[].images` in source-document order.
+- Base64 bytes come from each image's internal `_buffer` field. `_buffer` is stripped from the JSON text part before serialization.
+- `images.maxTotalBytesPerResponse` (default 4 MiB) caps the aggregate base64 payload. Images that would push the response over the cap stay in the JSON payload with `skipped: "response-budget"` and are NOT added as image content parts, so reviewers can still click through via `originalUrl`.
+- When `images.returnMcpImageParts` is false (the default), the response is `[text]` only — byte-for-byte identical to pre-refactor behavior, so MCP clients that assert `content.length === 1` keep working until the flag is flipped.
+
+### 4. Failure policy
+
+Every step is failure-isolated:
+
+- Individual fetch failures do not sink the overall call — they become `unfetchedLinks[i].reason` or `embeddedImages[i].skipped` and the agent still gets a usable `UserStoryContext`.
+- A single work-item fetch error at step 1 IS fatal — nothing else in the pipeline can work without the item.
+- On a 401 from Confluence, the client retries via `api.atlassian.com/ex/confluence/{cloudId}/...` before giving up.
+- 401s on Confluence attachment download typically mean the token lacks the `read:attachment.download:confluence` scope. These surface as `skipped: "fetch-failed"` with clear provenance so the agent can prompt the user to switch to a classic unscoped token or add the scope.
+
+---
+
 ## Test Case Asset Management & Folder Structure
 
 ### Overview

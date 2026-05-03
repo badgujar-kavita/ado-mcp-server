@@ -4,6 +4,62 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-03 — Full-context work-item payload + embedded image support
+
+### Feature
+
+`get_user_story` now returns a richer UserStoryContext so draft generation can incorporate every populated custom field, every linked Confluence page, and (optionally) the actual pixel contents of ADO / Confluence attachments.
+
+**New response fields** (all additive; pre-existing fields preserved):
+
+- `namedFields: Record<ref, { label, html, plainText }>` — primary rich-text fields (Title, Description, AcceptanceCriteria, Solution Notes + any `additionalContextFields` configured in conventions.config.json, e.g. `Custom.ImpactAssessment`, `Custom.ReferenceDocumentation`).
+- `allFields: Record<ref, unknown>` — every populated ADO field on the work item, system-noise filtered by default (28 bookkeeping fields dropped: `ChangedDate`, `Watermark`, `BoardColumn`, etc.). Teams can extend the filter via `allFields.omitExtraRefs` or disable via `allFields.passThrough: false`.
+- `fetchedConfluencePages: FetchedConfluencePage[]` — EVERY Confluence link found in any scanned field is fetched (not just the first). Each page entry includes `{ pageId, title, url, body, sourceField, images }` and contributes to a combined image cap.
+- `unfetchedLinks: UnfetchedLink[]` — SharePoint, Figma, LucidChart, GoogleDrive, cross-instance Confluence, auth-failed, link-budget, and time-budget links are all surfaced with `{ url, type, sourceField, reason, workaround }` so the agent can tell the user to paste content manually before drafting.
+- `embeddedImages: EmbeddedImage[]` — `<img>` tags in rich-text fields are parsed, resolved to ADO attachment URLs, fetched via PAT, size-guarded, and surfaced with full metadata (`{ source, sourceField, originalUrl, filename, mimeType, bytes, altText, skipped? }`). The same pipeline runs on Confluence page `<ac:image>` / `<img>` refs (`fetchedConfluencePages[].images`).
+
+**New MCP image content parts** (ship-dark, opt-in):
+
+When `images.returnMcpImageParts: true` is set in `conventions.config.json`, `get_user_story` returns the actual image bytes as MCP image content parts alongside the text JSON — Cursor, Claude Desktop, and other vision-capable MCP clients render them as vision input so the agent can see wireframes, screenshots, and diagrams directly. Default is `false` so the existing response shape is unchanged until teams opt in. A `maxTotalBytesPerResponse` cap (default 4 MiB) protects the Claude context window; overflowed images are marked `skipped: "response-budget"` with `originalUrl` still clickable.
+
+**Prompt + skill updates:**
+
+- `draft_test_cases` step 2a: swapped the old "description / AC / Solution Design content" terminology for "primary inputs are `namedFields[*].plainText` and `fetchedConfluencePages[].body`." Legacy top-level fields remain equivalent.
+- `draft_test_cases` steps 2d + 2e (new): documents how to consume every new payload field, and mandates surfacing `unfetchedLinks` to the user BEFORE generating a draft (safety rule).
+- `create_test_cases` step 3: cross-references 2d–2e so the no-draft branch follows the same consumption rules.
+- `clone_and_enhance_test_cases` step 4: same cross-reference.
+- `get_user_story` slash command: now asks the agent to produce a structured 6-section summary (primary / namedFields / Confluence pages / images / unfetchedLinks / allFields).
+- `draft-test-cases-salesforce-tpm/SKILL.md`: new "Context Inputs" section documenting the priority order (namedFields → fetchedConfluencePages → images → allFields → unfetchedLinks) with concrete test-design-relevant signals per field.
+- `test-case-asset-manager/SKILL.md`: new "Optional: attachments/ subfolder" section describing the on-disk layout when `images.saveLocally: true` is enabled.
+
+### Configuration (new blocks in conventions.config.json)
+
+- `additionalContextFields: []` — additional custom fields beyond the primary allowlist that should be surfaced as `namedFields`. Each entry is `{ adoFieldRef, label, fetchLinks, fetchImages }`. Seeded defaults point at `Custom.ImpactAssessment` and `Custom.ReferenceDocumentation` — override per project as needed.
+- `allFields: { passThrough, omitSystemNoise, omitExtraRefs }` — controls the `allFields` pass-through behavior.
+- `images: { enabled, maxPerUserStory (20), maxBytesPerImage (2 MiB), maxTotalBytesPerResponse (4 MiB), minBytesToKeep (4 KiB), downscaleLongSidePx (1600), downscaleQuality (85), mimeAllowlist, inlineSvgAsText, returnMcpImageParts (false — ship-dark), saveLocally (false), savePathTemplate }` — all image guardrails.
+- `context: { maxConfluencePagesPerUserStory (10), maxTotalFetchSeconds (45) }` — budgets so pathological work items don't stall the tool call.
+
+### Bug fixes along the way
+
+- ADO attachment URLs with the project GUID (instead of project name) in the path now fetch correctly. Previously produced a double-project URL and 404'd.
+- Confluence `listAttachments` and `fetchAttachmentBinary` now retry via `api.atlassian.com` on 401 (same fallback that `getPageContent` already had). Scoped tokens that couldn't fetch attachments now work. Note: binary download additionally requires `read:attachment.download:confluence` scope on the API token — if missing, images surface as `skipped: "fetch-failed"` rather than being silently dropped.
+- Distribution bundle externalizes `jimp` and `node-html-parser` so `gifwrap`'s `require("fs")` doesn't break the ESM bundle at startup. `dist-package/package.json` declares these deps; the installer runs `npm install` to resolve them at install time.
+
+### Files Updated
+
+- **New helpers:** `src/helpers/basic-auth.ts`, `src/helpers/strip-html.ts`, `src/helpers/ado-attachments.ts`, `src/helpers/confluence-attachments.ts`, `src/helpers/image-downscale.ts`
+- **Extended:** `src/types.ts`, `src/config.ts`, `conventions.config.json`, `src/ado-client.ts` (`getBinary()`), `src/confluence-client.ts` (`listAttachments`, `fetchAttachmentBinary`, `getPageContentRaw`, 401→api.atlassian.com fallback), `src/helpers/confluence-url.ts` (`extractAllLinks`, `categorizeLink`, `extractConfluencePageIdFromUrl`), `src/tools/work-items.ts` (`extractUserStoryContext` rewrite, `buildGetUserStoryResponse` packing), `src/prompts/index.ts`, `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`, `.cursor/skills/test-case-asset-manager/SKILL.md`, `build-dist.mjs`, `package.json` (+jimp, +node-html-parser).
+- **Tests:** ~110 new `node:test` unit tests covering link extraction, binary fetch, attachment parsing, downscale, guardrails, response-budget packing, 401 fallbacks, and the full context build.
+
+### Backward Compatibility
+
+- Every pre-existing `UserStoryContext` field preserved (`title`, `description`, `acceptanceCriteria`, `areaPath`, `iterationPath`, `state`, `parentId`, `parentTitle`, `relations`).
+- `solutionDesignUrl` and `solutionDesignContent` kept as deprecated aliases; populated from the FIRST fetched Confluence page so legacy consumers continue to work.
+- `get_user_story` response shape stays `[text]` by default (`returnMcpImageParts: false`). Flip in config to get `[text, image, image, …]`.
+- New config blocks are all optional; absence restores pre-refactor behavior.
+
+---
+
 ## 2026-05-03 — Removed Google Drive distribution path
 
 ### Change
