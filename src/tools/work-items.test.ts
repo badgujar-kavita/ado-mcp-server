@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AdoClient } from "../ado-client.ts";
 import { ConfluenceClient } from "../confluence-client.ts";
-import { extractUserStoryContext } from "./work-items.ts";
-import type { AdoWorkItem } from "../types.ts";
+import { extractUserStoryContext, buildGetUserStoryResponse } from "./work-items.ts";
+import type { AdoWorkItem, EmbeddedImage, UserStoryContext } from "../types.ts";
 
 // ── Fetch mock helper ───────────────────────────────────────────────────────
 
@@ -445,4 +445,134 @@ test("deprecated solutionDesignUrl is populated even when confluence fetch retur
   } finally {
     restore();
   }
+});
+
+// ── Phase H: buildGetUserStoryResponse (MCP image content parts) ───────────
+
+function makeImage(overrides: Partial<EmbeddedImage> = {}): EmbeddedImage {
+  const buf = new ArrayBuffer(overrides.bytes ?? 100);
+  return {
+    source: "ado",
+    sourceField: "System.Description",
+    originalUrl: "https://dev.azure.com/x/y/_apis/wit/attachments/abc",
+    filename: "image.png",
+    mimeType: "image/png",
+    bytes: overrides.bytes ?? 100,
+    _buffer: buf,
+    ...overrides,
+  };
+}
+
+function makeContext(embeddedImages: EmbeddedImage[]): UserStoryContext {
+  return {
+    id: 1,
+    title: "t",
+    description: "",
+    acceptanceCriteria: "",
+    areaPath: "",
+    iterationPath: "",
+    state: "New",
+    parentId: null,
+    parentTitle: null,
+    relations: [],
+    namedFields: {},
+    allFields: {},
+    fetchedConfluencePages: [],
+    unfetchedLinks: [],
+    embeddedImages,
+    solutionDesignUrl: null,
+    solutionDesignContent: null,
+  };
+}
+
+test("buildGetUserStoryResponse with returnMcpImageParts=false returns only the text part", () => {
+  const img = makeImage({ filename: "wire.png", bytes: 500 });
+  const ctx = makeContext([img]);
+  const res = buildGetUserStoryResponse(ctx, {
+    webUrl: "https://example.com/1",
+    returnMcpImageParts: false,
+    maxTotalBytesPerResponse: 4194304,
+  });
+  assert.equal(res.content.length, 1);
+  assert.equal(res.content[0]!.type, "text");
+  // Image metadata is still present in the JSON text
+  const textPart = res.content[0] as { type: "text"; text: string };
+  assert.ok(textPart.text.includes("wire.png"));
+  // _buffer must not leak into JSON
+  assert.ok(!textPart.text.includes("_buffer"));
+});
+
+test("buildGetUserStoryResponse with returnMcpImageParts=true appends image content parts", () => {
+  const img = makeImage({ filename: "wire.png", bytes: 200 });
+  const ctx = makeContext([img]);
+  const res = buildGetUserStoryResponse(ctx, {
+    webUrl: "https://example.com/1",
+    returnMcpImageParts: true,
+    maxTotalBytesPerResponse: 4194304,
+  });
+  assert.equal(res.content.length, 2);
+  assert.equal(res.content[0]!.type, "text");
+  assert.equal(res.content[1]!.type, "image");
+  const imagePart = res.content[1] as { type: "image"; data: string; mimeType: string };
+  assert.equal(imagePart.mimeType, "image/png");
+  assert.ok(imagePart.data.length > 0);
+  // Verify it's valid base64
+  assert.doesNotThrow(() => Buffer.from(imagePart.data, "base64"));
+  const textPart = res.content[0] as { type: "text"; text: string };
+  assert.ok(!textPart.text.includes("_buffer"));
+});
+
+test("buildGetUserStoryResponse applies response-budget cap and marks overflowed images as skipped", () => {
+  // Each image's base64 size is ceil(1000 * 4/3) = 1334 bytes. Cap at 2800 => 2 fit.
+  const imgs = [
+    makeImage({ filename: "a.png", bytes: 1000 }),
+    makeImage({ filename: "b.png", bytes: 1000 }),
+    makeImage({ filename: "c.png", bytes: 1000 }),
+  ];
+  const ctx = makeContext(imgs);
+  const res = buildGetUserStoryResponse(ctx, {
+    webUrl: "https://example.com/1",
+    returnMcpImageParts: true,
+    maxTotalBytesPerResponse: 2800,
+  });
+  // text + 2 images (3rd exceeds budget)
+  assert.equal(res.content.length, 3);
+  assert.equal(res.content[1]!.type, "image");
+  assert.equal(res.content[2]!.type, "image");
+  // The 3rd image is marked response-budget in the JSON payload
+  const textPart = res.content[0] as { type: "text"; text: string };
+  const payload = JSON.parse(textPart.text) as UserStoryContext;
+  assert.equal(payload.embeddedImages!.length, 3);
+  assert.equal(payload.embeddedImages![0]!.skipped, undefined);
+  assert.equal(payload.embeddedImages![1]!.skipped, undefined);
+  assert.equal(payload.embeddedImages![2]!.skipped, "response-budget");
+});
+
+test("buildGetUserStoryResponse: skipped images don't consume budget and aren't re-marked", () => {
+  // First image is already skipped for fetch-failed (no _buffer); shouldn't eat budget
+  // nor be re-marked. Second image is successful and should be attached.
+  const failed: EmbeddedImage = {
+    source: "ado",
+    sourceField: "System.Description",
+    originalUrl: "https://dev.azure.com/x/y/_apis/wit/attachments/bad",
+    filename: "failed.png",
+    mimeType: "image/png",
+    bytes: 0,
+    skipped: "fetch-failed",
+  };
+  const ok = makeImage({ filename: "ok.png", bytes: 500 });
+  const ctx = makeContext([failed, ok]);
+  const res = buildGetUserStoryResponse(ctx, {
+    webUrl: "https://example.com/1",
+    returnMcpImageParts: true,
+    maxTotalBytesPerResponse: 1000, // tight; but failed one shouldn't count
+  });
+  // text + 1 image (only the successful one)
+  assert.equal(res.content.length, 2);
+  assert.equal(res.content[1]!.type, "image");
+  const textPart = res.content[0] as { type: "text"; text: string };
+  const payload = JSON.parse(textPart.text) as UserStoryContext;
+  // The failed image stays fetch-failed, NOT changed to response-budget
+  assert.equal(payload.embeddedImages![0]!.skipped, "fetch-failed");
+  assert.equal(payload.embeddedImages![1]!.skipped, undefined);
 });

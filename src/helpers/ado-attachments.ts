@@ -260,6 +260,7 @@ export async function extractAndFetchAdoImages(
         altText,
         ...(downscaled ? { downscaled: true, originalBytes } : {}),
         ...(svgInlineText ? { svgInlineText } : {}),
+        _buffer: finalBuffer,
       };
 
       // Optional local save

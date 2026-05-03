@@ -273,6 +273,8 @@ export interface EmbeddedImage {
   localPath?: string;
   relativeToDraft?: string;
   skipped?: "too-small" | "too-large" | "unsupported-mime" | "fetch-failed" | "response-budget" | "time-budget";
+  /** @internal Raw image bytes held in memory between fetch and response packing. Not serialized to JSON. */
+  _buffer?: ArrayBuffer;
 }
 
 export interface FetchedConfluencePage {

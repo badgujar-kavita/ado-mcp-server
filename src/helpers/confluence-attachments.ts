@@ -260,6 +260,7 @@ export async function fetchCurrentVersionAttachments(
       altText: ref.altText,
       ...(downscaled ? { downscaled: true, originalBytes } : {}),
       ...(svgInlineText ? { svgInlineText } : {}),
+      _buffer: finalBuffer,
     };
 
     // Optional disk save

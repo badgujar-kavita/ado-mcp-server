@@ -87,16 +87,12 @@ export function registerWorkItemTools(
         );
 
         const context = await extractUserStoryContext(item, client, confluenceClient);
-        const withUrl = { ...context, webUrl: adoWorkItemUrl(client, context.id) };
-
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(withUrl, null, 2),
-            },
-          ],
-        };
+        const config = loadConventionsConfig();
+        return buildGetUserStoryResponse(context, {
+          webUrl: adoWorkItemUrl(client, context.id),
+          returnMcpImageParts: config.images?.returnMcpImageParts === true,
+          maxTotalBytesPerResponse: config.images?.maxTotalBytesPerResponse ?? 4194304,
+        });
       } catch (err) {
         return {
           content: [{ type: "text" as const, text: `Error fetching US#${workItemId}: ${err}` }],
@@ -523,5 +519,95 @@ export async function extractUserStoryContext(
     embeddedImages: allEmbeddedImages,
     solutionDesignUrl,
     solutionDesignContent,
+  };
+}
+
+/**
+ * Return a JSON-safe clone of `UserStoryContext` with every `_buffer` stripped
+ * from embedded images (ADO and Confluence). `_buffer` holds raw attachment
+ * bytes used only to build MCP image content parts; it MUST NOT leak into the
+ * serialized JSON text part.
+ */
+function stripImageBuffers(context: UserStoryContext): UserStoryContext {
+  const stripOne = (img: EmbeddedImage): EmbeddedImage => {
+    const { _buffer: _unused, ...rest } = img;
+    return rest;
+  };
+  return {
+    ...context,
+    embeddedImages: context.embeddedImages?.map(stripOne),
+    fetchedConfluencePages: context.fetchedConfluencePages?.map((p) => ({
+      ...p,
+      images: p.images.map(stripOne),
+    })),
+  };
+}
+
+export interface BuildGetUserStoryResponseOptions {
+  webUrl: string;
+  returnMcpImageParts: boolean;
+  maxTotalBytesPerResponse: number;
+}
+
+/**
+ * Pack a `UserStoryContext` into the MCP tool response shape. When
+ * `returnMcpImageParts` is true, successfully-fetched embedded images are
+ * appended as `type: "image"` content parts (ADO first, then Confluence pages
+ * in fetch order) until `maxTotalBytesPerResponse` (applied to the combined
+ * base64 size) is reached — overflowed images are mutated to
+ * `skipped: "response-budget"` so the JSON text part accurately reports them.
+ * Exported for direct unit testing without touching the config singleton.
+ */
+export function buildGetUserStoryResponse(
+  context: UserStoryContext,
+  options: BuildGetUserStoryResponseOptions,
+): {
+  content: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; data: string; mimeType: string }
+  >;
+} {
+  const { webUrl, returnMcpImageParts, maxTotalBytesPerResponse } = options;
+
+  // Collect every successfully-fetched image across ADO + Confluence, in
+  // source-doc order (ADO first, then Confluence pages in fetch order).
+  // These references alias the objects in `context`, so mutating `skipped`
+  // below propagates into the JSON text part.
+  const allImages: EmbeddedImage[] = [
+    ...(context.embeddedImages ?? []),
+    ...(context.fetchedConfluencePages ?? []).flatMap((p) => p.images),
+  ];
+
+  const imageParts: Array<{ type: "image"; data: string; mimeType: string }> = [];
+  if (returnMcpImageParts) {
+    let runningBase64Bytes = 0;
+    for (const img of allImages) {
+      if (img.skipped || !img._buffer) continue;
+      // base64 encoding is ~4/3 raw bytes (round up)
+      const estBase64 = Math.ceil((img._buffer.byteLength * 4) / 3);
+      if (runningBase64Bytes + estBase64 > maxTotalBytesPerResponse) {
+        // Mark this image as response-budget skipped (before JSON stringify).
+        img.skipped = "response-budget";
+        continue;
+      }
+      runningBase64Bytes += estBase64;
+      imageParts.push({
+        type: "image",
+        data: Buffer.from(img._buffer).toString("base64"),
+        mimeType: img.mimeType,
+      });
+    }
+  }
+
+  // Strip _buffer from every image AFTER the packing loop (mutations to
+  // skipped above must still be captured in the JSON).
+  const stripped = stripImageBuffers(context);
+  const withUrl = { ...stripped, webUrl };
+
+  return {
+    content: [
+      { type: "text" as const, text: JSON.stringify(withUrl, null, 2) },
+      ...imageParts,
+    ],
   };
 }
