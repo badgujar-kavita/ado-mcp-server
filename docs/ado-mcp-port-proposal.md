@@ -9,7 +9,7 @@
 
 ## Why this document exists
 
-Between 2026-05-02 and 2026-05-03, jira-mcp-server-v2 shipped 11
+Between 2026-05-02 and 2026-05-03, jira-mcp-server-v2 shipped 12
 commits that transformed its MCP tool surface from "raw content
 dumper" to "interactive agent assistant":
 
@@ -21,14 +21,16 @@ dumper" to "interactive agent assistant":
 6. Pagination audit + Jira comment truncation signal
 7. Security audits + prompt-injection guardrail + host-IDE tool
    broadening
-8. Agentic enforcement layer — AGENTS.md expanded with 6 more
+8. `/qa_publish` orphan-awareness preflight (Commit 2.6) —
+   ado-mcp already has the equivalent (see §4)
+9. Agentic enforcement layer — AGENTS.md expanded with 6 more
    sections (response style, error discipline, path blacklist,
    capability declaration, observed-state principle, editorial-vs-
    mechanical) + INTERACTIVE_READ_CONTRACT user-intent clause
-9. Per-tool user-intent rewrites (agentic Phase 3) — scoped down
-   to 2 tools after parallel audit, not the 5 originally planned
-10. Documentation sync (internal hygiene, no port impact)
-11. Decision log D-099 + docs/04 §1.6 cross-reference — records
+10. Per-tool user-intent rewrites (agentic Phase 3) — scoped down
+    to 2 tools after parallel audit, not the 5 originally planned
+11. Documentation sync (internal hygiene, no port impact)
+12. Decision log D-099 + docs/04 §1.6 cross-reference — records
     the enforcement layer's three-layer intervention (AGENTS.md /
     shared contracts / per-tool tails) and the trim decisions
 
@@ -451,6 +453,23 @@ clean:
   recent commit in jira-mcp, `9c88861`). ado-mcp's tc-drafts
   pattern is different — drafts are authored by the agent at
   save-time and don't have an "empty scaffold" step.
+- **Orphan-awareness preflight** (jira-mcp's `/qa_publish` Commit
+  2.6, `e16747c`). **ado-mcp already shipped the equivalent** —
+  see commit `0f33187` "Add duplicate test case guard to
+  push_tc_draft_to_ado", already in `src/tools/tc-drafts.ts`
+  around lines 457–500. ado-mcp's implementation is adapted for
+  its ledger-less model: it compares the draft's inline
+  `adoWorkItemId` fields against `list_test_cases_linked_to_user_story`
+  (the equivalent of jira-mcp's `/issuelinks/{key}/testcases`)
+  rather than against a ledger. Same A/B/C menu, same fetch-
+  failed fallback, same "proceed / inspect / cancel" ergonomics.
+  No port action required.
+
+  **Philosophical note:** ado-mcp arrived at this feature before
+  the port proposal was written. The two implementations
+  converged independently — evidence that orphan awareness is a
+  natural problem for any "publish draft to remote system with
+  multiple clients" workflow, not a jira-specific innovation.
 
 ---
 
@@ -534,7 +553,7 @@ Port-Commits 3 and 4 skipped (see §4 and §3.4).
 
 ## 8. Appendix — commits this proposal replaces
 
-For reference, the 11 jira-mcp commits this port captures:
+For reference, the 12 jira-mcp commits this port captures:
 
 - `3a1d1fd` — Commit 1 (AGENTS.md + shared contracts)
 - `aa6bcbf` — Commit 2 (structuredContent)
@@ -546,6 +565,9 @@ For reference, the 11 jira-mcp commits this port captures:
 - `9c88861` — Host-IDE tool broadening + qa_draft scaffold
   clarification (the AGENTS.md half ports; the qa_draft half does
   not apply)
+- `e16747c` — `/qa_publish` orphan-awareness preflight (Commit
+  2.6). **Already shipped in ado-mcp** (`0f33187`). Not ported;
+  see §4.
 - `e12fb5e` — Agentic enforcement layer (6 new AGENTS.md sections
   + INTERACTIVE_READ_CONTRACT user-intent clause). Ported into
   Port-Commit 1.
