@@ -32,10 +32,49 @@ async function fetchCloudId(siteHost: string): Promise<string | null> {
 export class ConfluenceClient {
   readonly baseUrl: string;
   private readonly authHeader: string;
+  /** Cached cloudId for api.atlassian.com fallback. `undefined` = not yet looked up; `null` = lookup failed or not an atlassian.net site. */
+  private _cloudId: string | null | undefined = undefined;
 
   constructor(baseUrl: string, email: string, apiToken: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.authHeader = basicAuthHeader(email, apiToken);
+  }
+
+  /** Resolve (and cache) cloudId for this tenant; returns null if not an atlassian.net site or tenant lookup fails. */
+  private async _getCloudId(): Promise<string | null> {
+    if (this._cloudId !== undefined) return this._cloudId;
+    const siteHost = extractSiteHost(this.baseUrl);
+    if (!siteHost || !siteHost.includes("atlassian.net")) {
+      this._cloudId = null;
+      return null;
+    }
+    this._cloudId = await fetchCloudId(siteHost);
+    return this._cloudId;
+  }
+
+  /**
+   * Resolve a relative Confluence URL/path to an api.atlassian.com form that
+   * scoped tokens can reach. Returns null when fallback isn't available.
+   * Primary-base form is `${baseUrl}${relative}`; fallback form strips the
+   * `/wiki` prefix (baseUrl path) and prepends `/ex/confluence/{cloudId}/wiki`.
+   */
+  private async _toApiAtlassianUrl(urlOrPath: string): Promise<string | null> {
+    const cloudId = await this._getCloudId();
+    if (!cloudId) return null;
+    if (urlOrPath.startsWith("http")) {
+      try {
+        const u = new URL(urlOrPath);
+        // Mirror the same path onto api.atlassian.com
+        return `https://api.atlassian.com/ex/confluence/${cloudId}${u.pathname}${u.search}`;
+      } catch {
+        return null;
+      }
+    }
+    const path = urlOrPath.startsWith("/") ? urlOrPath : `/${urlOrPath}`;
+    // baseUrl has no trailing slash; its pathname is usually `/wiki`
+    const basePath = new URL(this.baseUrl).pathname; // e.g. "/wiki"
+    // Build the full primary path (basePath + path), then prefix with /ex/confluence/{cloudId}
+    return `https://api.atlassian.com/ex/confluence/${cloudId}${basePath}${path}`;
   }
 
   async getPageContent(pageId: string): Promise<ConfluencePageResult> {
@@ -126,13 +165,27 @@ export class ConfluenceClient {
   async listAttachments(
     pageId: string
   ): Promise<ConfluenceAttachmentListItem[]> {
-    const url = `${this.baseUrl}/rest/api/content/${pageId}/child/attachment?expand=version,metadata&limit=200`;
-    const response = await fetch(url, {
+    const path = `/rest/api/content/${pageId}/child/attachment?expand=version,metadata&limit=200`;
+
+    let response = await fetch(`${this.baseUrl}${path}`, {
       headers: {
         Authorization: this.authHeader,
         Accept: "application/json",
       },
     });
+
+    // 401 fallback: scoped tokens reject site-URL calls and need api.atlassian.com
+    if (response.status === 401) {
+      const fallback = await this._toApiAtlassianUrl(path);
+      if (fallback) {
+        response = await fetch(fallback, {
+          headers: {
+            Authorization: this.authHeader,
+            Accept: "application/json",
+          },
+        });
+      }
+    }
 
     if (!response.ok) {
       if (response.status === 404) return [];
@@ -180,20 +233,32 @@ export class ConfluenceClient {
   async fetchAttachmentBinary(
     urlOrPath: string
   ): Promise<ConfluenceBinaryResponse> {
-    const fullUrl = urlOrPath.startsWith("http")
+    const primaryUrl = urlOrPath.startsWith("http")
       ? urlOrPath
       : `${this.baseUrl}${urlOrPath.startsWith("/") ? "" : "/"}${urlOrPath}`;
 
-    const response = await fetch(fullUrl, {
+    let response = await fetch(primaryUrl, {
       headers: {
         Authorization: this.authHeader,
         // No Accept header — let server send whatever content type matches the file.
       },
     });
 
+    // 401 fallback: scoped tokens reject site-URL calls and need api.atlassian.com
+    let finalUrl = primaryUrl;
+    if (response.status === 401) {
+      const fallback = await this._toApiAtlassianUrl(urlOrPath);
+      if (fallback) {
+        finalUrl = fallback;
+        response = await fetch(fallback, {
+          headers: { Authorization: this.authHeader },
+        });
+      }
+    }
+
     if (!response.ok) {
       throw new Error(
-        `Confluence attachment fetch failed (${response.status}): ${fullUrl}`
+        `Confluence attachment fetch failed (${response.status}): ${finalUrl}`
       );
     }
 

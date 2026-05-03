@@ -136,6 +136,10 @@ export async function fetchCurrentVersionAttachments(
       bytes = fetched.buffer;
       fetchedMime = fetched.mimeType;
     } catch {
+      // A 401 here usually means the Confluence API token lacks the
+      // `read:attachment.download:confluence` scope — distinct from the
+      // `read:attachment:confluence` scope that listAttachments needs. The
+      // agent sees `skipped: "fetch-failed"` and can surface that hint.
       results.push({
         source: "confluence",
         sourcePageId: pageId,

@@ -41,4 +41,5 @@ export function registerConfluenceTools(server: McpServer, confluenceClient: Con
       }
     }
   );
+
 }
