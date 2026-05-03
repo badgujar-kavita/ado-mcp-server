@@ -261,6 +261,12 @@ If Confluence is not configured, the field is empty, or the linked page cannot b
 
 The following knobs in `conventions.config.json` control how much work-item context `get_user_story` returns. Both are optional — defaults work for most teams.
 
+> **⚠️ Important — edits to `conventions.config.json` are overwritten by re-install.**
+>
+> The file lives at `~/.ado-testforge-mcp/conventions.config.json`. It IS created automatically on first install (the tarball contains it), and the MCP reads your edits at runtime — so tweaking values locally works as expected. **But** the installer (curl one-liner) overwrites this file on every re-install with the latest repo defaults. Only `credentials.json` is preserved across re-installs today.
+>
+> If you flip `returnMcpImageParts` or add entries to `additionalContextFields`, either keep a copy of your edits somewhere safe, or plan to re-apply them after running the installer to upgrade. (A future installer improvement may preserve this file too.)
+
 ### Enabling embedded image vision (optional)
 
 By default `get_user_story` returns work-item context as a single text content part. To let vision-capable MCP clients (Cursor, Claude Desktop) see ADO-attached screenshots and Confluence diagrams directly, flip this flag in `conventions.config.json`:

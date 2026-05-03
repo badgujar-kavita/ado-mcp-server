@@ -129,6 +129,18 @@ If you see **READY**, setup is complete.
 
 ---
 
+## Advanced Configuration (Optional)
+
+The installer also creates `~/.ado-testforge-mcp/conventions.config.json` with default settings that control test-case naming, prerequisites, Solution Design usage, and (newer) how much work-item context `get_user_story` returns to the AI. Most teams don't need to touch it.
+
+If you do want to customize (e.g. enable image vision so the AI can see screenshots in ADO rich-text fields, or register extra custom fields as primary context), see [`setup-guide.md` → Step 2c](setup-guide.md#step-2c-tune-context-richness-optional) for the full options.
+
+> **⚠️ Important — your edits to `conventions.config.json` are overwritten when you re-install.**
+>
+> Only `credentials.json` is preserved by the installer. If you customize `conventions.config.json`, keep a copy of your edits somewhere safe and re-apply them after running the installer to upgrade. (A future installer improvement may preserve this file too.)
+
+---
+
 ## Confluence Setup (Optional)
 
 If your User Stories link to Solution Design documents in Confluence, you can configure the MCP to fetch that content automatically. This gives the AI richer context when drafting test cases.
