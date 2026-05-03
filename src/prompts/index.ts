@@ -1,4 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  INTERACTIVE_READ_CONTRACT,
+  DIAGNOSTIC_CONTRACT,
+  CONFIRM_BEFORE_ACT_CONTRACT,
+} from "./shared-contracts.ts";
 
 export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("configure", {
@@ -22,7 +27,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "Check if the ADO TestForge MCP server is fully configured using the check_setup_status tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
+        text: [
+          "Check if the ADO TestForge MCP server is fully configured using the check_setup_status tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
+          "",
+          DIAGNOSTIC_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -35,7 +44,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "List all test plans in the project using the list_test_plans tool. Show results in a table with ID, name, area path, state, and root suite ID.",
+        text: [
+          "List all test plans in the project using the list_test_plans tool. Show results in a table with ID, name, area path, state, and root suite ID.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -60,6 +73,8 @@ export function registerAllPrompts(server: McpServer) {
           "6. **Other populated fields** (`allFields`) — scan for test-design-relevant signals (Custom.NonFunctional, *Dependency flags, priority, tags, persona/region flags); mention any that look relevant without inventing meaning.",
           "",
           "Keep each section short — this is a summary, not a data dump. If anything meaningful is missing or empty, say so explicitly.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
       },
     }],
@@ -73,7 +88,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to get details of a test plan. Ask me for the plan ID, then use the get_test_plan tool. Show the name, area path, iteration, owner, state, and root suite ID.",
+        text: [
+          "I want to get details of a test plan. Ask me for the plan ID, then use the get_test_plan tool. Show the name, area path, iteration, owner, state, and root suite ID.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -86,7 +105,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to list all test suites in a test plan. Ask me for the plan ID, then use the list_test_suites tool. Show results in a table with ID, name, suite type, parent suite ID, and hasChildren.",
+        text: [
+          "I want to list all test suites in a test plan. Ask me for the plan ID, then use the list_test_suites tool. Show results in a table with ID, name, suite type, parent suite ID, and hasChildren.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -99,7 +122,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to get details of a test suite. Ask me for the plan ID and suite ID, then use the get_test_suite tool.",
+        text: [
+          "I want to get details of a test suite. Ask me for the plan ID and suite ID, then use the get_test_suite tool.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -279,6 +306,8 @@ export function registerAllPrompts(server: McpServer) {
           "7. If I provide feedback or edits: Update draft via save_tc_draft, then ask for confirmation again.",
           "8. NEVER call push_tc_draft_to_ado without explicit user confirmation (YES, approved, push, etc.). NEVER pass insertAnyway=true without showing me the A/B/C prompt first and receiving an explicit 'A' reply.",
           "9. When showing ADO work item IDs in chat (push summaries, linked TC lists, test case details, etc.), format them as markdown links using the webUrl field from the tool response, e.g. `[ADO #1234](https://dev.azure.com/.../_workitems/edit/1234)`. get_tc_draft also appends an 'ADO Links' section when the draft has IDs — surface those links in tables/summaries for the user. Never show bare `ADO #1234` when a URL is available.",
+          "",
+          CONFIRM_BEFORE_ACT_CONTRACT,
         ].join("\n"),
       },
     }],
@@ -292,7 +321,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to list test cases in a test suite. Ask me for the plan ID and suite ID, then use the list_test_cases tool. Show results in a table with ID and name.",
+        text: [
+          "I want to list test cases in a test suite. Ask me for the plan ID and suite ID, then use the list_test_cases tool. Show results in a table with ID and name.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -305,7 +338,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to view a test case. Ask me for the work item ID, then use the get_test_case tool. Show the title, description, steps, priority, state, area path, and iteration path.",
+        text: [
+          "I want to view a test case. Ask me for the work item ID, then use the get_test_case tool. Show the title, description, steps, priority, state, area path, and iteration path.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -339,7 +376,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "List all work item field definitions using the list_work_item_fields tool. Show reference names (e.g. Custom.PrerequisiteforTest, System.Title), types, and readOnly status. Use to verify field names before updating work items.",
+        text: [
+          "List all work item field definitions using the list_work_item_fields tool. Show reference names (e.g. Custom.PrerequisiteforTest, System.Title), types, and readOnly status. Use to verify field names before updating work items.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
@@ -409,6 +450,8 @@ export function registerAllPrompts(server: McpServer) {
           "- Use conventions from conventions.config.json for prerequisites and title format.",
           "- Apply Solution Design usage rules (use for business process, new fields; ignore code snippets).",
           "- Never create in ADO without explicit APPROVED.",
+          "",
+          CONFIRM_BEFORE_ACT_CONTRACT,
         ].join("\n"),
       },
     }],
@@ -422,7 +465,11 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to read a Confluence page for reference. Ask me for the page ID, then use the get_confluence_page tool. Display the page title and content.",
+        text: [
+          "I want to read a Confluence page for reference. Ask me for the page ID, then use the get_confluence_page tool. Display the page title and content.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
       },
     }],
   }));
