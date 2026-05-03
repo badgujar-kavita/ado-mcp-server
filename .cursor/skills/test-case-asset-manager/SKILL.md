@@ -39,6 +39,28 @@ tc-drafts/
 
 ---
 
+## Optional: `attachments/` subfolder
+
+When the `images.saveLocally: true` config flag is set in `conventions.config.json`, `get_user_story` will persist any fetched ADO / Confluence images to disk. The folder layout is:
+
+```
+tc-drafts/
+  US_<id>/
+    US_<id>_test_cases.md
+    US_<id>_solution_design_summary.md
+    US_<id>_qa_cheat_sheet.md
+    attachments/                      # only present when images.saveLocally is true
+      ado/
+        <guid>_<filename>             # e.g. 669274dd-06e9-47fe-b83a-5b961c810503_diagram.png
+      confluence/
+        <pageId>/
+          <filename>                  # e.g. 7084278127/wireframe-v2.png
+```
+
+When absent (default), images are referenced only via `originalUrl` links that require auth to resolve. When present, reviewers can open the draft markdown offline and see the images inline.
+
+---
+
 ## File Rules
 
 ### Main Test Cases File
