@@ -516,7 +516,7 @@ Every draft output must conclude with a **Traceability Matrix** table:
 | 13 | `docs/implementation.md` | Update "Solution Design Usage" section with multi-field, multi-link docs | Medium |
 | 14 | `docs/testing-guide.md` | Update tool reference table | Small |
 | 15 | `docs/changelog.md` | Add changelog entry | Small |
-| 16 | Deploy | `npm run deploy` | — |
+| 16 | Rebuild | `npm run build:dist` (Vercel auto-rebuilds tarball on git push to main) | — |
 
 ---
 

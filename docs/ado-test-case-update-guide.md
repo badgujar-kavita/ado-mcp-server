@@ -27,10 +27,10 @@ Short guide for updating test case prerequisites and TO BE TESTED FOR content in
 
 ---
 
-## When to Restart MCP and Deploy
+## When to Restart MCP and Rebuild
 
 - **Restart MCP** after changes to `buildPrerequisitesHtml` or related formatting logic in `src/helpers/`.
-- **Run `npm run deploy`** after any MCP tool, prompt, or convention changes so updates are available in the shared workspace.
+- **Run `npm run build:dist`** after any MCP tool, prompt, or convention changes to rebuild `dist-package/`. Distribution to end users is handled automatically by the Vercel tarball pipeline (`scripts/build-website.sh` rebuilds the tarball on every Vercel deploy).
 
 ---
 

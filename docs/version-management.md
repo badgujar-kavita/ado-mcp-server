@@ -111,15 +111,16 @@ Increment when making **bug fixes** or **documentation updates** that don't add 
    - ...
    ```
 
-5. **Deploy:**
+5. **Rebuild the distribution bundle:**
    ```bash
-   npm run deploy
+   npm run build:dist
    ```
 
 6. **Push to git with tags:**
    ```bash
    git push && git push --tags
    ```
+   Vercel rebuilds the tarball automatically on every push to `main` — users pick up updates by re-running the one-line install command.
 
 ---
 
@@ -202,8 +203,8 @@ echo "✓ Updated package.json and created tag v$VERSION"
 echo ""
 echo "Next steps:"
 echo "1. Update docs/changelog.md with v$VERSION section"
-echo "2. Run: npm run deploy"
-echo "3. Run: git push && git push --tags"
+echo "2. Run: npm run build:dist"
+echo "3. Run: git push && git push --tags  (Vercel rebuilds the tarball automatically)"
 ```
 
 ---

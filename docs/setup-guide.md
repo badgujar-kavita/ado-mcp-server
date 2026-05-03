@@ -379,8 +379,8 @@ You can also use natural language instead of commands. For example, type "Fetch 
 
 ### Maintainability
 
-- `npm run deploy` now creates a backup of the previously deployed build before overwrite and prints a rollback note in the terminal output.
-- Version-aware status output makes it easy to confirm which deployed build a user is currently running.
+- `npm run build:dist` rebuilds `dist-package/` from the current source. Distribution to end users happens via the Vercel-hosted tarball (`scripts/build-website.sh` rebuilds `/ado-testforge.tar.gz` on every Vercel deploy); users pick up updates by re-running the one-line install command.
+- Version-aware status output makes it easy to confirm which build a user is currently running.
 
 ---
 

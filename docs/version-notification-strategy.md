@@ -378,9 +378,10 @@ if (existsSync(join(ROOT, ".cursor", "hooks"))) {
 
 ### Test Scenario 3: Version Upgrade
 1. Bump version in `package.json` to `1.2.0`
-2. Redeploy: `npm run deploy`
-3. Open Cursor workspace
-4. **Expected:** See notification: "Updated to v1.2.0"
+2. Rebuild: `npm run build:dist` (Vercel tarball auto-rebuilds on git push to main)
+3. User re-runs the one-line install command to pull the new tarball
+4. Open Cursor workspace
+5. **Expected:** See notification: "Updated to v1.2.0"
 
 ### Test Scenario 4: Hook Failure
 1. Make script non-executable: `chmod -x .cursor/hooks/version-check.sh`
