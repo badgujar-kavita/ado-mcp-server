@@ -52,6 +52,14 @@ const guardrails = (overrides: Partial<AdoImageGuardrails> = {}): AdoImageGuardr
 const adoImgUrl = (guid: string, filename = "diagram.png") =>
   `https://dev.azure.com/myorg/myproj/_apis/wit/attachments/${guid}?fileName=${encodeURIComponent(filename)}&api-version=7.0`;
 
+// ADO sometimes returns attachment URLs with the project GUID instead of the
+// project name (e.g. when the caller has only seen the GUID from a different
+// part of the API). This regression test locks in that URL shape fetching
+// works regardless of whether src uses the project name or GUID — the fetch
+// path should always start from `/_apis/`.
+const adoImgUrlWithGuid = (guid: string, filename = "diagram.png") =>
+  `https://dev.azure.com/myorg/7f156bfe-4275-489e-94ff-03bd62e4eda6/_apis/wit/attachments/${guid}?fileName=${encodeURIComponent(filename)}&api-version=7.0`;
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 test("no <img> tags in any field returns empty array", async () => {
@@ -390,6 +398,48 @@ test("saveRoot writes file to disk and populates localPath + relativeToDraft", a
     assert.equal(files[0], `${guid}_pic.png`);
   } finally {
     rmSync(saveRoot, { recursive: true, force: true });
+    restore();
+  }
+});
+
+test("img src with project GUID (not project name) fetches successfully", async () => {
+  // Regression: AdoClient.baseUrl uses the project name (URL-encoded), but ADO
+  // can return attachment URLs with the project GUID. The extractor must strip
+  // from `/_apis/` onwards rather than doing a prefix-match that assumes the
+  // project segment is the same shape.
+  const guid = "669274dd-06e9-47fe-b83a-5b961c810503";
+  const client = new AdoClient("myorg", "TPM Product Ecosystem", "pat");
+  let fetchedUrl = "";
+  const restore = mockFetch((url) => {
+    fetchedUrl = url;
+    return new Response(TINY_PNG, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    });
+  });
+  try {
+    const html = `<div><img src="${adoImgUrlWithGuid(guid)}" alt="Image"></div>`;
+    const result = await extractAndFetchAdoImages({
+      fieldValuesByRef: { "Microsoft.VSTS.Common.AcceptanceCriteria": html },
+      adoClient: client,
+      userStoryId: 1,
+      guardrails: guardrails({ minBytesToKeep: 10 }),
+    });
+    // Image should fetch successfully, NOT be skipped as fetch-failed.
+    assert.equal(result.length, 1);
+    assert.equal(result[0].skipped, undefined);
+    assert.equal(result[0].mimeType, "image/png");
+    // The fetched URL must NOT contain a duplicated project segment.
+    // Should use baseUrl (project-name-encoded) + path starting at /_apis/.
+    assert.ok(
+      fetchedUrl.includes("/TPM%20Product%20Ecosystem/_apis/wit/attachments/"),
+      `fetched URL should contain baseUrl's project name before /_apis/, got: ${fetchedUrl}`,
+    );
+    assert.ok(
+      !fetchedUrl.includes("7f156bfe-4275-489e-94ff-03bd62e4eda6"),
+      `fetched URL should not contain the GUID project segment, got: ${fetchedUrl}`,
+    );
+  } finally {
     restore();
   }
 });

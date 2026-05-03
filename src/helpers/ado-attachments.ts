@@ -118,16 +118,14 @@ export async function extractAndFetchAdoImages(
       let fetchedMime: string | null;
       try {
         const url = new URL(src);
-        // AdoClient.buildUrl prepends baseUrl, so we want the path WITHOUT baseUrl.
-        // The base URL already covers `/dev.azure.com/{org}/{project}`; the
-        // attachment path begins at `/_apis/...`. If the src path starts with
-        // the project prefix, strip it; otherwise use the path as-is.
-        let path = url.pathname;
-        const baseUrl = new URL(adoClient.baseUrl);
-        if (path.toLowerCase().startsWith(baseUrl.pathname.toLowerCase())) {
-          path = path.slice(baseUrl.pathname.length);
-        }
-        if (!path.startsWith("/")) path = `/${path}`;
+        // AdoClient.buildUrl prepends baseUrl, so strip anything before `/_apis/`.
+        // The src URL's project segment may be the project GUID (ADO's canonical
+        // attachment form) while baseUrl uses the project name — string prefix
+        // match would fail and produce a double-project URL. Extracting from
+        // `/_apis/` onwards works for both `dev.azure.com/{org}/{project}/_apis/...`
+        // and `dev.azure.com/{org}/_apis/...` (org-level attachment URLs).
+        const apisIdx = url.pathname.indexOf("/_apis/");
+        const path = apisIdx >= 0 ? url.pathname.slice(apisIdx) : url.pathname;
 
         const queryParams: Record<string, string> = {};
         url.searchParams.forEach((v, k) => {
