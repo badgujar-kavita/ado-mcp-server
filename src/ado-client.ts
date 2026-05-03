@@ -11,6 +11,11 @@ export class AdoClientError extends Error {
 
 import { basicAuthHeader } from "./helpers/basic-auth.ts";
 
+export interface BinaryResponse {
+  buffer: ArrayBuffer;
+  mimeType: string | null;
+}
+
 export class AdoClient {
   readonly baseUrl: string;
   private authHeader: string;
@@ -73,6 +78,33 @@ export class AdoClient {
     return (await response.json()) as T;
   }
 
+  private async requestBinary(
+    path: string,
+    options: {
+      apiVersion?: string;
+      queryParams?: Record<string, string>;
+    } = {}
+  ): Promise<BinaryResponse> {
+    const { apiVersion = "7.1", queryParams } = options;
+    const url = this.buildUrl(path, apiVersion, queryParams);
+    const headers: Record<string, string> = {
+      Authorization: this.authHeader,
+      // No Accept header — we want whatever bytes the server sends.
+    };
+
+    const response = await fetch(url, { method: "GET", headers });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      const message = this.mapError(response.status, errorBody);
+      throw new AdoClientError(message, response.status, response.statusText);
+    }
+
+    const buffer = await response.arrayBuffer();
+    const mimeType = response.headers.get("content-type")?.split(";")[0].trim() ?? null;
+    return { buffer, mimeType };
+  }
+
   private mapError(status: number, body: string): string {
     switch (status) {
       case 401:
@@ -88,6 +120,14 @@ export class AdoClient {
 
   async get<T>(path: string, apiVersion?: string, queryParams?: Record<string, string>): Promise<T> {
     return this.request<T>("GET", path, { apiVersion, queryParams });
+  }
+
+  async getBinary(
+    path: string,
+    apiVersion?: string,
+    queryParams?: Record<string, string>
+  ): Promise<BinaryResponse> {
+    return this.requestBinary(path, { apiVersion, queryParams });
   }
 
   async post<T>(path: string, body: unknown, contentType?: string, apiVersion?: string): Promise<T> {
