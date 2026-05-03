@@ -513,7 +513,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
                   `  **A.** Proceed — create ${newCount} new TCs alongside the existing ones ` +
                   `(agent then calls qa_publish_push with insertAnyway: true).\n` +
                   `  **B.** Inspect first — see titles/steps of the existing test cases before deciding ` +
-                  `(agent then calls qa_tests and get_test_case for each).\n` +
+                  `(agent then calls qa_tests and qa_tc_read for each).\n` +
                   `  **C.** Cancel — do nothing.`,
               }],
               isError: true,

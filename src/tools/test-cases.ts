@@ -218,7 +218,7 @@ export function registerTestCaseTools(
 // ── Canonical read-result builders ──
 
 /**
- * Build the CanonicalReadResult for `list_test_cases` from the flat
+ * Build the CanonicalReadResult for `ado_suite_tests` from the flat
  * list returned by the ADO test-plan API.
  *
  * - `item.type` = "test-suite" (the suite is the read target).
@@ -250,7 +250,7 @@ export function buildListTestCasesCanonicalResult(
 }
 
 /**
- * Build the CanonicalReadResult for `get_test_case` from the raw
+ * Build the CanonicalReadResult for `qa_tc_read` from the raw
  * AdoWorkItem returned by the ADO API.
  *
  * - `item.type` = "test-case".

@@ -54,7 +54,7 @@
   - **Special types:** `CustomLabel = Value`, `CustomMetadataType.Field = Value`, `CustomSetting.Field = Value`
   - **Narrative with context:** Only when describing scenario setup (e.g., `Entity without X config OR record for which no mapping exists`)
   - **Vague phrasing:** Use only as last resort when condition format is not expressible (e.g., `Setup or configuration is required`)
-- See `docs/implementation.md` (Prerequisite Writing Standard) and `.cursor/skills/test-case-asset-manager/SKILL.md` for full details.
+- See `docs/implementation.md` (Prerequisite Writing Standard) and `.cursor/skills/qa-test-assets/SKILL.md` for full details.
 
 ### 1.4 Other Parameters
 
@@ -181,7 +181,7 @@ Test case drafts now follow a structured folder convention:
 - **Solution summary:** `US_<ID>_solution_design_summary.md` (11-section structured analysis)
 - **QA cheat sheet:** `US_<ID>_qa_cheat_sheet.md` (40-60 lines, scannable quick reference)
 
-See `.cursor/skills/test-case-asset-manager/SKILL.md` for full structure rules.
+See `.cursor/skills/qa-test-assets/SKILL.md` for full structure rules.
 
 ### Automation-Friendly Expected Results
 

@@ -1,6 +1,6 @@
 /**
  * Unit tests for the canonical read-result builders introduced in
- * Port-Commit 2 (Tier 1: ado_story, get_test_case, list_test_cases,
+ * Port-Commit 2 (Tier 1: ado_story, qa_tc_read, ado_suite_tests,
  * confluence_read).
  *
  * We test the builder helpers directly rather than the full tool
@@ -123,7 +123,7 @@ test("buildUserStoryCanonicalResult: unfetched links flip isPartial=true with a 
   assert.equal(canonical.diagnostics![0]!.severity, "warning");
 });
 
-// ── get_test_case canonical ────────────────────────────────────────────────
+// ── qa_tc_read canonical ───────────────────────────────────────────────────
 
 test("buildTestCaseCanonicalResult: basic shape for a TC with no relations", () => {
   const item = makeTestCaseWorkItem();
@@ -171,7 +171,7 @@ test("buildTestCaseCanonicalResult: relations split into children (work items) a
   assert.equal(canonical.artifacts![0]!.title, "screenshot.png");
 });
 
-// ── list_test_cases canonical ──────────────────────────────────────────────
+// ── ado_suite_tests canonical ──────────────────────────────────────────────
 
 test("buildListTestCasesCanonicalResult: suite + contained test cases as children", () => {
   const canonical = buildListTestCasesCanonicalResult(100, 200, [
