@@ -14,3 +14,6 @@ website/public/ado-testforge.tar.gz
 .vscode/
 *.swp
 *.swo
+
+# Claude Code per-user state (local only, never tracked)
+.claude/
