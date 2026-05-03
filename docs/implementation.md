@@ -337,6 +337,98 @@ Every step is failure-isolated:
 
 ---
 
+## Interactive Read Contract + Structured Output
+
+### Overview
+
+ado-mcp participates in the same interactive-read contract surface as
+jira-mcp-server-v2 (see `AGENTS.md` at repo root). The MCP advertises
+explicit behavioural contracts in each prompt so the agent renders
+tool output consistently, and every read tool emits
+`structuredContent` alongside the existing prose text so MCP clients
+that consume typed output can render responses as navigable trees.
+
+### AGENTS.md
+
+Located at repo root. Thirteen sections covering tool categories,
+response style, error discipline, forbidden file paths, capability
+declaration, observed-state principle, editorial-vs-mechanical
+operations, upstream-content rule, formatting, safety, MCP spec
+alignment, and contributor guidelines. Adapted from
+jira-mcp-server-v2's AGENTS.md with ado-mcp specifics (tc-drafts
+paths, capability scope, SDK surface).
+
+### Shared prompt contracts
+
+Defined in `src/prompts/shared-contracts.ts`, composed into prompts
+in `src/prompts/index.ts`:
+
+- **`INTERACTIVE_READ_CONTRACT`** -- 5-step agent response shape:
+  titled markdown link, 2--5 bullet summary, related items as
+  tree/list, explicit gap callouts, next-action offer. Composed
+  into all 9 read prompts.
+- **`DIAGNOSTIC_CONTRACT`** -- agent shows tool-authored output
+  verbatim. Composed into `check_status`.
+- **`CONFIRM_BEFORE_ACT_CONTRACT`** -- offer plan → wait for
+  explicit yes → call NEXT action tool → stop on no. Composed into
+  `create_test_cases` and `clone_and_enhance_test_cases`.
+
+### Canonical read result
+
+`src/tools/read-result.ts` defines:
+
+```typescript
+interface CanonicalReadResult {
+  item: { id: string | number; type: string; title: string; summary?: string };
+  children?: Array<{ id: string | number; type: string; title: string; relationship?: string }>;
+  artifacts?: Array<{ kind: string; title: string; url?: string; summary?: string }>;
+  completeness: { isPartial: boolean; reason?: string };
+  diagnostics?: Array<{ severity: "info" | "warning" | "error"; message: string }>;
+}
+```
+
+Plus `READ_OUTPUT_SCHEMA` (Zod raw shape -- `McpServer` types
+`outputSchema` as a Zod shape, not a JSON Schema literal) and a
+`toReadToolResult(prose, canonical)` helper that centralizes the
+`structuredContent` cast.
+
+### Read tools using the canonical shape
+
+All 14 read tools emit `CanonicalReadResult` via
+`server.registerTool(...)`:
+
+| Tool | `item.type` | children convention |
+|---|---|---|
+| `get_user_story` | `user-story` | parent; embedded images and Confluence pages → artifacts; skipped items → diagnostics |
+| `get_test_case` | `test-case` | related work items by relation type; attached files → artifacts |
+| `list_test_cases` | `test-suite` | contained test cases |
+| `get_confluence_page` | `confluence-page` | single-page; isPartial=false |
+| `list_test_cases_linked_to_user_story` | `user-story` | TCs with relationship "tested-by" |
+| `list_work_item_fields` | `field-inventory` | 50-field cap; overflow surfaces `completeness.isPartial=true` with reason |
+| `list_test_plans` | `project` | plans with relationship "contained" |
+| `get_test_plan` | `test-plan` | root suite with relationship "root-suite" |
+| `list_test_suites` | `test-plan` | suites with "root" / "child" based on parentSuite |
+| `get_test_suite` | `test-suite` | parent suite; WIQL query → artifact kind "query" |
+| `get_tc_draft` | `tc-draft` | TCs with "pushed"/"drafted"; markdown file → artifact |
+| `list_tc_drafts` | `tc-draft-index` | drafts with "approved"/"draft" relationship |
+
+Action tools (write / mutate) stay on `server.tool(...)` and return
+prose only. Prose text is preserved byte-for-byte across every read
+tool migration -- clients that only read `content[0].text` see no
+change.
+
+### Deterministic `check_setup_status`
+
+`src/tools/setup.ts` now computes status via pure
+`computeSetupStatus(deps)` + `formatSetupStatus(status)` helpers. The
+tool authors the Markdown table, Overall verdict, and Next Actions
+block; the agent shows them verbatim per `DIAGNOSTIC_CONTRACT`. Next
+Actions are deterministic mappings (broken → `/configure`; degraded
+→ Confluence optional-add hint; healthy → empty) -- no
+agent-invented remediation.
+
+---
+
 ## Test Case Asset Management & Folder Structure
 
 ### Overview
@@ -751,6 +843,13 @@ ADO TestForge MCP/
 ---
 
 ## MCP Tools -- Full Inventory
+
+> **Note:** Every read tool listed below is registered via
+> `server.registerTool(...)` with an `outputSchema`, and its response
+> includes `structuredContent` shaped as `CanonicalReadResult` (see
+> "Interactive Read Contract + Structured Output" above). The
+> `content[0].text` prose is preserved byte-for-byte, so existing
+> consumers that read text are unaffected.
 
 ### Work Item Context
 

@@ -4,6 +4,47 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-03 — Interactive read contract + structuredContent for all read tools
+
+### Feature
+
+Port of the interactive-read contract surface from jira-mcp-server-v2. Tools that read data from ADO/Confluence now emit structured, navigable output alongside prose text; the agent's response style is guided by explicit contracts composed into every read prompt.
+
+**`AGENTS.md`** (new, repo root) — 13 sections documenting how the agent should behave: tool categories, user-initiated invocation, response style (titled markdown links, concise summaries, explicit gap callouts), error handling discipline, forbidden file paths (`tc-drafts/**` and `~/.ado-testforge-mcp/**` — off-limits to Cursor's Read/Write/Edit but accessible via the MCP's own tc-drafts tools), capability declaration, observed-state principle, editorial-vs-mechanical operations, upstream-content-is-data rule, formatting rules, safety and partial results, MCP spec alignment, and contributor guidelines for new tools.
+
+**Shared prompt contracts** (`src/prompts/shared-contracts.ts`) — three named exports composed into the relevant prompts:
+
+- `INTERACTIVE_READ_CONTRACT` — composed into 9 read prompts (get_user_story, list_test_plans, get_test_plan, list_test_suites, get_test_suite, list_test_cases, get_test_case, list_work_item_fields, get_confluence_page). Agents using these tools now follow a 5-step response shape: confirm-with-titled-link → 2–5 bullet summary → related items as tree/list → explicit gap callouts → next-action offer.
+- `DIAGNOSTIC_CONTRACT` — composed into `check_status`. Tool-authored output is now rendered verbatim; no agent-invented causes.
+- `CONFIRM_BEFORE_ACT_CONTRACT` — composed into `create_test_cases` and `clone_and_enhance_test_cases`. Explicit "offer plan → wait for yes → call NEXT tool → stop on no" pattern (ado-mcp's lighter equivalent to jira-mcp's resume-token protocol).
+
+**`structuredContent` on all 14 read tools** (`src/tools/read-result.ts` + migrations in `work-items.ts`, `test-plans.ts`, `test-suites.ts`, `test-cases.ts`, `confluence.ts`, `tc-drafts.ts`):
+
+Every read tool now returns a `CanonicalReadResult` alongside its existing prose text. The canonical shape exposes `item` (id/type/title/summary), `children[]` (navigable related entities with `relationship` tags), `artifacts[]` (attachments, solution-design pages, markdown drafts, query strings), `completeness` (isPartial + reason), and optional `diagnostics[]`. MCP clients that consume `structuredContent` can render the response as a typed tree; clients that only read `content[0].text` see identical output to before.
+
+Migrated: get_user_story, get_test_case, list_test_cases, get_confluence_page (Tier 1 — commit `2934b84`); list_test_cases_linked_to_user_story, list_work_item_fields, list_test_plans, get_test_plan, list_test_suites, get_test_suite, get_tc_draft, list_tc_drafts (Tier 2 — commit `17cdf89`).
+
+**Deterministic `check_setup_status`** (`src/tools/setup.ts`) — status table + overall verdict + Next Actions are now authored by the tool, not guessed by the agent. `SetupStatus` type + pure `computeSetupStatus()` / `formatSetupStatus()` helpers make the output reproducible.
+
+### Supporting changes
+
+- **User-intent audit**: one borderline prose rewrite in the duplicate-TC preflight A/B/C menu (`push_tc_draft_to_ado`) — agent-attribution parallelism restored.
+- **Security audits**: token-leak grep across every console.* and new Error() site came back clean; path-traversal audit across file writes came back clean (userStoryId typed as `z.number().int().positive()`, filenames sanitized, paths always rooted under known-safe prefixes). Recorded in new `docs/decision-log.md`.
+
+### Files Updated
+
+- **New:** `AGENTS.md`, `src/prompts/shared-contracts.ts`, `src/prompts/contracts.test.ts`, `src/tools/read-result.ts`, `src/tools/read-canonical.test.ts`, `src/tools/test-plans.test.ts`, `src/tools/test-suites.test.ts`, `src/tools/tc-drafts.test.ts`, `src/tools/setup.test.ts`, `docs/decision-log.md`.
+- **Modified:** `src/prompts/index.ts` (composition), `src/tools/work-items.ts` / `test-cases.ts` / `test-plans.ts` / `test-suites.ts` / `tc-drafts.ts` / `confluence.ts` / `setup.ts` (read-tool migrations + deterministic setup status), `src/tools/work-items.test.ts` (+4 tests).
+
+### Backward Compatibility
+
+- **Prose byte-identity.** All 14 migrated read tools preserve their existing `content[0].text` payload byte-for-byte. Agents that only read prose see zero change.
+- **No wire breakage.** `structuredContent` is an additive field on the MCP response shape. Clients that don't know about it ignore it.
+- **No action tools migrated.** Write tools (save_tc_draft, push_tc_draft_to_ado, create/update/delete_*) remain on `server.tool()` and return text only. Phase H's image content parts continue to flow through `get_user_story` unchanged.
+- **Contracts are additive prose.** Appended to existing prompt bodies; no existing prompt text was rewritten. The composition tests pin this invariant.
+
+---
+
 ## 2026-05-03 — Full-context work-item payload + embedded image support
 
 ### Feature

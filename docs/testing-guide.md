@@ -461,6 +461,38 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | Response has only 1 content part despite images being present | `images.returnMcpImageParts` defaults to `false`. Flip to `true` in `conventions.config.json` and restart the MCP. |
 | Images appear as `skipped: "response-budget"` | Total base64 payload exceeds `images.maxTotalBytesPerResponse` (default 4 MiB). Raise the cap or reduce image count. |
 | `unfetchedLinks` contains cross-instance Confluence | The URL points at a different Atlassian tenant than configured in `confluence_base_url`. MCP only fetches the configured instance. |
+| Tool response shows structuredContent but I expected plain text | MCP clients that speak the full MCP protocol receive both `content: [{type:"text", text: ...}]` and `structuredContent: {...}`. Older clients ignore `structuredContent`. The `text` field is preserved byte-for-byte across every read tool -- reading `response.content[0].text` continues to work exactly as before. |
+
+---
+
+## Agent behavior contracts
+
+`AGENTS.md` at the repo root defines how the agent should render
+tool output. MCP clients that load AGENTS.md will see the 13
+behavioural sections on first interaction. In practice with Cursor,
+this means:
+
+- **Read tools** (e.g. `get_user_story`, `list_test_cases`): the
+  agent responds with a titled markdown link, a 2--5 bullet summary,
+  related items as a list or tree, explicit gap callouts for partial
+  results, and a next-action offer. If this style isn't surfacing,
+  reload the MCP in Cursor settings.
+- **`check_status`**: the agent shows the tool-authored table +
+  verdict + Next Actions verbatim. Any rephrasing or
+  agent-invented causes is a behavioural regression -- report it.
+- **`create_test_cases` / `clone_and_enhance_test_cases`**: explicit
+  "offer plan → wait for yes → call NEXT tool" pattern. If the agent
+  tries to re-call the same tool with a `confirm` flag, the contract
+  hasn't landed.
+
+### What changed vs. pre-port behavior
+
+Before these contracts landed, read tools returned only prose text and
+the agent inferred response structure. Now both the text and the
+typed `structuredContent` flow back; clients that support MCP's
+structuredContent feature render the latter as a navigable tree.
+Functional output (what gets returned) is additive -- pre-existing
+consumers that parse text see zero change.
 
 ---
 
@@ -468,32 +500,32 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 
 | Tool | Description | Key Inputs |
 |---|---|---|
-| `list_test_plans` | List all test plans | *(none)* |
-| `get_test_plan` | Get test plan details | `planId` |
+| `list_test_plans` | List all test plans; returns structuredContent | *(none)* |
+| `get_test_plan` | Get test plan details; returns structuredContent | `planId` |
 | `create_test_plan` | Create a new test plan (future use) | `name` |
-| `get_user_story` | Fetch US with full context payload: primary fields (title, description, AC, area/iteration path, parent info, relations) + `namedFields`, `allFields` pass-through, `fetchedConfluencePages` (all linked Confluence pages with current-version images), `unfetchedLinks` (SharePoint/Figma/cross-instance Confluence etc.), `embeddedImages` (ADO rich-text attachments). Response includes `webUrl` for clickable linking. When `images.returnMcpImageParts: true`, also returns `{ type: "image" }` content parts for vision-capable clients. Deprecated `solutionDesignUrl` / `solutionDesignContent` aliases remain populated. | `workItemId` |
-| `list_test_cases_linked_to_user_story` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept) | `userStoryId` |
-| `list_work_item_fields` | List work item field definitions (reference names, types) | `expand` (optional) |
+| `get_user_story` | Fetch US with full context payload: primary fields (title, description, AC, area/iteration path, parent info, relations) + `namedFields`, `allFields` pass-through, `fetchedConfluencePages` (all linked Confluence pages with current-version images), `unfetchedLinks` (SharePoint/Figma/cross-instance Confluence etc.), `embeddedImages` (ADO rich-text attachments). Response includes `webUrl` for clickable linking. When `images.returnMcpImageParts: true`, also returns `{ type: "image" }` content parts for vision-capable clients. Deprecated `solutionDesignUrl` / `solutionDesignContent` aliases remain populated; returns structuredContent | `workItemId` |
+| `list_test_cases_linked_to_user_story` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept); returns structuredContent | `userStoryId` |
+| `list_work_item_fields` | List work item field definitions (reference names, types); returns structuredContent | `expand` (optional) |
 | `ensure_suite_hierarchy` | Build sprint > parent > US suite tree | `planId`, `sprintNumber`, `userStoryId` |
 | `find_or_create_test_suite` | Find or create a single suite | `planId`, `parentSuiteId`, `suiteName` |
 | `create_test_suite` | Create a suite (find-or-create) | `planId`, `parentSuiteId`, `suiteName`, `suiteType`, `queryString` |
 | `update_test_suite` | Update suite (name, parent, query) | `planId`, `suiteId`, `name`, `parentSuiteId`, `queryString` |
 | `delete_test_suite` | Delete a suite | `planId`, `suiteId` |
-| `list_test_suites` | List all suites in a plan | `planId` |
-| `get_test_suite` | Get suite details | `planId`, `suiteId` |
+| `list_test_suites` | List all suites in a plan; returns structuredContent | `planId` |
+| `get_test_suite` | Get suite details; returns structuredContent | `planId`, `suiteId` |
 | `save_tc_draft` | Save test case draft to `tc-drafts/US_<id>/` (auto-creates folder + Supporting Documents links) | `userStoryId`, `testCases`, `planId` (optional - auto-derived during push), `functionalityProcessFlow` (optional), `testCoverageInsights` (optional), etc. |
 | `save_tc_supporting_doc` | Save supporting doc (solution_summary, qa_cheat_sheet, regression_tests) | `userStoryId`, `docType`, `markdown` |
 | `save_tc_clone_preview` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
-| `list_tc_drafts` | List saved drafts (subfolder + legacy layouts, shows supporting docs) | *(none)* |
-| `get_tc_draft` | Get draft by user story ID (subfolder + legacy). **Appends an "ADO Links" section** to the returned text when the draft has ADO IDs (clickable `webUrl`s for US + each TC; file on disk unchanged). | `userStoryId` |
+| `list_tc_drafts` | List saved drafts (subfolder + legacy layouts, shows supporting docs); returns structuredContent | *(none)* |
+| `get_tc_draft` | Get draft by user story ID (subfolder + legacy). **Appends an "ADO Links" section** to the returned text when the draft has ADO IDs (clickable `webUrl`s for US + each TC; file on disk unchanged); returns structuredContent | `userStoryId` |
 | `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). Success message renders TC→ADO mappings as markdown links. **Duplicate preflight:** aborts with counts-based A/B/C risk message when US already has linked TCs and draft has no ADO IDs. Override with `insertAnyway: true` after user replies A; use existing `list_test_cases_linked_to_user_story` + `get_test_case` for investigation on B. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
-| `list_test_cases` | List TCs in a suite | `planId`, `suiteId` |
-| `get_test_case` | Get TC work item details; response includes `webUrl` for clickable linking | `workItemId` |
+| `list_test_cases` | List TCs in a suite; returns structuredContent | `planId`, `suiteId` |
+| `get_test_case` | Get TC work item details; response includes `webUrl` for clickable linking; returns structuredContent | `workItemId` |
 | `update_test_case` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |
 | `delete_test_case` | Delete a test case (Recycle Bin by default) | `workItemId`, `destroy` (optional) |
 | `delete_test_cases` | (Command only — calls delete_test_case per ID) | N/A — use slash command |
 | `add_test_cases_to_suite` | Add TCs to static suite | `planId`, `suiteId`, `testCaseIds` |
-| `get_confluence_page` | Read Confluence page content | `pageId` |
+| `get_confluence_page` | Read Confluence page content; returns structuredContent | `pageId` |
 
 ---
 
