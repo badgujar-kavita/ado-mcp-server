@@ -134,5 +134,32 @@
       "Output pre-requisites as: Object.Field = Value (see preConditionFormat)"
     ]
   },
-  "prerequisiteFieldRef": "Custom.PrerequisiteforTest"
+  "prerequisiteFieldRef": "Custom.PrerequisiteforTest",
+  "additionalContextFields": [
+    { "adoFieldRef": "Custom.ImpactAssessment", "label": "Impact Assessment", "fetchLinks": true, "fetchImages": true },
+    { "adoFieldRef": "Custom.ReferenceDocumentation", "label": "Reference Documentation", "fetchLinks": true, "fetchImages": true }
+  ],
+  "allFields": {
+    "passThrough": true,
+    "omitSystemNoise": true,
+    "omitExtraRefs": []
+  },
+  "images": {
+    "enabled": true,
+    "maxPerUserStory": 20,
+    "maxBytesPerImage": 2097152,
+    "maxTotalBytesPerResponse": 4194304,
+    "minBytesToKeep": 4096,
+    "downscaleLongSidePx": 1600,
+    "downscaleQuality": 85,
+    "mimeAllowlist": ["image/png", "image/jpeg", "image/gif", "image/svg+xml"],
+    "inlineSvgAsText": true,
+    "returnMcpImageParts": false,
+    "saveLocally": false,
+    "savePathTemplate": "tc-drafts/US_{usId}/attachments"
+  },
+  "context": {
+    "maxConfluencePagesPerUserStory": 10,
+    "maxTotalFetchSeconds": 45
+  }
 }

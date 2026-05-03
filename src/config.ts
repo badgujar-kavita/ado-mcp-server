@@ -12,6 +12,39 @@ const PersonaConfigSchema = z.object({
   psg: z.string(),
 });
 
+const AdditionalContextFieldSchema = z.object({
+  adoFieldRef: z.string(),
+  label: z.string(),
+  fetchLinks: z.boolean().optional().default(true),
+  fetchImages: z.boolean().optional().default(true),
+});
+
+const AllFieldsSchema = z.object({
+  passThrough: z.boolean().optional().default(true),
+  omitSystemNoise: z.boolean().optional().default(true),
+  omitExtraRefs: z.array(z.string()).optional().default([]),
+});
+
+const ImagesSchema = z.object({
+  enabled: z.boolean().optional().default(true),
+  maxPerUserStory: z.number().int().positive().optional().default(20),
+  maxBytesPerImage: z.number().int().positive().optional().default(2097152),
+  maxTotalBytesPerResponse: z.number().int().positive().optional().default(4194304),
+  minBytesToKeep: z.number().int().positive().optional().default(4096),
+  downscaleLongSidePx: z.number().int().positive().optional().default(1600),
+  downscaleQuality: z.number().int().min(1).max(100).optional().default(85),
+  mimeAllowlist: z.array(z.string()).optional().default(["image/png", "image/jpeg", "image/gif", "image/svg+xml"]),
+  inlineSvgAsText: z.boolean().optional().default(true),
+  returnMcpImageParts: z.boolean().optional().default(false),
+  saveLocally: z.boolean().optional().default(false),
+  savePathTemplate: z.string().optional().default("tc-drafts/US_{usId}/attachments"),
+});
+
+const ContextBudgetsSchema = z.object({
+  maxConfluencePagesPerUserStory: z.number().int().positive().optional().default(10),
+  maxTotalFetchSeconds: z.number().int().positive().optional().default(45),
+});
+
 const ConventionsConfigSchema = z.object({
   testCaseTitle: z.object({
     prefix: z.string(),
@@ -68,6 +101,10 @@ const ConventionsConfigSchema = z.object({
     }),
     extractionHints: z.array(z.string()),
   }).optional(),
+  additionalContextFields: z.array(AdditionalContextFieldSchema).optional(),
+  allFields: AllFieldsSchema.optional(),
+  images: ImagesSchema.optional(),
+  context: ContextBudgetsSchema.optional(),
 });
 
 let _config: ConventionsConfig | null = null;

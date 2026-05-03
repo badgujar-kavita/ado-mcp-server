@@ -25,7 +25,14 @@ export interface UserStoryContext {
   parentId: number | null;
   parentTitle: string | null;
   relations: AdoRelation[];
+  namedFields?: Record<string, { label: string; html: string; plainText: string }>;
+  allFields?: Record<string, unknown>;
+  fetchedConfluencePages?: FetchedConfluencePage[];
+  unfetchedLinks?: UnfetchedLink[];
+  embeddedImages?: EmbeddedImage[];
+  /** @deprecated Use namedFields / fetchedConfluencePages instead. */
   solutionDesignUrl: string | null;
+  /** @deprecated Use namedFields / fetchedConfluencePages instead. */
   solutionDesignContent: string | null;
 }
 
@@ -172,6 +179,35 @@ export interface ConventionsConfig {
   };
   prerequisiteFieldRef?: string;
   solutionDesign?: SolutionDesignUsage;
+  additionalContextFields?: Array<{
+    adoFieldRef: string;
+    label: string;
+    fetchLinks?: boolean;
+    fetchImages?: boolean;
+  }>;
+  allFields?: {
+    passThrough?: boolean;
+    omitSystemNoise?: boolean;
+    omitExtraRefs?: string[];
+  };
+  images?: {
+    enabled?: boolean;
+    maxPerUserStory?: number;
+    maxBytesPerImage?: number;
+    maxTotalBytesPerResponse?: number;
+    minBytesToKeep?: number;
+    downscaleLongSidePx?: number;
+    downscaleQuality?: number;
+    mimeAllowlist?: string[];
+    inlineSvgAsText?: boolean;
+    returnMcpImageParts?: boolean;
+    saveLocally?: boolean;
+    savePathTemplate?: string;
+  };
+  context?: {
+    maxConfluencePagesPerUserStory?: number;
+    maxTotalFetchSeconds?: number;
+  };
 }
 
 export interface SolutionDesignUsage {
@@ -190,4 +226,50 @@ export interface SolutionDesignUsage {
 export interface ConfluencePageResult {
   title: string;
   body: string;
+}
+
+// ── All-Fields / Embedded Images / External Links Types ──
+
+export type ExternalLinkType =
+  | "Confluence" | "SharePoint" | "Figma" | "LucidChart" | "GoogleDrive" | "Other";
+
+export interface CategorizedLink {
+  url: string;
+  type: ExternalLinkType;
+  pageId?: string;
+  sourceField: string;
+}
+
+export interface EmbeddedImage {
+  source: "ado" | "confluence";
+  sourceField?: string;
+  sourcePageId?: string;
+  originalUrl: string;
+  filename: string;
+  mimeType: string;
+  bytes: number;
+  originalBytes?: number;
+  downscaled?: boolean;
+  altText?: string;
+  svgInlineText?: string;
+  localPath?: string;
+  relativeToDraft?: string;
+  skipped?: "too-small" | "too-large" | "unsupported-mime" | "fetch-failed" | "response-budget" | "time-budget";
+}
+
+export interface FetchedConfluencePage {
+  pageId: string;
+  title: string;
+  url: string;
+  body: string;
+  sourceField: string;
+  images: EmbeddedImage[];
+}
+
+export interface UnfetchedLink {
+  url: string;
+  type: ExternalLinkType;
+  sourceField: string;
+  reason: "cross-instance" | "non-confluence" | "access-denied" | "not-found" | "auth-failure" | "link-budget" | "time-budget";
+  workaround: string;
 }
