@@ -2,15 +2,72 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdoClient } from "../ado-client.ts";
 import type { ConfluenceClient } from "../confluence-client.ts";
-import type { AdoWorkItem, UserStoryContext } from "../types.ts";
-import { extractConfluencePageId, extractConfluenceUrl } from "../helpers/confluence-url.ts";
+import type {
+  AdoWorkItem,
+  CategorizedLink,
+  EmbeddedImage,
+  FetchedConfluencePage,
+  UnfetchedLink,
+  UserStoryContext,
+} from "../types.ts";
+import {
+  extractAllLinks,
+  extractConfluenceUrl,
+} from "../helpers/confluence-url.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { loadConventionsConfig } from "../config.ts";
+import { stripHtml } from "../helpers/strip-html.ts";
+import { extractAndFetchAdoImages } from "../helpers/ado-attachments.ts";
+import { fetchCurrentVersionAttachments } from "../helpers/confluence-attachments.ts";
 
-function getSolutionDesignFieldRef(): string {
-  const config = loadConventionsConfig();
-  return config.solutionDesign?.adoFieldRef ?? "Custom.TechnicalSolution";
-}
+/**
+ * ADO system/common fields that are rarely useful to an LLM producing test
+ * cases — stripped from `allFields` when `omitSystemNoise !== false`.
+ */
+const SYSTEM_NOISE_FIELDS: readonly string[] = [
+  "System.Id",
+  "System.Rev",
+  "System.ChangedDate",
+  "System.ChangedBy",
+  "System.CreatedDate",
+  "System.CreatedBy",
+  "System.AuthorizedDate",
+  "System.AuthorizedAs",
+  "System.RevisedDate",
+  "System.Watermark",
+  "System.NodeName",
+  "System.TeamProject",
+  "System.WorkItemType",
+  "System.BoardColumn",
+  "System.BoardColumnDone",
+  "System.BoardLane",
+  "System.CommentCount",
+  "System.PersonId",
+  "System.ExternalLinkCount",
+  "System.HyperLinkCount",
+  "System.AttachedFileCount",
+  "System.RelatedLinkCount",
+  "Microsoft.VSTS.Common.StateChangeDate",
+  "Microsoft.VSTS.Common.ActivatedDate",
+  "Microsoft.VSTS.Common.ActivatedBy",
+  "Microsoft.VSTS.Common.ResolvedDate",
+  "Microsoft.VSTS.Common.ResolvedBy",
+  "Microsoft.VSTS.Common.ClosedDate",
+  "Microsoft.VSTS.Common.ClosedBy",
+];
+
+const NON_CONFLUENCE_WORKAROUND: Record<string, string> = {
+  SharePoint:
+    "Open the SharePoint link and paste the relevant content into the ADO field.",
+  Figma:
+    "Open the Figma link and paste a screenshot into the ADO field, or add key details to Solution Notes.",
+  LucidChart:
+    "Open the LucidChart link, export the diagram as an image, and attach to the ADO work item.",
+  GoogleDrive:
+    "Download the file from Google Drive and paste the content into the ADO field, or upload as an ADO attachment.",
+  Other:
+    "Unrecognized link type; fetch content manually if relevant to test design.",
+};
 
 export function registerWorkItemTools(
   server: McpServer,
@@ -29,7 +86,7 @@ export function registerWorkItemTools(
           { "$expand": "relations" }
         );
 
-        const context = await extractUserStoryContext(item, confluenceClient);
+        const context = await extractUserStoryContext(item, client, confluenceClient);
         const withUrl = { ...context, webUrl: adoWorkItemUrl(client, context.id) };
 
         return {
@@ -129,54 +186,341 @@ export function registerWorkItemTools(
   );
 }
 
-async function extractUserStoryContext(
+/**
+ * Build the full `UserStoryContext` payload: primary fields, parent resolution,
+ * all-fields pass-through, configured-named rich-text fields with plaintext,
+ * Confluence link fetching (with cross-instance/budget gating), ADO image
+ * extraction, and backward-compatible deprecated aliases (solutionDesignUrl,
+ * solutionDesignContent).
+ *
+ * Exported for testing. Internal to the `get_user_story` tool otherwise.
+ */
+export async function extractUserStoryContext(
   item: AdoWorkItem,
+  adoClient: AdoClient,
   confluenceClient: ConfluenceClient | null
 ): Promise<UserStoryContext> {
+  const config = loadConventionsConfig();
   const fields = item.fields;
   const relations = item.relations ?? [];
 
+  // ── Primary fields (preserved shape) ─────────────────────────────────────
+  const title = (fields["System.Title"] as string) ?? "";
+  const description = (fields["System.Description"] as string) ?? "";
+  const acceptanceCriteria =
+    (fields["Microsoft.VSTS.Common.AcceptanceCriteria"] as string) ?? "";
+  const areaPath = (fields["System.AreaPath"] as string) ?? "";
+  const iterationPath = (fields["System.IterationPath"] as string) ?? "";
+  const state = (fields["System.State"] as string) ?? "";
+
+  // ── Parent resolution (preserved) ─────────────────────────────────────────
   let parentId: number | null = null;
   let parentTitle: string | null = null;
-  const parentRelation = relations.find((r) => r.rel === "System.LinkTypes.Hierarchy-Reverse");
+  const parentRelation = relations.find(
+    (r) => r.rel === "System.LinkTypes.Hierarchy-Reverse"
+  );
   if (parentRelation) {
     const urlParts = parentRelation.url.split("/");
     parentId = parseInt(urlParts[urlParts.length - 1], 10) || null;
     parentTitle = (parentRelation.attributes?.["name"] as string) || null;
   }
-
-  if (!parentTitle && fields["System.Parent"]) {
-    parentId = fields["System.Parent"] as number;
+  if (!parentTitle && fields["System.Parent"] != null) {
+    const p = Number(fields["System.Parent"]);
+    parentId = Number.isFinite(p) && p > 0 ? p : parentId;
   }
 
-  const solutionFieldRef = getSolutionDesignFieldRef();
-  const rawSolutionField = (fields[solutionFieldRef] as string) ?? null;
-  const solutionDesignUrl = extractConfluenceUrl(rawSolutionField);
-  let solutionDesignContent: string | null = null;
+  // ── allFields pass-through (system-noise + extras filtered) ──────────────
+  const noiseSet = new Set<string>(SYSTEM_NOISE_FIELDS);
+  if (config.allFields?.omitExtraRefs) {
+    for (const ref of config.allFields.omitExtraRefs) noiseSet.add(ref);
+  }
+  const allFields: Record<string, unknown> = {};
+  const passThrough = config.allFields?.passThrough !== false;
+  const omitNoise = config.allFields?.omitSystemNoise !== false;
+  if (passThrough) {
+    for (const [ref, value] of Object.entries(fields)) {
+      if (omitNoise && noiseSet.has(ref)) continue;
+      if (value == null || value === "") continue;
+      allFields[ref] = value;
+    }
+  }
 
-  if (confluenceClient && solutionDesignUrl) {
-    const pageId = extractConfluencePageId(rawSolutionField);
-    if (pageId) {
+  // ── namedFields (primaries + configured additional context fields) ───────
+  const solutionFieldRef =
+    config.solutionDesign?.adoFieldRef ?? "Custom.TechnicalSolution";
+  const namedFieldDefs: Array<{ ref: string; label: string }> = [
+    { ref: "System.Title", label: "Title" },
+    { ref: "System.Description", label: "Description" },
+    {
+      ref: "Microsoft.VSTS.Common.AcceptanceCriteria",
+      label: "Acceptance Criteria",
+    },
+    { ref: solutionFieldRef, label: config.solutionDesign?.uiLabel ?? "Solution Notes" },
+    ...(config.additionalContextFields ?? []).map((a) => ({
+      ref: a.adoFieldRef,
+      label: a.label,
+    })),
+  ];
+  const namedFields: Record<
+    string,
+    { label: string; html: string; plainText: string }
+  > = {};
+  for (const def of namedFieldDefs) {
+    const raw = fields[def.ref];
+    if (raw == null || raw === "") continue;
+    const html = String(raw);
+    namedFields[def.ref] = {
+      label: def.label,
+      html,
+      plainText: stripHtml(html),
+    };
+  }
+
+  // ── Link extraction (across scanned fields) ──────────────────────────────
+  const fetchedConfluencePages: FetchedConfluencePage[] = [];
+  const unfetchedLinks: UnfetchedLink[] = [];
+  const maxConfluencePages =
+    config.context?.maxConfluencePagesPerUserStory ?? 10;
+  const maxTotalFetchMs = (config.context?.maxTotalFetchSeconds ?? 45) * 1000;
+  const startTime = Date.now();
+
+  // Every primary namedField is scanned by default. Additional fields respect
+  // their `fetchLinks` flag (defaults to true per config schema).
+  const linkFields: Array<{ ref: string; html: string }> = [];
+  for (const def of namedFieldDefs) {
+    const f = namedFields[def.ref];
+    if (!f) continue;
+    const cfg = config.additionalContextFields?.find(
+      (a) => a.adoFieldRef === def.ref
+    );
+    const shouldScan = cfg ? cfg.fetchLinks !== false : true;
+    if (shouldScan) linkFields.push({ ref: def.ref, html: f.html });
+  }
+
+  // Collect categorized links across all scanned fields (doc order, dedup by URL).
+  const allLinks: CategorizedLink[] = [];
+  const seenLinkUrls = new Set<string>();
+  for (const { ref, html } of linkFields) {
+    for (const link of extractAllLinks(html, ref)) {
+      if (seenLinkUrls.has(link.url)) continue;
+      seenLinkUrls.add(link.url);
+      allLinks.push(link);
+    }
+  }
+
+  // Configured Confluence host (for cross-instance gating).
+  let configuredConfluenceHost: string | null = null;
+  if (confluenceClient) {
+    try {
+      configuredConfluenceHost = new URL(confluenceClient.baseUrl).hostname;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Partition Confluence vs other links; apply link-budget cap to Confluence.
+  const confluenceLinks = allLinks.filter((l) => l.type === "Confluence");
+  const nonConfluenceLinks = allLinks.filter((l) => l.type !== "Confluence");
+
+  const fetchableConfluence: CategorizedLink[] = [];
+  const overflow: CategorizedLink[] = [];
+  for (const link of confluenceLinks) {
+    let linkHost: string | null = null;
+    try {
+      linkHost = new URL(link.url).hostname;
+    } catch {
+      /* ignore */
+    }
+    if (
+      configuredConfluenceHost &&
+      linkHost &&
+      linkHost !== configuredConfluenceHost
+    ) {
+      unfetchedLinks.push({
+        url: link.url,
+        type: "Confluence",
+        sourceField: link.sourceField,
+        reason: "cross-instance",
+        workaround: `Cross-instance Confluence link (${linkHost}); configure that instance or paste the page content manually.`,
+      });
+      continue;
+    }
+    if (fetchableConfluence.length >= maxConfluencePages) {
+      overflow.push(link);
+      continue;
+    }
+    fetchableConfluence.push(link);
+  }
+
+  for (const link of overflow) {
+    unfetchedLinks.push({
+      url: link.url,
+      type: link.type,
+      sourceField: link.sourceField,
+      reason: "link-budget",
+      workaround: `Exceeded maxConfluencePagesPerUserStory (${maxConfluencePages}); raise the cap or inspect manually.`,
+    });
+  }
+
+  for (const link of nonConfluenceLinks) {
+    unfetchedLinks.push({
+      url: link.url,
+      type: link.type,
+      sourceField: link.sourceField,
+      reason: "non-confluence",
+      workaround:
+        NON_CONFLUENCE_WORKAROUND[link.type] ?? NON_CONFLUENCE_WORKAROUND.Other,
+    });
+  }
+
+  // ── Image guardrails (shared between Confluence + ADO extractors) ────────
+  const imagesCfg = config.images;
+  const maxPerUS = imagesCfg?.maxPerUserStory ?? 20;
+  const imageGuardrails = {
+    maxBytesPerImage: imagesCfg?.maxBytesPerImage ?? 2097152,
+    minBytesToKeep: imagesCfg?.minBytesToKeep ?? 4096,
+    downscaleLongSidePx: imagesCfg?.downscaleLongSidePx ?? 1600,
+    downscaleQuality: imagesCfg?.downscaleQuality ?? 85,
+    mimeAllowlist: imagesCfg?.mimeAllowlist ?? [
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "image/svg+xml",
+    ],
+    inlineSvgAsText: imagesCfg?.inlineSvgAsText ?? true,
+  };
+
+  // ── Fetch each in-scope Confluence page ──────────────────────────────────
+  const allEmbeddedImages: EmbeddedImage[] = [];
+  const countKept = () => allEmbeddedImages.filter((i) => !i.skipped).length;
+
+  if (confluenceClient) {
+    for (const link of fetchableConfluence) {
+      if (Date.now() - startTime > maxTotalFetchMs) {
+        unfetchedLinks.push({
+          url: link.url,
+          type: "Confluence",
+          sourceField: link.sourceField,
+          reason: "time-budget",
+          workaround: `Exceeded maxTotalFetchSeconds (${maxTotalFetchMs / 1000}); raise the cap or inspect manually.`,
+        });
+        continue;
+      }
+
+      const pageId = link.pageId;
+      if (!pageId) {
+        unfetchedLinks.push({
+          url: link.url,
+          type: "Confluence",
+          sourceField: link.sourceField,
+          reason: "not-found",
+          workaround: "Could not extract Confluence page ID from URL.",
+        });
+        continue;
+      }
+
       try {
-        const page = await confluenceClient.getPageContent(pageId);
-        solutionDesignContent = `# ${page.title}\n\n${page.body}`;
-      } catch {
-        solutionDesignContent = null;
+        const page = await confluenceClient.getPageContentRaw(pageId);
+        const pageImages = await fetchCurrentVersionAttachments({
+          pageId,
+          storageHtml: page.rawStorageHtml,
+          confluenceClient,
+          guardrails: imageGuardrails,
+        });
+
+        // Respect maxPerUS across combined ADO + Confluence kept images.
+        for (const img of pageImages) {
+          if (!img.skipped && countKept() >= maxPerUS) break;
+          allEmbeddedImages.push(img);
+        }
+
+        fetchedConfluencePages.push({
+          pageId,
+          title: page.title,
+          url: link.url,
+          body: page.body,
+          sourceField: link.sourceField,
+          images: pageImages,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const reason: UnfetchedLink["reason"] = /401/.test(msg)
+          ? "auth-failure"
+          : /403/.test(msg)
+            ? "access-denied"
+            : /404/.test(msg)
+              ? "not-found"
+              : "access-denied";
+        unfetchedLinks.push({
+          url: link.url,
+          type: "Confluence",
+          sourceField: link.sourceField,
+          reason,
+          workaround: `Could not fetch Confluence page: ${msg}`,
+        });
       }
     }
   }
 
+  // ── ADO image extraction across all HTML-valued fields ───────────────────
+  const htmlFieldValues: Record<string, string> = {};
+  for (const [ref, f] of Object.entries(namedFields)) {
+    htmlFieldValues[ref] = f.html;
+  }
+  for (const [ref, value] of Object.entries(allFields)) {
+    if (ref in htmlFieldValues) continue;
+    if (typeof value === "string" && /<img\b/i.test(value)) {
+      htmlFieldValues[ref] = value;
+    }
+  }
+
+  if (Object.keys(htmlFieldValues).length > 0) {
+    const remaining = maxPerUS - countKept();
+    if (remaining > 0) {
+      try {
+        const adoImages = await extractAndFetchAdoImages({
+          fieldValuesByRef: htmlFieldValues,
+          adoClient,
+          userStoryId: item.id,
+          guardrails: {
+            maxPerUserStory: remaining,
+            ...imageGuardrails,
+          },
+        });
+        allEmbeddedImages.push(...adoImages);
+      } catch {
+        /* failure isolation — never break context */
+      }
+    }
+  }
+
+  // ── Deprecated aliases (backward compatibility) ──────────────────────────
+  const solutionNotesHtml = namedFields[solutionFieldRef]?.html;
+  const firstConfluencePage = fetchedConfluencePages[0];
+  const solutionDesignUrl =
+    firstConfluencePage?.url ??
+    (solutionNotesHtml ? extractConfluenceUrl(solutionNotesHtml) : null) ??
+    null;
+  const solutionDesignContent = firstConfluencePage
+    ? `# ${firstConfluencePage.title}\n\n${firstConfluencePage.body}`
+    : null;
+
   return {
     id: item.id,
-    title: (fields["System.Title"] as string) || "",
-    description: (fields["System.Description"] as string) || "",
-    acceptanceCriteria: (fields["Microsoft.VSTS.Common.AcceptanceCriteria"] as string) || "",
-    areaPath: (fields["System.AreaPath"] as string) || "",
-    iterationPath: (fields["System.IterationPath"] as string) || "",
-    state: (fields["System.State"] as string) || "",
+    title,
+    description,
+    acceptanceCriteria,
+    areaPath,
+    iterationPath,
+    state,
     parentId,
     parentTitle,
     relations,
+    namedFields,
+    allFields,
+    fetchedConfluencePages,
+    unfetchedLinks,
+    embeddedImages: allEmbeddedImages,
     solutionDesignUrl,
     solutionDesignContent,
   };
