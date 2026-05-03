@@ -30,7 +30,7 @@ async function fetchCloudId(siteHost: string): Promise<string | null> {
 }
 
 export class ConfluenceClient {
-  private readonly baseUrl: string;
+  readonly baseUrl: string;
   private readonly authHeader: string;
 
   constructor(baseUrl: string, email: string, apiToken: string) {
