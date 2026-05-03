@@ -4,6 +4,31 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-04 — Soften customer-specific examples in docs and tool descriptions
+
+### Change
+
+Removed the last set of TPM-customer-specific vocabulary (`GPT_D-HUB`, `SFTPM_24`, `SFTPM_14`) from architecture descriptions in user-facing docs, tool description strings, and error messages. This is a doc/text cleanup; there is no behavior change.
+
+**What this fixes:** a non-TPM team running the MCP was seeing "GPT_D-HUB" and "SFTPM_24" references in generic architecture docs, in tool descriptions (when inspecting tools via `list_tools`), and in error messages when config was missing. These now read as generic `{Plan Name}` / `Sprint_<number>` placeholders, so the docs and tool surface are team-neutral.
+
+- `docs/implementation.md`: architecture descriptions use `{Plan Name}` and `Sprint_<number>` placeholders; worked examples stay concrete but are now explicitly tagged as "per `conventions.config.json`".
+- `docs/testing-guide.md`: `list_test_plans` example and sample API responses use generic names.
+- Tool descriptions in `src/tools/test-plans.ts` and `src/tools/test-suites.ts` (see parallel source-code commit) no longer reference specific plan names.
+- Error message in `src/helpers/suite-structure.ts` (`resolvePlanIdFromAreaPath`) no longer suggests specific plan names to add.
+
+### Intentional non-changes
+
+- Historical changelog entries are unchanged — they describe what shipped at a given date.
+- The user's `conventions.config.json` sprint prefix (`SFTPM_`) is an intentional per-team setting, not hardcoding.
+- TPM-specific reference docs (`test-case-pattern-analysis-gpt-dhub.md`, `test-case-writing-style-reference.md`, prerequisite formatting guides, tc-style guide) are labeled as illustrative examples for this project and are intentionally not genericized.
+
+### Backward Compatibility
+
+No schema or behavior change. Text edits only.
+
+---
+
 ## 2026-05-03 — Generic persona role label + example-text cleanup
 
 ### Change

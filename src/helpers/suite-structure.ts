@@ -43,7 +43,7 @@ export function resolvePlanIdFromAreaPath(areaPath: string): number {
   const mapping = config.suiteStructure.testPlanMapping;
   if (!mapping?.length) {
     throw new Error(
-      "testPlanMapping not configured in conventions.config.json. Add suiteStructure.testPlanMapping with planId and areaPathContains for GPT_D-HUB and GPT_E-HUB."
+      "testPlanMapping not configured in conventions.config.json. Add suiteStructure.testPlanMapping entries with planId and areaPathContains for each test plan your team uses."
     );
   }
   const normalized = areaPath.toLowerCase();
@@ -59,7 +59,8 @@ export function resolvePlanIdFromAreaPath(areaPath: string): number {
 }
 
 /**
- * Extract sprint number from Iteration path (e.g. "SFTPM_24" -> 24).
+ * Extract sprint number from Iteration path using `suiteStructure.sprintPrefix`
+ * from config (e.g. with prefix "Sprint_", `"Sprint_12"` → 12).
  */
 export function resolveSprintFromIteration(iterationPath: string): number {
   const config = loadConventionsConfig();

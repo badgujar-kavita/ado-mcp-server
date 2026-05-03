@@ -42,7 +42,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
     "qa_suite_setup_manual",
     "Build the full suite folder hierarchy (sprint > parent-us/non-epic > us-query) for a User Story. Checks for existing suites at each level before creating.",
     {
-      planId: z.number().int().positive().describe("The test plan ID (e.g., GPT_D-HUB plan ID)"),
+      planId: z.number().int().positive().describe("The test plan ID (from list_test_plans or conventions.config.json testPlanMapping)"),
       sprintNumber: z.number().int().positive().describe("Sprint number (e.g., 12 for Sprint_12)"),
       userStoryId: z.number().int().positive().describe("The User Story work item ID"),
     },

@@ -21,10 +21,10 @@ import type { AdoTestPlan } from "../types.ts";
 function makeTestPlan(overrides: Partial<AdoTestPlan> = {}): AdoTestPlan {
   return {
     id: 100,
-    name: "GPT_D-HUB",
+    name: "Example Test Plan",
     areaPath: "Project\\Area",
     iteration: "Project\\Sprint 1",
-    rootSuite: { id: 200, name: "GPT_D-HUB" },
+    rootSuite: { id: 200, name: "Example Test Plan" },
     state: "Active",
     revision: 1,
     ...overrides,

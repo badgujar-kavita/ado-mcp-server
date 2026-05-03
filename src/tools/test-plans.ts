@@ -76,7 +76,7 @@ export function registerTestPlanTools(server: McpServer, client: AdoClient) {
 
   server.tool(
     "ado_plan_create",
-    "Create a new test plan (future use -- existing plans like GPT_D-HUB are typically used)",
+    "Create a new test plan (future use -- existing plans configured in `conventions.config.json` testPlanMapping are typically used)",
     {
       name: z.string().describe("Name for the new test plan"),
       areaPath: z.string().optional().describe("Area path for the plan"),

@@ -51,14 +51,14 @@ flowchart LR
 
 ## Test Suite Folder Structure Convention
 
-The MCP server enforces the team's ADO test suite hierarchy. Two test plans exist (e.g., `GPT_D-HUB`). Within each plan, suites are organized as:
+The MCP server enforces the team's ADO test suite hierarchy. One or more test plans are configured in `conventions.config.json` (see `suiteStructure.testPlanMapping`); within each plan, suites are organized as:
 
 ```mermaid
 flowchart TD
-    Plan["Test Plan: GPT_D-HUB"]
-    Plan --> S1["SFTPM_24 (latest sprint - top)"]
-    Plan --> S2["SFTPM_23"]
-    Plan --> S3["SFTPM_22"]
+    Plan["Test Plan: {Plan Name}"]
+    Plan --> S1["Sprint_14 (latest sprint - top)"]
+    Plan --> S2["Sprint_13"]
+    Plan --> S3["Sprint_12"]
 
     S1 --> P1["1098700 | Order Management Epic"]
     S1 --> P2["1098800 | Promotion Management Epic"]
@@ -75,7 +75,7 @@ flowchart TD
 
 **Naming rules:**
 
-- Sprint folder: `SFTPM_<SprintNumber>` (static suite)
+- Sprint folder: `<SprintPrefix><Number>` where `<SprintPrefix>` is configured in `conventions.config.json` → `suiteStructure.sprintPrefix`. Examples: `Sprint_14`, `SFTPM_14`, `Iteration_14`. (static suite)
 - Parent US / EPIC folder: `<ParentUS_ID> | <ParentUS_Title>` (static suite)
 - US folder: `<US_ID> | <US_Title>` (**query-based suite** -- test cases auto-link via query)
 - Independent US folder: `Non-Epic US TCs` (static suite, one per sprint)
@@ -92,7 +92,7 @@ AND Area Path    Under      <Test Plan Area Path>
 AND Title        Contains   TC_<USID>
 ```
 
-For example, for US 1245456 under the GPT_D-HUB plan:
+For example, for US 1245456 under a configured test plan (see `testPlanMapping`):
 
 ```
 Work Item Type   In Group   Microsoft.TestCaseCategory
@@ -103,10 +103,10 @@ AND Title        Contains   TC_1245456
 **Resolution logic (built into `qa_suite_setup_manual` and `qa_suite_setup_auto`):**
 
 1. Fetch the User Story by ID
-2. **`qa_suite_setup_auto`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (e.g. DHub → GPT_D-HUB, EHub → GPT_E-HUB) and sprint from Iteration (e.g. SFTPM_24 → 24)
+2. **`qa_suite_setup_auto`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (per-team configuration in `conventions.config.json`) and sprint from Iteration (e.g. with prefix `Sprint_`, `Sprint_14` → 14)
 3. Walk US relations to find Parent US or EPIC link
-4. If parent exists: resolve or create `SFTPM_X > ParentID | ParentTitle > USID | USTitle`
-5. If no parent: resolve or create `SFTPM_X > Non-Epic US TCs > USID | USTitle`
+4. If parent exists: resolve or create `Sprint_X > ParentID | ParentTitle > USID | USTitle`
+5. If no parent: resolve or create `Sprint_X > Non-Epic US TCs > USID | USTitle`
 6. At each level, check if the folder already exists before creating (no duplicates)
 7. If existing suite has wrong naming format, update it to match convention
 8. The leaf US folder is always a query-based suite with the `TC_<USID>` query above
@@ -144,7 +144,7 @@ sequenceDiagram
     Note over C: Step 3 - Ensure Suite Hierarchy
     C->>M: qa_suite_setup_manual(planId, sprintNumber: 24, userStoryId: 1098741)
     M->>ADO: GET suites (list all)
-    M->>M: Check: SFTPM_24 exists? Parent folder exists? US folder exists?
+    M->>M: Check: Sprint_24 exists? Parent folder exists? US folder exists?
     alt All folders exist
         M-->>C: Returns leaf suiteId for "1098741 | Create Order Flow"
     else Some folders missing
@@ -166,7 +166,7 @@ sequenceDiagram
 
     Note over M,ADO: TC titles contain "TC_1098741" so they<br/>auto-appear in the query-based suite.<br/>No manual add-to-suite needed.
 
-    C-->>QA: "Created TC_1098741_01 and TC_1098741_02\nAuto-linked in SFTPM_24 > 1098700 | Order Management Epic > 1098741 | Create Order Flow"
+    C-->>QA: "Created TC_1098741_01 and TC_1098741_02\nAuto-linked in Sprint_24 > 1098700 | Order Management Epic > 1098741 | Create Order Flow"
 ```
 
 ---
@@ -869,7 +869,7 @@ ADO TestForge MCP/
 
 ### Test Plan Management
 
-Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input to other tools. These tools are for lookup/reference, not primary workflow:
+Test plans already exist in the project (configured in `conventions.config.json` → `suiteStructure.testPlanMapping`). The `planId` is provided as input to other tools. These tools are for lookup/reference, not primary workflow:
 
 - **`ado_plans`** -- List all test plans in the project (to find the planId)
   - API: `GET /_apis/testplan/plans`
@@ -883,7 +883,7 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
 - **`qa_suite_setup_auto`** -- Preferred. Takes only userStoryId. Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format.
 - **`qa_suite_setup_manual`** -- Lower-level. Given planId, sprint number, and userStoryId, it builds the full folder path:
   1. Fetches the US to determine if it has a Parent US / EPIC
-  2. Ensures `SFTPM_<sprint>` folder exists (static suite)
+  2. Ensures `<SprintPrefix>{sprint}` folder exists (static suite)
   3. If parent exists: ensures `<ParentID> | <ParentTitle>` folder under sprint (static suite)
   4. If no parent: ensures `Non-Epic US TCs` folder under sprint (static suite)
   5. Creates the leaf `<USID> | <USTitle>` as a **query-based suite** with this query:
@@ -1164,8 +1164,8 @@ flowchart TD
     FetchUS --> FetchPlan["Fetch Test Plan\n(get area path for query)"]
     FetchPlan --> HasParent{"US has Parent US\nor EPIC?"}
 
-    HasParent -->|Yes| SprintA["Find or create static suite:\nSFTPM_{sprintNum}"]
-    HasParent -->|No| SprintB["Find or create static suite:\nSFTPM_{sprintNum}"]
+    HasParent -->|Yes| SprintA["Find or create static suite:\nSprint_{sprintNum}"]
+    HasParent -->|No| SprintB["Find or create static suite:\nSprint_{sprintNum}"]
 
     SprintA --> ParentFolder["Find or create static suite:\n{ParentID} | {ParentTitle}"]
     SprintB --> NonEpic["Find or create static suite:\nNon-Epic US TCs"]

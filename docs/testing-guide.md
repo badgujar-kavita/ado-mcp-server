@@ -191,7 +191,7 @@ List all test plans in the project using the ado-test-manager MCP
 **Expected result:** A JSON array of test plans with their `id`, `name`, `areaPath`, `state`, and `rootSuiteId`.
 
 **What to note down:**
-- `id` of your test plan (e.g., `GPT_D-HUB`)
+- `id` of your test plan (look it up via `list_test_plans`)
 - `rootSuiteId` -- you'll need this later
 
 ---
@@ -256,7 +256,7 @@ Ensure the test suite hierarchy for plan ID 12345, sprint number 25, user story 
 {
   "leafSuiteId": 99999,
   "leafSuiteName": "67890 | US Title Here",
-  "created": ["SFTPM_25", "12345 | Epic Title", "67890 | US Title Here"],
+  "created": ["Sprint_25", "12345 | Epic Title", "67890 | US Title Here"],
   "existing": []
 }
 ```
@@ -267,7 +267,7 @@ Ensure the test suite hierarchy for plan ID 12345, sprint number 25, user story 
 3. You should see the hierarchy:
    ```
    Root Suite
-   └── SFTPM_25              (static suite -- sprint folder)
+   └── Sprint_25              (static suite -- sprint folder)
        └── {ParentID} | {ParentTitle}   (static suite -- EPIC/parent folder)
            └── {USID} | {USTitle}       (query-based suite -- auto-links TCs)
    ```
