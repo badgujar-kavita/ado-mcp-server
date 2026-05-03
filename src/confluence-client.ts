@@ -1,8 +1,6 @@
 import type { ConfluencePageResult } from "./types.ts";
-
-function buildAuthHeader(email: string, apiToken: string): string {
-  return `Basic ${Buffer.from(email + ":" + apiToken).toString("base64")}`;
-}
+import { basicAuthHeader } from "./helpers/basic-auth.ts";
+import { stripHtml } from "./helpers/strip-html.ts";
 
 /** Extract site host from base URL, e.g. your-org.atlassian.net from https://your-org.atlassian.net/wiki */
 function extractSiteHost(baseUrl: string): string | null {
@@ -32,7 +30,7 @@ export class ConfluenceClient {
 
   constructor(baseUrl: string, email: string, apiToken: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
-    this.authHeader = buildAuthHeader(email, apiToken);
+    this.authHeader = basicAuthHeader(email, apiToken);
   }
 
   async getPageContent(pageId: string): Promise<ConfluencePageResult> {
@@ -51,7 +49,7 @@ export class ConfluenceClient {
       };
       return {
         title: data.title,
-        body: this.stripHtml(data.body.storage.value),
+        body: stripHtml(data.body.storage.value),
       };
     }
 
@@ -100,27 +98,8 @@ export class ConfluenceClient {
     };
     return {
       title: data.title,
-      body: this.stripHtml(data.body.storage.value),
+      body: stripHtml(data.body.storage.value),
     };
-  }
-
-  private stripHtml(html: string): string {
-    return html
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n\n")
-      .replace(/<\/li>/gi, "\n")
-      .replace(/<li[^>]*>/gi, "- ")
-      .replace(/<\/h[1-6]>/gi, "\n\n")
-      .replace(/<h[1-6][^>]*>/gi, "## ")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&nbsp;/g, " ")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
   }
 }
 

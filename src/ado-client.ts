@@ -9,13 +9,15 @@ export class AdoClientError extends Error {
   }
 }
 
+import { basicAuthHeader } from "./helpers/basic-auth.ts";
+
 export class AdoClient {
   readonly baseUrl: string;
   private authHeader: string;
 
   constructor(org: string, project: string, pat: string) {
     this.baseUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}`;
-    this.authHeader = `Basic ${Buffer.from(":" + pat).toString("base64")}`;
+    this.authHeader = basicAuthHeader("", pat);
   }
 
   private buildUrl(path: string, apiVersion: string, queryParams?: Record<string, string>): string {

@@ -4,6 +4,7 @@ import { join, dirname } from "path";
 import { homedir } from "os";
 import { exec } from "child_process";
 import { platform } from "os";
+import { basicAuthHeader } from "../helpers/basic-auth.ts";
 
 const CREDENTIALS_DIR = join(homedir(), ".ado-testforge-mcp");
 const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
@@ -38,7 +39,7 @@ function loadExistingCredentials(): Partial<Credentials> {
 
 async function testAdoConnection(pat: string, org: string, project: string): Promise<{ success: boolean; message: string; details?: string }> {
   try {
-    const authHeader = `Basic ${Buffer.from(":" + pat).toString("base64")}`;
+    const authHeader = basicAuthHeader("", pat);
     // Use the project API at organization level to verify access
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/projects/${encodeURIComponent(project)}?api-version=7.1`;
     
@@ -99,7 +100,7 @@ async function fetchCloudId(siteHost: string): Promise<string | null> {
 async function testConfluenceConnection(baseUrl: string, email: string, apiToken: string): Promise<{ success: boolean; message: string; details?: string }> {
   try {
     const cleanUrl = baseUrl.replace(/\/+$/, "");
-    const authHeader = `Basic ${Buffer.from(email + ":" + apiToken).toString("base64")}`;
+    const authHeader = basicAuthHeader(email, apiToken);
     
     // Try the user/current endpoint first (simpler, works with most tokens)
     const userUrl = `${cleanUrl}/rest/api/user/current`;
