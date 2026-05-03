@@ -66,9 +66,9 @@ test("PAT/org/project missing → overall=broken, Next Actions mentions configur
   assert.ok(/configure/i.test(joined), "next actions should mention configure");
   assert.ok(/PAT/i.test(joined), "next actions should mention PAT");
 
-  // When the credentials file does not exist, setup_credentials alternative
+  // When the credentials file does not exist, ado_connect_save alternative
   // should be surfaced.
-  assert.ok(/setup_credentials/.test(joined));
+  assert.ok(/ado_connect_save/.test(joined));
 });
 
 test("PAT present but Confluence missing → overall=degraded, Next Actions mentions Confluence as optional", () => {

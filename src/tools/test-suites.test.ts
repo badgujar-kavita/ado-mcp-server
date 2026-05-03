@@ -1,6 +1,6 @@
 /**
  * Unit tests for the canonical read-result builders introduced in
- * Tier 2 of the jira-mcp port (list_test_suites, get_test_suite).
+ * Tier 2 of the jira-mcp port (ado_suites, ado_suite).
  *
  * Like read-canonical.test.ts, we test the builder helpers directly.
  * The tool handlers wrap the builder output in `{ content,
@@ -30,9 +30,9 @@ function makeSuite(overrides: Partial<AdoTestSuite> = {}): AdoTestSuite {
   };
 }
 
-// ── list_test_suites canonical ────────────────────────────────────────────
+// ── ado_suites canonical ────────────────────────────────────────────
 
-test("list_test_suites returns structuredContent with children per suite", () => {
+test("ado_suites returns structuredContent with children per suite", () => {
   const suites: AdoTestSuite[] = [
     makeSuite({ id: 10, name: "Root Suite" }),
     makeSuite({
@@ -69,7 +69,7 @@ test("list_test_suites returns structuredContent with children per suite", () =>
   assert.equal(canonical.completeness.isPartial, false);
 });
 
-test("list_test_suites empty plan returns empty children", () => {
+test("ado_suites empty plan returns empty children", () => {
   const canonical = buildSuiteListCanonicalResult(5, []);
 
   assert.equal(canonical.item.id, 5);
@@ -80,9 +80,9 @@ test("list_test_suites empty plan returns empty children", () => {
   assert.equal(canonical.completeness.isPartial, false);
 });
 
-// ── get_test_suite canonical ──────────────────────────────────────────────
+// ── ado_suite canonical ──────────────────────────────────────────────
 
-test("get_test_suite with parent suite populates parent relationship", () => {
+test("ado_suite with parent suite populates parent relationship", () => {
   const suite = makeSuite({
     id: 42,
     name: "Sprint 24",
@@ -106,7 +106,7 @@ test("get_test_suite with parent suite populates parent relationship", () => {
   assert.equal(canonical.completeness.isPartial, false);
 });
 
-test("get_test_suite of query-based suite exposes queryString as artifact", () => {
+test("ado_suite of query-based suite exposes queryString as artifact", () => {
   const suite = makeSuite({
     id: 99,
     name: "US_1234 query suite",
@@ -123,7 +123,7 @@ test("get_test_suite of query-based suite exposes queryString as artifact", () =
   assert.ok(canonical.artifacts![0]!.summary!.includes("SELECT"));
 });
 
-test("get_test_suite of static suite has no query artifact", () => {
+test("ado_suite of static suite has no query artifact", () => {
   const suite = makeSuite({
     id: 7,
     name: "Static suite",

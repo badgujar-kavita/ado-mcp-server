@@ -148,9 +148,9 @@ Persona:
 
 ### Commands
 
-1. **draft_test_cases:** Ensure generated titles follow observed patterns (hierarchy, "As Persona", tab context).
-2. **create_test_cases:** Validate title length (≤256) before push.
-3. **update_test_case:** When updating prerequisites, preserve Persona + Pre-requisite + Test Data structure.
+1. **qa_draft:** Ensure generated titles follow observed patterns (hierarchy, "As Persona", tab context).
+2. **qa_publish:** Validate title length (≤256) before push.
+3. **qa_tc_update:** When updating prerequisites, preserve Persona + Pre-requisite + Test Data structure.
 
 ---
 

@@ -79,7 +79,7 @@ function checkSupportingDocs(usFolder: string, usId: number): { hasSummary: bool
   };
 }
 
-/** Parse header fields from markdown for list_tc_drafts. */
+/** Parse header fields from markdown for qa_drafts_list. */
 function parseMarkdownHeader(mdContent: string): { userStoryId: number; title: string; status: string; version: number } | null {
   const titleMatch = mdContent.match(/^# Test Cases: US #(\d+) — (.+)$/m);
   if (!titleMatch) return null;
@@ -137,7 +137,7 @@ const SaveTcDraftShape = {
 
 export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   server.tool(
-    "save_tc_draft",
+    "qa_draft_save",
     "Save a test case draft to tc-drafts/US_<id>/ as markdown only. JSON is created only when pushing to ADO. Pass workspaceRoot (open folder) or draftsPath (user-specified location). Creates tc-drafts/US_<id>/ folder if missing. No hardcoded default path.",
     SaveTcDraftShape,
     async (input) => {
@@ -178,7 +178,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         return {
           content: [{
             type: "text" as const,
-            text: `Draft saved successfully!\n\n**File:** [${fileName}](${fileUri})\n**Folder:** tc-drafts/US_${input.userStoryId}/\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO. Use save_tc_supporting_doc to create solution_design_summary and qa_cheat_sheet files._`,
+            text: `Draft saved successfully!\n\n**File:** [${fileName}](${fileUri})\n**Folder:** tc-drafts/US_${input.userStoryId}/\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO. Use qa_draft_doc_save to create solution_design_summary and qa_cheat_sheet files._`,
           }],
         };
       } catch (err) {
@@ -192,7 +192,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   );
 
   server.registerTool(
-    "get_tc_draft",
+    "qa_draft_read",
     {
       description: "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout.",
       inputSchema: {
@@ -253,7 +253,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   );
 
   server.registerTool(
-    "list_tc_drafts",
+    "qa_drafts_list",
     {
       description: "List all test case drafts in tc-drafts/ with US ID, title, status, version, and supporting docs. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout. Pass workspaceRoot or draftsPath.",
       inputSchema: {
@@ -394,7 +394,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   );
 
   server.tool(
-    "save_tc_clone_preview",
+    "qa_clone_preview_save",
     "Save a clone-and-enhance preview to tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md. Use after analyzing source TCs and target US+Solution Design. Pass workspaceRoot or draftsPath.",
     {
       sourceUserStoryId: z.number().int().positive().describe("Source User Story ID"),
@@ -428,7 +428,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   );
 
   server.tool(
-    "push_tc_draft_to_ado",
+    "qa_publish_push",
     "Push a reviewed test case draft to ADO. Creates all test cases and updates the draft markdown to APPROVED. Only call after explicit user confirmation (e.g. user typed YES). Pass workspaceRoot or draftsPath. Supports both new subfolder and legacy flat layout. Set repush=true to update existing test cases when draft was revised after initial push. If the User Story already has test cases linked in ADO and the draft has no ADO IDs, the tool returns an error listing them; set insertAnyway=true to add new TCs alongside existing ones, or use repush=true to update existing ones.",
     {
       userStoryId: z.number().int().positive(),
@@ -444,7 +444,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
         if (!existsSync(mdPath)) {
           return {
-            content: [{ type: "text" as const, text: `No draft found for US ${userStoryId}. Run draft_test_cases first.` }],
+            content: [{ type: "text" as const, text: `No draft found for US ${userStoryId}. Run qa-draft first.` }],
             isError: true,
           };
         }
@@ -511,9 +511,9 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
                   `if they cover the same scenarios, you'll end up with duplicates.\n\n` +
                   `Reply with a letter:\n` +
                   `  **A.** Proceed — create ${newCount} new TCs alongside the existing ones ` +
-                  `(agent then calls push_tc_draft_to_ado with insertAnyway: true).\n` +
+                  `(agent then calls qa_publish_push with insertAnyway: true).\n` +
                   `  **B.** Inspect first — see titles/steps of the existing test cases before deciding ` +
-                  `(agent then calls list_test_cases_linked_to_user_story and get_test_case for each).\n` +
+                  `(agent then calls qa_tests and get_test_case for each).\n` +
                   `  **C.** Cancel — do nothing.`,
               }],
               isError: true,
@@ -604,7 +604,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   );
 
   server.tool(
-    "save_tc_supporting_doc",
+    "qa_draft_doc_save",
     "Save a supporting document (solution_design_summary, qa_cheat_sheet, or regression_tests) for a User Story into tc-drafts/US_<id>/. Creates the US folder if missing. Pass workspaceRoot or draftsPath.",
     {
       userStoryId: z.number().int().positive().describe("User Story work item ID"),
@@ -660,7 +660,7 @@ function mergePrerequisites(
 // ── Canonical read-result builders ──
 
 /**
- * Build the CanonicalReadResult for `get_tc_draft`.
+ * Build the CanonicalReadResult for `qa_draft_read`.
  *
  * - `item.type` = "tc-draft" (the draft is the read target; the markdown
  *   file on disk is the artifact).
@@ -708,7 +708,7 @@ export function buildTcDraftCanonicalResult(
 }
 
 /**
- * Build the CanonicalReadResult for `list_tc_drafts`.
+ * Build the CanonicalReadResult for `qa_drafts_list`.
  *
  * - `item.type` = "tc-draft-index" (the index itself is the read target).
  * - `children[]` = one entry per draft file found, each tagged with

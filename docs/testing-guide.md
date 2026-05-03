@@ -96,7 +96,7 @@ Credentials are stored per\-user at `~/.ado-testforge-mcp/credentials.json` (you
 
 ### Checking Status
 
-Use `/ado-testforge/check_status` to verify your setup is complete.
+Use `/ado-testforge/ado-check` to verify your setup is complete.
 
 - **First successful run for a version:** shows the full welcome message and quick-start CTA
 - **Later runs on the same version:** show a brief `ADO TestForge MCP vX.Y.Z | Status: ✓ Ready` header
@@ -116,32 +116,32 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 | Command | Description |
 |---|---|
 | `install` | Check prerequisites, create credentials template, register globally |
-| `check_setup_status` | Check what is needed to complete setup |
+| `ado-check` | Check what is needed to complete setup |
 
 **After setup (full server):
 
 | Command | Description |
 |---|---|
-| `check_status` | Verify setup status |
-| `list_test_plans` | List all test plans in the project |
-| `get_user_story` | Fetch a User Story with full context |
-| `get_test_plan` | Get test plan details |
-| `list_test_suites` | List all suites in a test plan |
-| `get_test_suite` | Get test suite details |
-| `create_test_suite` | Create suite structure — User Story ID only |
-| `update_test_suite` | Ensure or update suite structure — User Story ID only |
-| `ensure_suite_hierarchy_for_us` | Same — User Story ID only, derives plan and sprint from US |
-| `delete_test_suite` | Delete a test suite (test cases remain) |
-| `ensure_suite_hierarchy` | Build sprint > parent > US suite tree |
-| `draft_test_cases` | Generate a test case draft for review (never creates in ADO). Only asks for User Story ID - Test Plan ID is auto-derived during push. Applies a generic QA architect skill: analyze US + Solution Design, derive project-specific terminology from the source material, then build the coverage matrix, process flow, and checklist. |
-| `create_test_cases` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
-| `list_test_cases` | List test cases in a suite |
-| `get_test_case` | Get test case details |
-| `update_test_case` | Update one or more fields (partial or full) |
-| `list_work_item_fields` | List all work item field definitions |
-| `delete_test_case` | Delete a test case (Recycle Bin by default) |
-| `delete_test_cases` | Delete multiple test cases by ID (Recycle Bin by default) |
-| `get_confluence_page` | Read a Confluence page for reference |
+| `ado-check` | Verify setup status |
+| `ado-plans` | List all test plans in the project |
+| `ado-story` | Fetch a User Story with full context |
+| `ado-plan` | Get test plan details |
+| `ado-suites` | List all suites in a test plan |
+| `ado-suite` | Get test suite details |
+| `qa-suite-create` | Create suite structure — User Story ID only |
+| `qa-suite-update` | Ensure or update suite structure — User Story ID only |
+| `qa-suite-setup-auto` | Same — User Story ID only, derives plan and sprint from US |
+| `qa-suite-delete` | Delete a test suite (test cases remain) |
+| `qa-suite-setup-manual` | Build sprint > parent > US suite tree |
+| `qa-draft` | Generate a test case draft for review (never creates in ADO). Only asks for User Story ID - Test Plan ID is auto-derived during push. Applies a generic QA architect skill: analyze US + Solution Design, derive project-specific terminology from the source material, then build the coverage matrix, process flow, and checklist. |
+| `qa-publish` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
+| `ado-suite-tests` | List test cases in a suite |
+| `qa-tc-read` | Get test case details |
+| `qa-tc-update` | Update one or more fields (partial or full) |
+| `ado-fields` | List all work item field definitions |
+| `qa-tc-delete` | Delete a test case (Recycle Bin by default) |
+| `qa-tc-bulk-delete` | Delete multiple test cases by ID (Recycle Bin by default) |
+| `confluence-read` | Read a Confluence page for reference |
 
 ### How to Use
 
@@ -154,14 +154,14 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 ### Examples
 
 **Quick lookup:**
-- Select `ado-testforge / list_test_plans` -- results appear immediately
+- Select `ado-testforge / ado-plans` -- results appear immediately
 
 **Fetch a User Story:**
-- Select `ado-testforge / get_user_story`
+- Select `ado-testforge / ado-story`
 - AI asks for the work item ID -- type it in chat (e.g., `1273966`)
 
 **Create test cases interactively:**
-- Select `ado-testforge / create_test_case`
+- Select `ado-testforge / qa-publish`
 - AI asks for plan ID and US ID, fetches context, suggests test cases, asks for confirmation
 
 ### Slash Commands vs Natural Language
@@ -213,7 +213,7 @@ Get details of test plan ID {YOUR_PLAN_ID}
 
 ### Step 3: Fetch a User Story
 
-**Purpose:** Test the `get_user_story` tool and see what context is available, including Solution Design content from Confluence.
+**Purpose:** Test the `ado_story` tool and see what context is available, including Solution Design content from Confluence.
 
 **Prompt:**
 ```
@@ -455,7 +455,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `conventions.config.json` validation error | Check JSON syntax; compare with the schema in `src/config.ts` |
 | Test case number always starts at 1 | The auto-increment queries existing TCs by title pattern; if no matches found, starts at 1 |
 | Prerequisites are empty | Persona always uses all three from config; pre-conditions must be generated per user story (never from config). Check `conventions.config.json` > `prerequisiteDefaults.personas` |
-| `US {id} — existing test cases detected` (A/B/C prompt) | The duplicate-TC preflight blocked the push because the US already has linked TCs in ADO but the draft has no ADO IDs. **A.** Proceed with `insertAnyway: true` to create new TCs alongside the existing ones. **B.** Investigate first — the agent should call `list_test_cases_linked_to_user_story` for IDs, then `get_test_case` for each title/steps, then re-ask. **C.** Cancel. To instead **update** existing TCs, add their ADO IDs to the draft and call with `repush: true` (see `docs/repush-workflow.md`). |
+| `US {id} — existing test cases detected` (A/B/C prompt) | The duplicate-TC preflight blocked the push because the US already has linked TCs in ADO but the draft has no ADO IDs. **A.** Proceed with `insertAnyway: true` to create new TCs alongside the existing ones. **B.** Investigate first — the agent should call `qa_tests` for IDs, then `qa_tc_read` for each title/steps, then re-ask. **C.** Cancel. To instead **update** existing TCs, add their ADO IDs to the draft and call with `repush: true` (see `docs/repush-workflow.md`). |
 | Confluence images show `skipped: "fetch-failed"` | Token lacks `read:attachment.download:confluence` scope. Use a classic unscoped token or add the scope at https://id.atlassian.com/manage-profile/security/api-tokens. |
 | ADO images show `skipped: "fetch-failed"` | Usually transient; retry. If persistent, verify PAT has `vso.work` scope. |
 | Response has only 1 content part despite images being present | `images.returnMcpImageParts` defaults to `false`. Flip to `true` in `conventions.config.json` and restart the MCP. |
@@ -472,15 +472,15 @@ tool output. MCP clients that load AGENTS.md will see the 13
 behavioural sections on first interaction. In practice with Cursor,
 this means:
 
-- **Read tools** (e.g. `get_user_story`, `list_test_cases`): the
+- **Read tools** (e.g. `ado_story`, `ado_suite_tests`): the
   agent responds with a titled markdown link, a 2--5 bullet summary,
   related items as a list or tree, explicit gap callouts for partial
   results, and a next-action offer. If this style isn't surfacing,
   reload the MCP in Cursor settings.
-- **`check_status`**: the agent shows the tool-authored table +
+- **`ado_check`**: the agent shows the tool-authored table +
   verdict + Next Actions verbatim. Any rephrasing or
   agent-invented causes is a behavioural regression -- report it.
-- **`create_test_cases` / `clone_and_enhance_test_cases`**: explicit
+- **`qa_publish` / `qa_clone`**: explicit
   "offer plan → wait for yes → call NEXT tool" pattern. If the agent
   tries to re-call the same tool with a `confirm` flag, the contract
   hasn't landed.
@@ -500,32 +500,32 @@ consumers that parse text see zero change.
 
 | Tool | Description | Key Inputs |
 |---|---|---|
-| `list_test_plans` | List all test plans; returns structuredContent | *(none)* |
-| `get_test_plan` | Get test plan details; returns structuredContent | `planId` |
-| `create_test_plan` | Create a new test plan (future use) | `name` |
-| `get_user_story` | Fetch US with full context payload: primary fields (title, description, AC, area/iteration path, parent info, relations) + `namedFields`, `allFields` pass-through, `fetchedConfluencePages` (all linked Confluence pages with current-version images), `unfetchedLinks` (SharePoint/Figma/cross-instance Confluence etc.), `embeddedImages` (ADO rich-text attachments). Response includes `webUrl` for clickable linking. When `images.returnMcpImageParts: true`, also returns `{ type: "image" }` content parts for vision-capable clients. Deprecated `solutionDesignUrl` / `solutionDesignContent` aliases remain populated; returns structuredContent | `workItemId` |
-| `list_test_cases_linked_to_user_story` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept); returns structuredContent | `userStoryId` |
-| `list_work_item_fields` | List work item field definitions (reference names, types); returns structuredContent | `expand` (optional) |
-| `ensure_suite_hierarchy` | Build sprint > parent > US suite tree | `planId`, `sprintNumber`, `userStoryId` |
-| `find_or_create_test_suite` | Find or create a single suite | `planId`, `parentSuiteId`, `suiteName` |
-| `create_test_suite` | Create a suite (find-or-create) | `planId`, `parentSuiteId`, `suiteName`, `suiteType`, `queryString` |
-| `update_test_suite` | Update suite (name, parent, query) | `planId`, `suiteId`, `name`, `parentSuiteId`, `queryString` |
-| `delete_test_suite` | Delete a suite | `planId`, `suiteId` |
-| `list_test_suites` | List all suites in a plan; returns structuredContent | `planId` |
-| `get_test_suite` | Get suite details; returns structuredContent | `planId`, `suiteId` |
-| `save_tc_draft` | Save test case draft to `tc-drafts/US_<id>/` (auto-creates folder + Supporting Documents links) | `userStoryId`, `testCases`, `planId` (optional - auto-derived during push), `functionalityProcessFlow` (optional), `testCoverageInsights` (optional), etc. |
-| `save_tc_supporting_doc` | Save supporting doc (solution_summary, qa_cheat_sheet, regression_tests) | `userStoryId`, `docType`, `markdown` |
-| `save_tc_clone_preview` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
-| `list_tc_drafts` | List saved drafts (subfolder + legacy layouts, shows supporting docs); returns structuredContent | *(none)* |
-| `get_tc_draft` | Get draft by user story ID (subfolder + legacy). **Appends an "ADO Links" section** to the returned text when the draft has ADO IDs (clickable `webUrl`s for US + each TC; file on disk unchanged); returns structuredContent | `userStoryId` |
-| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). Success message renders TC→ADO mappings as markdown links. **Duplicate preflight:** aborts with counts-based A/B/C risk message when US already has linked TCs and draft has no ADO IDs. Override with `insertAnyway: true` after user replies A; use existing `list_test_cases_linked_to_user_story` + `get_test_case` for investigation on B. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
-| `list_test_cases` | List TCs in a suite; returns structuredContent | `planId`, `suiteId` |
-| `get_test_case` | Get TC work item details; response includes `webUrl` for clickable linking; returns structuredContent | `workItemId` |
-| `update_test_case` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |
-| `delete_test_case` | Delete a test case (Recycle Bin by default) | `workItemId`, `destroy` (optional) |
-| `delete_test_cases` | (Command only — calls delete_test_case per ID) | N/A — use slash command |
-| `add_test_cases_to_suite` | Add TCs to static suite | `planId`, `suiteId`, `testCaseIds` |
-| `get_confluence_page` | Read Confluence page content; returns structuredContent | `pageId` |
+| `ado_plans` | List all test plans; returns structuredContent | *(none)* |
+| `ado_plan` | Get test plan details; returns structuredContent | `planId` |
+| `ado_plan_create` | Create a new test plan (future use) | `name` |
+| `ado_story` | Fetch US with full context payload: primary fields (title, description, AC, area/iteration path, parent info, relations) + `namedFields`, `allFields` pass-through, `fetchedConfluencePages` (all linked Confluence pages with current-version images), `unfetchedLinks` (SharePoint/Figma/cross-instance Confluence etc.), `embeddedImages` (ADO rich-text attachments). Response includes `webUrl` for clickable linking. When `images.returnMcpImageParts: true`, also returns `{ type: "image" }` content parts for vision-capable clients. Deprecated `solutionDesignUrl` / `solutionDesignContent` aliases remain populated; returns structuredContent | `workItemId` |
+| `qa_tests` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept); returns structuredContent | `userStoryId` |
+| `ado_fields` | List work item field definitions (reference names, types); returns structuredContent | `expand` (optional) |
+| `qa_suite_setup_manual` | Build sprint > parent > US suite tree | `planId`, `sprintNumber`, `userStoryId` |
+| `qa_suite_find_or_create` | Find or create a single suite | `planId`, `parentSuiteId`, `suiteName` |
+| `qa_suite_create` | Create a suite (find-or-create) | `planId`, `parentSuiteId`, `suiteName`, `suiteType`, `queryString` |
+| `qa_suite_update` | Update suite (name, parent, query) | `planId`, `suiteId`, `name`, `parentSuiteId`, `queryString` |
+| `qa_suite_delete` | Delete a suite | `planId`, `suiteId` |
+| `ado_suites` | List all suites in a plan; returns structuredContent | `planId` |
+| `ado_suite` | Get suite details; returns structuredContent | `planId`, `suiteId` |
+| `qa_draft_save` | Save test case draft to `tc-drafts/US_<id>/` (auto-creates folder + Supporting Documents links) | `userStoryId`, `testCases`, `planId` (optional - auto-derived during push), `functionalityProcessFlow` (optional), `testCoverageInsights` (optional), etc. |
+| `qa_draft_doc_save` | Save supporting doc (solution_summary, qa_cheat_sheet, regression_tests) | `userStoryId`, `docType`, `markdown` |
+| `qa_clone_preview_save` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
+| `qa_drafts_list` | List saved drafts (subfolder + legacy layouts, shows supporting docs); returns structuredContent | *(none)* |
+| `qa_draft_read` | Get draft by user story ID (subfolder + legacy). **Appends an "ADO Links" section** to the returned text when the draft has ADO IDs (clickable `webUrl`s for US + each TC; file on disk unchanged); returns structuredContent | `userStoryId` |
+| `qa_publish_push` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). Success message renders TC→ADO mappings as markdown links. **Duplicate preflight:** aborts with counts-based A/B/C risk message when US already has linked TCs and draft has no ADO IDs. Override with `insertAnyway: true` after user replies A; use existing `qa_tests` + `qa_tc_read` for investigation on B. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
+| `ado_suite_tests` | List TCs in a suite; returns structuredContent | `planId`, `suiteId` |
+| `qa_tc_read` | Get TC work item details; response includes `webUrl` for clickable linking; returns structuredContent | `workItemId` |
+| `qa_tc_update` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |
+| `qa_tc_delete` | Delete a test case (Recycle Bin by default) | `workItemId`, `destroy` (optional) |
+| `qa-tc-bulk-delete` | (Command only — calls qa_tc_delete per ID) | N/A — use slash command |
+| `qa_suite_add_tests` | Add TCs to static suite | `planId`, `suiteId`, `testCaseIds` |
+| `confluence_read` | Read Confluence page content; returns structuredContent | `pageId` |
 
 ---
 
@@ -536,13 +536,13 @@ consumers that parse text see zero change.
 2. Configure .env                 -- Credentials
 3. npx tsc --noEmit               -- Verify build
 4. Start MCP in Cursor            -- Activate server
-5. list_test_plans                -- Verify connection
-6. get_test_plan                  -- Get plan ID + area path
-7. get_user_story                 -- Verify US context
-8. ensure_suite_hierarchy         -- Build folder structure
+5. ado_plans                      -- Verify connection
+6. ado_plan                       -- Get plan ID + area path
+7. ado_story                      -- Verify US context
+8. qa_suite_setup_manual          -- Build folder structure
 9. create_test_case               -- Create first TC
 10. Verify in ADO                 -- Manual check
-11. list_test_cases               -- Verify via API
-12. update_test_case              -- Test updates
-13. get_confluence_page           -- Optional
+11. ado_suite_tests               -- Verify via API
+12. qa_tc_update                  -- Test updates
+13. confluence_read               -- Optional
 ```

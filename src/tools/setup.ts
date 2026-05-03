@@ -22,7 +22,7 @@ interface SetupState {
 }
 
 /**
- * Deterministic diagnostic shape returned by `check_setup_status`.
+ * Deterministic diagnostic shape returned by `ado_check`.
  *
  * - `overall` is the authoritative verdict — the agent should surface it
  *   verbatim (see DIAGNOSTIC_CONTRACT in src/prompts/shared-contracts.ts).
@@ -99,7 +99,7 @@ export function computeSetupStatus(deps: SetupStatusDeps = {}): SetupStatus {
     );
     if (!fileExists) {
       nextActions.push(
-        "Alternative: run `/ado-testforge/setup_credentials` to create the credentials template, then edit it directly.",
+        "Alternative: run `/ado-testforge/ado_connect_save` to create the credentials template, then edit it directly.",
       );
     }
 
@@ -240,8 +240,8 @@ function buildFirstRunWelcome(version: string, confluenceConfigured: boolean): s
     ? "ADO TestForge MCP connects Cursor IDE directly to Azure DevOps and Confluence — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, automatically pulls in linked Solution Design pages from Confluence for full business and technical context, follows your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality."
     : "ADO TestForge MCP connects Cursor IDE directly to Azure DevOps — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, understands your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality.";
   const getUserStoryLine = confluenceConfigured
-    ? "/ado-testforge/get_user_story — Fetch a User Story with full QA context + Solution Design"
-    : "/ado-testforge/get_user_story — Fetch a User Story with full QA context";
+    ? "/ado-testforge/ado_story — Fetch a User Story with full QA context + Solution Design"
+    : "/ado-testforge/ado_story — Fetch a User Story with full QA context";
   const readinessLine = confluenceConfigured
     ? "Your AI-powered QA co-pilot is ready — with Confluence connected."
     : "Your AI-powered QA co-pilot is ready.";
@@ -256,15 +256,15 @@ function buildFirstRunWelcome(version: string, confluenceConfigured: boolean): s
     "Think of it as the QA teammate who never forgets a convention, never skips a step, and works at the speed of your prompts.",
     "",
     "Two ways to work — pick what feels natural:",
-    "- Slash command: /ado-testforge/draft_test_cases",
+    "- Slash command: /ado-testforge/qa-draft",
     '- Plain English: "Draft test cases for User Story #12345"',
     "",
     "Ready? Start here:",
     `- ${getUserStoryLine}`,
-    "- /ado-testforge/draft_test_cases — Generate test cases ready for ADO",
+    "- /ado-testforge/qa-draft — Generate test cases ready for ADO",
     "- /ado-testforge/check_status — Verify your setup anytime",
     "",
-    'Quick start: Try /ado-testforge/get_user_story or say "Draft test cases for User Story #12345".',
+    'Quick start: Try /ado-testforge/ado_story or say "Draft test cases for User Story #12345".',
   ];
 }
 
@@ -280,13 +280,13 @@ function buildUpdateMessage(version: string): string[] {
 
   lines.push("");
   lines.push("Full changelog: docs/changelog.md");
-  lines.push('Quick start: Try /ado-testforge/check_status or say "Draft test cases for User Story #12345".');
+  lines.push('Quick start: Try /ado-testforge/ado-check or say "Draft test cases for User Story #12345".');
   return lines;
 }
 
 export function registerSetupTools(server: McpServer) {
   server.tool(
-    "configure",
+    "ado_connect",
     "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing. This is the recommended way to set up your credentials.",
     {},
     async () => {
@@ -325,8 +325,8 @@ export function registerSetupTools(server: McpServer) {
   );
 
   server.tool(
-    "setup_credentials",
-    "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /ado-testforge/configure instead.",
+    "ado_connect_save",
+    "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /ado-testforge/ado-connect instead.",
     {},
     async () => {
       const credPath = createCredentialsTemplate();
@@ -336,7 +336,7 @@ export function registerSetupTools(server: McpServer) {
         return {
           content: [{
             type: "text" as const,
-            text: `Credentials are already configured at: ${credPath}\n\nTo update them, edit the file directly or use /ado-testforge/configure for a guided setup.`,
+            text: `Credentials are already configured at: ${credPath}\n\nTo update them, edit the file directly or use /ado-testforge/ado-connect for a guided setup.`,
           }],
         };
       }
@@ -356,7 +356,7 @@ export function registerSetupTools(server: McpServer) {
             "",
             "After saving the file, restart the MCP server in Cursor Settings > MCP.",
             "",
-            "💡 Tip: Use /ado-testforge/configure for a guided setup with connection testing.",
+            "💡 Tip: Use /ado-testforge/ado-connect for a guided setup with connection testing.",
           ].join("\n"),
         }],
       };
@@ -364,7 +364,7 @@ export function registerSetupTools(server: McpServer) {
   );
 
   server.tool(
-    "check_setup_status",
+    "ado_check",
     "Check if the ADO TestForge MCP server is fully configured and ready to use. Returns a deterministic status table + Overall verdict + Next Actions list.",
     {},
     async () => {

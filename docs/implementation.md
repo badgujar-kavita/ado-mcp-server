@@ -13,7 +13,7 @@
 - Smart suite management: check if suite exists before creating a new one
 - Core CRUD for test plans, suites, and test cases
 - Confluence page reading (optional -- separate Atlassian auth)
-- Automatic Solution Design enrichment: `get_user_story` reads the "Technical Solution" ADO field, extracts the Confluence page ID, and fetches the Solution Design content automatically
+- Automatic Solution Design enrichment: `ado_story` reads the "Technical Solution" ADO field, extracts the Confluence page ID, and fetches the Solution Design content automatically
 
 **Future phases (after successful dry run):**
 
@@ -100,10 +100,10 @@ AND Area Path    Under      TPM Product Ecosystem\Salesforce_TPM_Global Product\
 AND Title        Contains   TC_1245456
 ```
 
-**Resolution logic (built into `ensure_suite_hierarchy` and `ensure_suite_hierarchy_for_us`):**
+**Resolution logic (built into `qa_suite_setup_manual` and `qa_suite_setup_auto`):**
 
 1. Fetch the User Story by ID
-2. **`ensure_suite_hierarchy_for_us`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (e.g. DHub → GPT_D-HUB, EHub → GPT_E-HUB) and sprint from Iteration (e.g. SFTPM_24 → 24)
+2. **`qa_suite_setup_auto`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (e.g. DHub → GPT_D-HUB, EHub → GPT_E-HUB) and sprint from Iteration (e.g. SFTPM_24 → 24)
 3. Walk US relations to find Parent US or EPIC link
 4. If parent exists: resolve or create `SFTPM_X > ParentID | ParentTitle > USID | USTitle`
 5. If no parent: resolve or create `SFTPM_X > Non-Epic US TCs > USID | USTitle`
@@ -128,7 +128,7 @@ sequenceDiagram
     QA->>C: "Create test cases for US#1098741 in Sprint 24"
 
     Note over C: Step 1 - Gather US Context
-    C->>M: get_user_story(workItemId: 1098741)
+    C->>M: ado_story(workItemId: 1098741)
     M->>ADO: GET /wit/workitems/1098741?$expand=relations
     ADO-->>M: Title, Description, AcceptanceCriteria,<br/>ParentLink, TechnicalSolution (Solution Notes)
 
@@ -142,7 +142,7 @@ sequenceDiagram
     M-->>C: Full US context + solutionDesignContent (if linked)
 
     Note over C: Step 3 - Ensure Suite Hierarchy
-    C->>M: ensure_suite_hierarchy(planId, sprintNumber: 24, userStoryId: 1098741)
+    C->>M: qa_suite_setup_manual(planId, sprintNumber: 24, userStoryId: 1098741)
     M->>ADO: GET suites (list all)
     M->>M: Check: SFTPM_24 exists? Parent folder exists? US folder exists?
     alt All folders exist
@@ -173,7 +173,7 @@ sequenceDiagram
 
 ## Solution Design Usage
 
-The **Solution Notes** field (ADO API: `Custom.TechnicalSolution`) is a rich text area that may contain descriptive text plus one or more Confluence links. The system extracts the first Confluence URL from HTML anchors (`<a href="...">`) or plain URLs and fetches the Solution Design page automatically when `get_user_story` is called.
+The **Solution Notes** field (ADO API: `Custom.TechnicalSolution`) is a rich text area that may contain descriptive text plus one or more Confluence links. The system extracts the first Confluence URL from HTML anchors (`<a href="...">`) or plain URLs and fetches the Solution Design page automatically when `ado_story` is called.
 
 **Usage rules** (defined in `conventions.config.json` under `solutionDesign.usageRules`):
 
@@ -193,7 +193,7 @@ The **Solution Notes** field (ADO API: `Custom.TechnicalSolution`) is a rich tex
 
 ## Work Item Context Payload
 
-`get_user_story` returns a full `UserStoryContext` payload that goes beyond the legacy "Description + AC + first Confluence page" shape. The payload carries every populated ADO field, every reachable Confluence page reachable from any context field, and every image embedded in ADO rich-text or Confluence storage HTML. Existing consumers keep working via deprecated aliases; new consumers read the richer fields directly.
+`ado_story` returns a full `UserStoryContext` payload that goes beyond the legacy "Description + AC + first Confluence page" shape. The payload carries every populated ADO field, every reachable Confluence page reachable from any context field, and every image embedded in ADO rich-text or Confluence storage HTML. Existing consumers keep working via deprecated aliases; new consumers read the richer fields directly.
 
 ### 1. Response shape
 
@@ -307,7 +307,7 @@ interface EmbeddedImage {
 
 ### 3. MCP tool response shape
 
-`buildGetUserStoryResponse` in `src/tools/work-items.ts` owns the final MCP content-array packing. When `images.returnMcpImageParts: true`, `get_user_story` returns:
+`buildGetUserStoryResponse` in `src/tools/work-items.ts` owns the final MCP content-array packing. When `images.returnMcpImageParts: true`, `ado_story` returns:
 
 ```typescript
 {
@@ -368,10 +368,10 @@ in `src/prompts/index.ts`:
   tree/list, explicit gap callouts, next-action offer. Composed
   into all 9 read prompts.
 - **`DIAGNOSTIC_CONTRACT`** -- agent shows tool-authored output
-  verbatim. Composed into `check_status`.
+  verbatim. Composed into `ado-check`.
 - **`CONFIRM_BEFORE_ACT_CONTRACT`** -- offer plan → wait for
   explicit yes → call NEXT action tool → stop on no. Composed into
-  `create_test_cases` and `clone_and_enhance_test_cases`.
+  `qa_publish` and `qa_clone`.
 
 ### Canonical read result
 
@@ -399,25 +399,25 @@ All 14 read tools emit `CanonicalReadResult` via
 
 | Tool | `item.type` | children convention |
 |---|---|---|
-| `get_user_story` | `user-story` | parent; embedded images and Confluence pages → artifacts; skipped items → diagnostics |
-| `get_test_case` | `test-case` | related work items by relation type; attached files → artifacts |
-| `list_test_cases` | `test-suite` | contained test cases |
-| `get_confluence_page` | `confluence-page` | single-page; isPartial=false |
-| `list_test_cases_linked_to_user_story` | `user-story` | TCs with relationship "tested-by" |
-| `list_work_item_fields` | `field-inventory` | 50-field cap; overflow surfaces `completeness.isPartial=true` with reason |
-| `list_test_plans` | `project` | plans with relationship "contained" |
-| `get_test_plan` | `test-plan` | root suite with relationship "root-suite" |
-| `list_test_suites` | `test-plan` | suites with "root" / "child" based on parentSuite |
-| `get_test_suite` | `test-suite` | parent suite; WIQL query → artifact kind "query" |
-| `get_tc_draft` | `tc-draft` | TCs with "pushed"/"drafted"; markdown file → artifact |
-| `list_tc_drafts` | `tc-draft-index` | drafts with "approved"/"draft" relationship |
+| `ado_story` | `user-story` | parent; embedded images and Confluence pages → artifacts; skipped items → diagnostics |
+| `qa_tc_read` | `test-case` | related work items by relation type; attached files → artifacts |
+| `ado_suite_tests` | `test-suite` | contained test cases |
+| `confluence_read` | `confluence-page` | single-page; isPartial=false |
+| `qa_tests` | `user-story` | TCs with relationship "tested-by" |
+| `ado_fields` | `field-inventory` | 50-field cap; overflow surfaces `completeness.isPartial=true` with reason |
+| `ado_plans` | `project` | plans with relationship "contained" |
+| `ado_plan` | `test-plan` | root suite with relationship "root-suite" |
+| `ado_suites` | `test-plan` | suites with "root" / "child" based on parentSuite |
+| `ado_suite` | `test-suite` | parent suite; WIQL query → artifact kind "query" |
+| `qa_draft_read` | `tc-draft` | TCs with "pushed"/"drafted"; markdown file → artifact |
+| `qa_drafts_list` | `tc-draft-index` | drafts with "approved"/"draft" relationship |
 
 Action tools (write / mutate) stay on `server.tool(...)` and return
 prose only. Prose text is preserved byte-for-byte across every read
 tool migration -- clients that only read `content[0].text` see no
 change.
 
-### Deterministic `check_setup_status`
+### Deterministic `ado_check`
 
 `src/tools/setup.ts` now computes status via pure
 `computeSetupStatus(deps)` + `formatSetupStatus(status)` helpers. The
@@ -448,7 +448,7 @@ tc-drafts/
 - **Folder naming:** `tc-drafts/US_<ID>/` (e.g., `tc-drafts/US_1245456/`)
 - **File naming:** All three files share the `US_<ID>_` prefix
 - **Main draft:** `_test_cases.md` includes relative links to supporting documents in its header
-- **Skill orchestration:** `.cursor/skills/test-case-asset-manager/SKILL.md` enforces this structure
+- **Skill orchestration:** `.cursor/skills/qa-test-assets/SKILL.md` enforces this structure
 
 ### Three-File Structure
 
@@ -575,16 +575,16 @@ All three artifacts must be:
 
 ### Integration with Draft Commands
 
-When `draft_test_cases` or `create_test_cases` (no prior draft) is invoked:
+When `qa_draft` or `qa_publish` (no prior draft) is invoked:
 1. AI applies **both skills:**
-   - `.cursor/skills/test-case-asset-manager/SKILL.md` for folder structure
-   - `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` for content quality
-2. AI calls `save_tc_draft` for main test cases file — this **auto-creates** `tc-drafts/US_<ID>/` folder and includes Supporting Documents links
-3. AI calls `save_tc_supporting_doc` with `docType: 'solution_summary'` for the solution design summary
-4. AI calls `save_tc_supporting_doc` with `docType: 'qa_cheat_sheet'` for the QA cheat sheet
+   - `.cursor/skills/qa-test-assets/SKILL.md` for folder structure
+   - `.cursor/skills/qa-test-drafting/SKILL.md` for content quality
+2. AI calls `qa_draft_save` for main test cases file — this **auto-creates** `tc-drafts/US_<ID>/` folder and includes Supporting Documents links
+3. AI calls `qa_draft_doc_save` with `docType: 'solution_summary'` for the solution design summary
+4. AI calls `qa_draft_doc_save` with `docType: 'qa_cheat_sheet'` for the QA cheat sheet
 5. All three files are co-located in the same US folder with relative links
 
-**Files:** `src/tools/tc-drafts.ts` (save_tc_draft, save_tc_supporting_doc), `src/prompts/index.ts` (draft_test_cases, create_test_cases prompts), `.cursor/rules/test-case-draft-formatting.mdc` (Section 11)
+**Files:** `src/tools/tc-drafts.ts` (qa_draft_save, qa_draft_doc_save), `src/prompts/index.ts` (qa_draft, qa_publish prompts), `.cursor/rules/test-case-draft-formatting.mdc` (Section 11)
 
 ---
 
@@ -736,7 +736,7 @@ Each step is an Action + Expected Result pair (converted to ADO XML internally).
 
 Neither field needs to be provided by the caller in typical usage -- they are resolved automatically.
 
-**When creating test cases** (via `createTestCase` / `push_tc_draft_to_ado`): Area Path and Iteration Path are always taken from the User Story fetched live from ADO, not from the draft's parsed values. This avoids TF401347 ("Invalid tree name given for work item") when draft parsing differs slightly (encoding, whitespace, etc.) from what ADO expects.
+**When creating test cases** (via `createTestCase` / `qa_publish_push`): Area Path and Iteration Path are always taken from the User Story fetched live from ADO, not from the draft's parsed values. This avoids TF401347 ("Invalid tree name given for work item") when draft parsing differs slightly (encoding, whitespace, etc.) from what ADO expects.
 
 ### Full Field Mapping
 
@@ -756,7 +756,7 @@ Relations: Tested By                       | Auto-linked to userStoryId
 
 *Prerequisite field is configurable via `prerequisiteFieldRef` in conventions.config.json (default: `Custom.PrerequisiteforTest`). Falls back to `System.Description` if not set. HTML formatting uses ADO-compatible tags (`<div>`, `<strong>`, `<ul>`, `<ol>`, `<li>`). See `docs/prerequisite-formatting-instruction.md` for details.
 
-**Formatting is shared across all paths:** `push_tc_draft_to_ado` (via `createTestCase`), `update_test_case`, and any future `create_test_case` tool all use the same `buildPrerequisitesHtml` and `buildStepsXml` helpers. Prerequisites and steps formatting (bold, lists, persona sub-bullets, TO BE TESTED FOR expansion) is applied consistently.
+**Formatting is shared across all paths:** `qa_publish_push` (via `createTestCase`), `qa_tc_update`, and any future `create_test_case` tool all use the same `buildPrerequisitesHtml` and `buildStepsXml` helpers. Prerequisites and steps formatting (bold, lists, persona sub-bullets, TO BE TESTED FOR expansion) is applied consistently.
 
 ### Tool Input Schema
 
@@ -814,9 +814,9 @@ ADO TestForge MCP/
 │   ├── index.ts                  # Entry point, MCP server setup + stdio transport
 │   ├── config.ts                 # Loads + validates conventions.config.json with Zod
 │   ├── tools/
-│   │   ├── work-items.ts         # get_user_story, list_test_cases_linked_to_user_story, list_work_item_fields
+│   │   ├── work-items.ts         # ado_story, qa_tests, ado_fields
 │   │   ├── test-plans.ts         # Test plan tools (create, list, get)
-│   │   ├── test-suites.ts        # Suite tools (ensure_suite_hierarchy, find_or_create, list, get)
+│   │   ├── test-suites.ts        # Suite tools (qa_suite_setup_manual, find_or_create, list, get)
 │   │   ├── test-cases.ts         # Test case tools (list, get, update, delete, add to suite)
 │   │   ├── tc-drafts.ts         # Test case draft tools (save, list, get, push to ADO)
 │   │   ├── confluence.ts         # Confluence page reader (standalone tool, optional)
@@ -853,16 +853,16 @@ ADO TestForge MCP/
 
 ### Work Item Context
 
-- **`get_user_story`** -- Fetch a User Story by ID with all QA-relevant fields + Solution Design from Confluence
+- **`ado_story`** -- Fetch a User Story by ID with all QA-relevant fields + Solution Design from Confluence
   - API: `GET /wit/workitems/{id}?$expand=relations` (fetches all fields including `Custom.TechnicalSolution`)
   - Returns: title, description (HTML), acceptance criteria (HTML), area path, iteration path, state, **parent work item ID + title** (EPIC or Parent US), all relations, **solutionDesignUrl**, **solutionDesignContent**, **`webUrl`** (browsable `https://dev.azure.com/.../_workitems/edit/{id}` — distinct from ADO's native `url` API endpoint).
   - Auto-enrichment: If the "Technical Solution" field (UI label: "Solution Notes") contains a Confluence URL and Confluence credentials are configured, the tool automatically extracts the page ID and attempts to fetch the page content. If the fetch fails, it is silently skipped and `solutionDesignContent` remains `null`.
   - Purpose: Provides full context for test case generation (including Solution Design) AND determines suite folder placement (parent vs non-epic)
-- **`list_test_cases_linked_to_user_story`** -- Get test case work item IDs linked to a User Story via Tests/Tested By relation
+- **`qa_tests`** -- Get test case work item IDs linked to a User Story via Tests/Tested By relation
   - API: `GET /wit/workitems/{userStoryId}?$expand=relations`
   - Returns: `{ userStoryId, userStoryWebUrl, testCases: [{id, webUrl}], testCaseIds: number[], count }`. `testCaseIds` and the `testCases` array are both populated; `testCaseIds` is kept for backward compatibility with existing consumers (e.g. clone-and-enhance).
   - Purpose: Use before cloning test cases from one US to another, and for building clickable TC lists in chat (via `webUrl`).
-- **`list_work_item_fields`** -- List all work item field definitions in the ADO project
+- **`ado_fields`** -- List all work item field definitions in the ADO project
   - API: `GET /_apis/wit/fields`
   - Returns: reference names (e.g. Custom.PrerequisiteforTest, System.Title), type, readOnly
   - Purpose: Verify field names before updating work items; optional `expand` for ExtensionFields
@@ -871,17 +871,17 @@ ADO TestForge MCP/
 
 Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input to other tools. These tools are for lookup/reference, not primary workflow:
 
-- **`list_test_plans`** -- List all test plans in the project (to find the planId)
+- **`ado_plans`** -- List all test plans in the project (to find the planId)
   - API: `GET /_apis/testplan/plans`
-- **`get_test_plan`** -- Get a specific test plan by ID (to read its area path, etc.)
+- **`ado_plan`** -- Get a specific test plan by ID (to read its area path, etc.)
   - API: `GET /_apis/testplan/plans/{planId}`
-- **`create_test_plan`** -- Create a new test plan (future use, not needed for POC)
+- **`ado_plan_create`** -- Create a new test plan (future use, not needed for POC)
   - API: `POST /_apis/testplan/plans`
 
 ### Test Suite Management (with hierarchy awareness)
 
-- **`ensure_suite_hierarchy_for_us`** -- Preferred. Takes only userStoryId. Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format.
-- **`ensure_suite_hierarchy`** -- Lower-level. Given planId, sprint number, and userStoryId, it builds the full folder path:
+- **`qa_suite_setup_auto`** -- Preferred. Takes only userStoryId. Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format.
+- **`qa_suite_setup_manual`** -- Lower-level. Given planId, sprint number, and userStoryId, it builds the full folder path:
   1. Fetches the US to determine if it has a Parent US / EPIC
   2. Ensures `SFTPM_<sprint>` folder exists (static suite)
   3. If parent exists: ensures `<ParentID> | <ParentTitle>` folder under sprint (static suite)
@@ -892,18 +892,18 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
      - `AND Title Contains TC_<USID>`
   6. At each level, searches existing suites first -- only creates if missing
   7. Returns the leaf suite ID (test cases auto-appear here via the query -- no manual add needed)
-- **`find_or_create_test_suite`** -- Lower-level tool. Checks if a suite with a given name exists under a parent suite; creates one only if not found
+- **`qa_suite_find_or_create`** -- Lower-level tool. Checks if a suite with a given name exists under a parent suite; creates one only if not found
   - API: `GET /_apis/testplan/Plans/{planId}/suites` then conditionally `POST`
   - Returns: `{ created: boolean, suite: {...} }`
-- **`list_test_suites`** -- List all suites in a plan
+- **`ado_suites`** -- List all suites in a plan
   - API: `GET /_apis/testplan/Plans/{planId}/suites`
-- **`get_test_suite`** -- Get suite details
+- **`ado_suite`** -- Get suite details
   - API: `GET /_apis/testplan/Plans/{planId}/suites/{suiteId}`
-- **`create_test_suite`** -- Create a new suite under a parent (find-or-create; returns existing if found)
+- **`qa_suite_create`** -- Create a new suite under a parent (find-or-create; returns existing if found)
   - API: `GET` suites then conditionally `POST /_apis/testplan/Plans/{planId}/suites`
-- **`update_test_suite`** -- Update suite properties (name, parent, query string)
+- **`qa_suite_update`** -- Update suite properties (name, parent, query string)
   - API: `PATCH /_apis/testplan/Plans/{planId}/suites/{suiteId}`
-- **`delete_test_suite`** -- Delete a test suite (test cases remain; only suite association removed)
+- **`qa_suite_delete`** -- Delete a test suite (test cases remain; only suite association removed)
   - API: `DELETE /_apis/testplan/Plans/{planId}/suites/{suiteId}`
 
 ### Test Case Management (with TC_ format + prerequisites)
@@ -918,47 +918,47 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
   - **Iteration Path**: inherited from the User Story; overridable
   - `tcNumber` auto-increments if omitted (queries existing TCs for that US)
   - Default state and priority come from conventions config
-- **`list_test_cases`** -- List test cases in a suite
+- **`ado_suite_tests`** -- List test cases in a suite
   - API: `GET /_apis/testplan/Plans/{planId}/Suites/{suiteId}/TestCase`
-- **`get_test_case`** -- Get a test case work item by ID
+- **`qa_tc_read`** -- Get a test case work item by ID
   - API: `GET /_apis/wit/workitems/{id}`
   - Returns: the full `AdoWorkItem` plus a top-level `webUrl` (`https://dev.azure.com/.../_workitems/edit/{id}`) for clickable rendering. The existing `url` field (ADO's native API endpoint) is preserved unchanged.
-- **`update_test_case`** -- Update one or more fields (partial or full). Pass only fields to change for partial update; pass all fields for full replace. Fields: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath.
+- **`qa_tc_update`** -- Update one or more fields (partial or full). Pass only fields to change for partial update; pass all fields for full replace. Fields: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath.
   - API: `PATCH /_apis/wit/workitems/{id}` (JSON Patch format)
-- **`add_test_cases_to_suite`** -- Add existing test case IDs to a static suite (not needed for query-based suites where auto-linking handles it; kept for edge cases)
+- **`qa_suite_add_tests`** -- Add existing test case IDs to a static suite (not needed for query-based suites where auto-linking handles it; kept for edge cases)
   - API: `POST /_apis/testplan/Plans/{planId}/Suites/{suiteId}/TestCase`
-- **`delete_test_case`** -- Delete a test case work item by ID
+- **`qa_tc_delete`** -- Delete a test case work item by ID
   - API: `DELETE /_apis/wit/workitems/{id}`
   - By default: soft delete (moved to Recycle Bin, restorable). Use `destroy=true` to permanently delete (not recommended)
 
 ### Test Case Drafts (draft → review → push)
 
-- **`save_tc_draft`** -- Save a test case draft to `tc-drafts/US_<id>/US_<id>_test_cases.md`. Auto-creates the per-US subfolder. Includes **Supporting Documents** links section to solution_design_summary and qa_cheat_sheet (relative paths). JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `testCoverageInsights` (classified coverage scenarios with P/N, F/NF, priority — auto-computes coverage summary).
-- **`save_tc_supporting_doc`** -- Save a supporting document to the same US folder. Parameters: `userStoryId`, `docType` (`solution_summary` | `qa_cheat_sheet` | `regression_tests`), `markdown`. Auto-creates `tc-drafts/US_<id>/` if missing. Pass `workspaceRoot` or `draftsPath`.
-- **`save_tc_clone_preview`** -- Save a clone-and-enhance preview to `tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md`. Pass `sourceUserStoryId`, `targetUserStoryId`, `markdown`, and `workspaceRoot` or `draftsPath`. Use after analyzing source TCs and target US + Solution Design. User reviews and responds APPROVED / MODIFY / CANCEL.
-- **`list_tc_drafts`** -- List saved drafts with US ID, title, status, version, and supporting docs. Supports both new subfolder layout (`tc-drafts/US_<id>/`) and legacy flat layout (`tc-drafts/US_<id>_test_cases.md`). Pass `workspaceRoot` or `draftsPath`.
-- **`get_tc_draft`** -- Get a draft by user story ID (markdown only). Supports both subfolder and legacy flat layout. Pass `workspaceRoot` or `draftsPath`. **When the draft has ADO IDs**, appends an **"ADO Links (agent display — not persisted)"** section to the returned text with clickable `webUrl` links for the US and each TC. The file on disk is untouched — URLs are synthesized per-call from `AdoClient.baseUrl` so the agent can render proper markdown links in chat. Draft markdown format is intentionally kept link-free to preserve the parser's round-trip on repush (`(ADO #1234)` → regex `/\(ADO #(\d+)\)/`).
-- **`push_tc_draft_to_ado`** -- Push an approved draft to ADO. Supports both subfolder and legacy flat layout. If draft has no `planId`, it automatically calls `ensureSuiteHierarchyForUs` to derive the plan ID from the User Story's AreaPath (via `testPlanMapping` in config), creates the suite hierarchy, then creates test cases. Parses markdown, creates test cases, links to US, then generates JSON co-located with the markdown. Pass `workspaceRoot` or `draftsPath`. Set `repush: true` when draft was revised after initial push to **update** existing test cases (formatting re-applied). JSON is created only at push time to avoid drift during revisions. **Success summary renders TC→ADO mappings as markdown links** (e.g. `TC_12345_01 → [ADO #67890](https://dev.azure.com/.../edit/67890)`) using the `adoWorkItemUrl` helper. **Duplicate-TC preflight:** before creating new TCs (i.e. draft has no ADO IDs and `repush` is not set), the tool calls `/_apis/wit/workitems/{usId}?$expand=relations`, extracts `TestedBy` linked IDs, and — if any exist — returns `isError: true` with a **counts-based** risk message (existing count + new count + duplicate warning) offering three lettered options: **A.** proceed with `insertAnyway: true`, **B.** inspect via `list_test_cases_linked_to_user_story` + `get_test_case`, **C.** cancel. No title/step dump in the preflight response — that's the investigative tools' job. If zero linked TCs, the preflight is silent and push proceeds. If the relations call itself fails, the tool surfaces the error honestly (cancel or `insertAnyway: true` if confident).
+- **`qa_draft_save`** -- Save a test case draft to `tc-drafts/US_<id>/US_<id>_test_cases.md`. Auto-creates the per-US subfolder. Includes **Supporting Documents** links section to solution_design_summary and qa_cheat_sheet (relative paths). JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `testCoverageInsights` (classified coverage scenarios with P/N, F/NF, priority — auto-computes coverage summary).
+- **`qa_draft_doc_save`** -- Save a supporting document to the same US folder. Parameters: `userStoryId`, `docType` (`solution_summary` | `qa_cheat_sheet` | `regression_tests`), `markdown`. Auto-creates `tc-drafts/US_<id>/` if missing. Pass `workspaceRoot` or `draftsPath`.
+- **`qa_clone_preview_save`** -- Save a clone-and-enhance preview to `tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md`. Pass `sourceUserStoryId`, `targetUserStoryId`, `markdown`, and `workspaceRoot` or `draftsPath`. Use after analyzing source TCs and target US + Solution Design. User reviews and responds APPROVED / MODIFY / CANCEL.
+- **`qa_drafts_list`** -- List saved drafts with US ID, title, status, version, and supporting docs. Supports both new subfolder layout (`tc-drafts/US_<id>/`) and legacy flat layout (`tc-drafts/US_<id>_test_cases.md`). Pass `workspaceRoot` or `draftsPath`.
+- **`qa_draft_read`** -- Get a draft by user story ID (markdown only). Supports both subfolder and legacy flat layout. Pass `workspaceRoot` or `draftsPath`. **When the draft has ADO IDs**, appends an **"ADO Links (agent display — not persisted)"** section to the returned text with clickable `webUrl` links for the US and each TC. The file on disk is untouched — URLs are synthesized per-call from `AdoClient.baseUrl` so the agent can render proper markdown links in chat. Draft markdown format is intentionally kept link-free to preserve the parser's round-trip on repush (`(ADO #1234)` → regex `/\(ADO #(\d+)\)/`).
+- **`qa_publish_push`** -- Push an approved draft to ADO. Supports both subfolder and legacy flat layout. If draft has no `planId`, it automatically calls `ensureSuiteHierarchyForUs` to derive the plan ID from the User Story's AreaPath (via `testPlanMapping` in config), creates the suite hierarchy, then creates test cases. Parses markdown, creates test cases, links to US, then generates JSON co-located with the markdown. Pass `workspaceRoot` or `draftsPath`. Set `repush: true` when draft was revised after initial push to **update** existing test cases (formatting re-applied). JSON is created only at push time to avoid drift during revisions. **Success summary renders TC→ADO mappings as markdown links** (e.g. `TC_12345_01 → [ADO #67890](https://dev.azure.com/.../edit/67890)`) using the `adoWorkItemUrl` helper. **Duplicate-TC preflight:** before creating new TCs (i.e. draft has no ADO IDs and `repush` is not set), the tool calls `/_apis/wit/workitems/{usId}?$expand=relations`, extracts `TestedBy` linked IDs, and — if any exist — returns `isError: true` with a **counts-based** risk message (existing count + new count + duplicate warning) offering three lettered options: **A.** proceed with `insertAnyway: true`, **B.** inspect via `qa_tests` + `qa_tc_read`, **C.** cancel. No title/step dump in the preflight response — that's the investigative tools' job. If zero linked TCs, the preflight is silent and push proceeds. If the relations call itself fails, the tool surfaces the error honestly (cancel or `insertAnyway: true` if confident).
 
-Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` (QA architect methodology) → AI calls `save_tc_draft` (creates US folder + test_cases.md) → AI calls `save_tc_supporting_doc` for solution_summary and qa_cheat_sheet → user reviews (revisions) → `create_test_cases` prompt → user confirms → `push_tc_draft_to_ado` (runs duplicate-TC guard: aborts if US already has linked TCs unless `repush` or `insertAnyway` is set) → inserts/updates TCs, or `create_test_cases` calls `create_test_case` directly.
+Flow: `qa_draft` prompt → AI applies `.cursor/skills/qa-test-drafting/SKILL.md` (QA architect methodology) → AI calls `qa_draft_save` (creates US folder + test_cases.md) → AI calls `qa_draft_doc_save` for solution_summary and qa_cheat_sheet → user reviews (revisions) → `qa_publish` prompt → user confirms → `qa_publish_push` (runs duplicate-TC guard: aborts if US already has linked TCs unless `repush` or `insertAnyway` is set) → inserts/updates TCs, or `qa_publish` calls `create_test_case` directly.
 
-**Clone and Enhance Flow:** `clone_and_enhance_test_cases` prompt → AI calls `list_test_cases_linked_to_user_story`(source) → `get_test_case` for each → `get_user_story`(target) → classifies each TC (Clone As-Is / Minor Update / Enhanced) → `save_tc_clone_preview` → user reviews → on APPROVED: `ensure_suite_hierarchy_for_us`(target) → `save_tc_draft` with transformed TCs → `push_tc_draft_to_ado`. Never creates in ADO without explicit APPROVED.
+**Clone and Enhance Flow:** `qa_clone` prompt → AI calls `qa_tests`(source) → `qa_tc_read` for each → `ado_story`(target) → classifies each TC (Clone As-Is / Minor Update / Enhanced) → `qa_clone_preview_save` → user reviews → on APPROVED: `qa_suite_setup_auto`(target) → `qa_draft_save` with transformed TCs → `qa_publish_push`. Never creates in ADO without explicit APPROVED.
 
-**Draft Test Cases Skill:** `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` defines an implementation-generic QA architect methodology: analyze US + Confluence Solution Design, extract business behavior (not implementation), derive project-specific terminology from the source material, validate coverage matrix (scope/config variations, trigger fields, status scenarios, configuration logic, backward compatibility), add Functionality Process Flow and Test Coverage Insights at draft start, and generate complete test cases.
+**Draft Test Cases Skill:** `.cursor/skills/qa-test-drafting/SKILL.md` defines an implementation-generic QA architect methodology: analyze US + Confluence Solution Design, extract business behavior (not implementation), derive project-specific terminology from the source material, validate coverage matrix (scope/config variations, trigger fields, status scenarios, configuration logic, backward compatibility), add Functionality Process Flow and Test Coverage Insights at draft start, and generate complete test cases.
 
 **Distribution packaging:** `build-dist.mjs` copies the full `.cursor/skills` directory tree into `dist-package`, including nested assets inside skill folders, so deployed skills remain complete.
 
-**Update Prerequisites Skill:** `.cursor/skills/update-test-case-prerequisites/SKILL.md` guides updating test case prerequisites via `update_test_case`: always pass structured `{ personas?, preConditions, testData }`, source from draft (not ADO HTML), restart MCP after formatting changes.
+**Update Prerequisites Skill:** `.cursor/skills/qa-tc-prerequisites/SKILL.md` guides updating test case prerequisites via `qa_tc_update`: always pass structured `{ personas?, preConditions, testData }`, source from draft (not ADO HTML), restart MCP after formatting changes.
 
 ### Confluence (Optional)
 
-- **`get_confluence_page`** -- Read a Confluence page by ID (standalone, for manual lookups)
+- **`confluence_read`** -- Read a Confluence page by ID (standalone, for manual lookups)
   - API: `GET /rest/api/content/{pageId}?expand=body.storage`
   - Auth: Atlassian email + API token (Basic Auth)
   - Returns: Page title + body content (stripped HTML to readable text)
   - Enabled only when `confluence_base_url`, `confluence_email`, and `confluence_api_token` are set in `~/.ado-testforge-mcp/credentials.json`
 
-**Note:** In most workflows, you don't need to call `get_confluence_page` directly. The `get_user_story` tool auto-fetches Solution Design content from the "Technical Solution" field when a Confluence URL is present.
+**Note:** In most workflows, you don't need to call `confluence_read` directly. The `ado_story` tool auto-fetches Solution Design content from the "Technical Solution" field when a Confluence URL is present.
 
 ---
 
@@ -1041,7 +1041,7 @@ The parser handles all three formats and returns the numeric page ID.
 
 ## Setup Status Welcome Flow
 
-The `check_setup_status` tool now behaves as a lightweight orientation surface instead of a static checklist. It uses a flag file at `~/.ado-testforge-mcp/.ado-testforge-initialized` plus the current package version to decide what to show:
+The `ado_check` tool now behaves as a lightweight orientation surface instead of a static checklist. It uses a flag file at `~/.ado-testforge-mcp/.ado-testforge-initialized` plus the current package version to decide what to show:
 
 - **First successful run for a version** -- full welcome message, quick-start CTA, and setup status
 - **Returning user on same version** -- brief header only (`ADO TestForge MCP vX.Y.Z | Status: ✓ Ready`) plus component status
@@ -1139,7 +1139,7 @@ Converts the structured prerequisites input into ADO-compatible HTML for the Pre
 
 When `userStoryId` is provided to `create_test_case`, the tool:
 
-1. Fetches the User Story via `get_user_story` internally
+1. Fetches the User Story via `ado_story` internally
 2. Inherits `areaPath` (from test plan) and `iterationPath` (from US) if not explicitly provided
 3. Adds a "Tests / Tested By" relation link in the work item creation payload:
 
@@ -1156,11 +1156,11 @@ When `userStoryId` is provided to `create_test_case`, the tool:
 
 ### Suite Hierarchy Resolution (`src/helpers/suite-structure.ts`)
 
-The `ensure_suite_hierarchy` tool uses this helper to build the correct folder path. The full resolution algorithm:
+The `qa_suite_setup_manual` tool uses this helper to build the correct folder path. The full resolution algorithm:
 
 ```mermaid
 flowchart TD
-    Start["ensure_suite_hierarchy(planId, sprintNum, userStoryId)"] --> FetchUS["Fetch US work item\n(get relations + parent)"]
+    Start["qa_suite_setup_manual(planId, sprintNum, userStoryId)"] --> FetchUS["Fetch US work item\n(get relations + parent)"]
     FetchUS --> FetchPlan["Fetch Test Plan\n(get area path for query)"]
     FetchPlan --> HasParent{"US has Parent US\nor EPIC?"}
 
@@ -1196,7 +1196,7 @@ Suite types by level:
 - Validate all inputs via Zod schemas before making API calls
 - Catch ADO API errors and return readable messages (not raw HTTP responses)
 - Handle common errors: 401 (invalid PAT), 403 (insufficient scope), 404 (project/plan not found)
-- Confluence errors are non-fatal. `get_user_story` silently keeps `solutionDesignContent = null` so the core ADO flow remains usable.
+- Confluence errors are non-fatal. `ado_story` silently keeps `solutionDesignContent = null` so the core ADO flow remains usable.
 
 ### Build and Run
 
@@ -1216,12 +1216,12 @@ npx tsx src/index.ts   # Runs via stdio, launched by Cursor
 | 3 | Implement Confluence REST API client (`src/confluence-client.ts`) -- trial/optional | Pending |
 | 4 | Define shared TypeScript types/interfaces (`src/types.ts`) | Pending |
 | 5 | Create conventions config file (`conventions.config.json`) with all configurable patterns | Pending |
-| 6 | Implement work item tools (`src/tools/work-items.ts`): `get_user_story` | Pending |
+| 6 | Implement work item tools (`src/tools/work-items.ts`): `ado_story` | Pending |
 | 7 | Implement test plan tools (`src/tools/test-plans.ts`): list, get, create | Pending |
 | 8 | Implement suite folder structure helpers (`src/helpers/suite-structure.ts`) | Pending |
-| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `ensure_suite_hierarchy`, find_or_create, list, get | Pending |
+| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `qa_suite_setup_manual`, find_or_create, list, get | Pending |
 | 10 | Implement test case tools (`src/tools/test-cases.ts`): create (TC_ format + prerequisites), list, get, update | Pending |
-| 11 | Implement Confluence tools (`src/tools/confluence.ts`): `get_confluence_page` -- trial/optional | Pending |
+| 11 | Implement Confluence tools (`src/tools/confluence.ts`): `confluence_read` -- trial/optional | Pending |
 | 12 | Create MCP server entry point (`src/index.ts`) with tool registration + stdio transport | Pending |
 | 13 | Create `.env.example` and `.cursor/mcp.json` configuration | Pending |
 | 14 | Write this implementation document | Done |

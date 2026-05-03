@@ -45,7 +45,7 @@ Increment when adding **new features** or **enhancements** that are backward-com
 **Examples:**
 - `1.1.0` — Add automation-friendly expected result patterns
 - `1.2.0` — Add test case asset management with folder structure
-- `1.3.0` — Add clone_and_enhance_test_cases command
+- `1.3.0` — Add qa_clone command
 - `1.4.0` — Add version-aware welcome messages
 
 **User Impact:** Users get new capabilities without breaking existing workflows.
@@ -165,7 +165,7 @@ Use **version numbers + dates** in changelog headers:
 
 ## Current State
 
-- Runtime version metadata is sourced from `package.json`, so server metadata and `check_setup_status` stay aligned.
+- Runtime version metadata is sourced from `package.json`, so server metadata and `ado_check` stay aligned.
 - Version-aware onboarding uses `~/.ado-testforge-mcp/.ado-testforge-initialized` to track first run and last seen version.
 - `docs/changelog.md` now uses versioned headers for current releases so update summaries can reuse the latest section.
 - Release tags are still created through the normal `npm version` workflow when used for a release.

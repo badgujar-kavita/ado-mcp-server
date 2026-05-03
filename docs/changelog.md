@@ -4,6 +4,63 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## vX.Y.0 — Hybrid Naming Convention Overhaul
+
+All 23 slash commands and 32 MCP tools have been renamed to a new hybrid
+convention:
+- **Slash commands:** kebab-case (`/qa-draft`, `/ado-connect`)
+- **MCP tools:** snake_case (`qa_draft`, `ado_connect`)
+- **Skills:** kebab-case with the `qa-*` family for QA-workflow skills
+- **Prefixes:** `ado-*` for raw ADO primitives, `qa-*` for QA lifecycle, `confluence-*` for Confluence
+
+Prompt and tool names stay in 1:1 parity (`qa-draft` prompt ↔ `qa_draft` tool).
+
+Clean rename — the MCP was not yet distributed to external users, so no
+backward-compatibility aliases were needed.
+
+### Added
+- `/qa-tests` slash command (previously tool-only as `list_test_cases_linked_to_user_story`).
+
+### Renamed — prompts (22 user-facing)
+- `configure` → `/ado-connect`
+- `check_status` → `/ado-check`
+- `list_test_plans` → `/ado-plans`
+- `get_user_story` → `/ado-story`
+- `get_test_plan` → `/ado-plan`
+- `list_test_suites` → `/ado-suites`
+- `get_test_suite` → `/ado-suite`
+- `list_test_cases` → `/ado-suite-tests`
+- `list_work_item_fields` → `/ado-fields`
+- `get_confluence_page` → `/confluence-read`
+- `draft_test_cases` → `/qa-draft`
+- `create_test_cases` → `/qa-publish`
+- `clone_and_enhance_test_cases` → `/qa-clone`
+- `ensure_suite_hierarchy_for_us` → `/qa-suite-setup-auto`
+- `ensure_suite_hierarchy` → `/qa-suite-setup-manual`
+- `create_test_suite` → `/qa-suite-create`
+- `update_test_suite` → `/qa-suite-update`
+- `delete_test_suite` → `/qa-suite-delete`
+- `get_test_case` → `/qa-tc-read`
+- `update_test_case` → `/qa-tc-update`
+- `delete_test_case` → `/qa-tc-delete`
+- `delete_test_cases` → `/qa-tc-bulk-delete`
+
+### Renamed — skills
+- `draft-test-cases-salesforce-tpm` → `qa-test-drafting` (body generalized)
+- `test-case-asset-manager` → `qa-test-assets`
+- `update-test-case-prerequisites` → `qa-tc-prerequisites`
+
+### Renamed — tools (30 backend)
+Snake_case counterparts of the prompts above, plus internal tools:
+`save_tc_draft` → `qa_draft_save`, `get_tc_draft` → `qa_draft_read`,
+`list_tc_drafts` → `qa_drafts_list`, `save_tc_supporting_doc` → `qa_draft_doc_save`,
+`save_tc_clone_preview` → `qa_clone_preview_save`, `push_tc_draft_to_ado` → `qa_publish_push`,
+`add_test_cases_to_suite` → `qa_suite_add_tests`, `find_or_create_test_suite` → `qa_suite_find_or_create`,
+`setup_credentials` → `ado_connect_save`, `check_setup_status` → `ado_check`,
+`create_test_plan` → `ado_plan_create`, `list_test_cases_linked_to_user_story` → `qa_tests`.
+
+---
+
 ## 2026-05-03 — Interactive read contract + structuredContent for all read tools
 
 ### Feature
@@ -14,21 +71,21 @@ Port of the interactive-read contract surface from jira-mcp-server-v2. Tools tha
 
 **Shared prompt contracts** (`src/prompts/shared-contracts.ts`) — three named exports composed into the relevant prompts:
 
-- `INTERACTIVE_READ_CONTRACT` — composed into 9 read prompts (get_user_story, list_test_plans, get_test_plan, list_test_suites, get_test_suite, list_test_cases, get_test_case, list_work_item_fields, get_confluence_page). Agents using these tools now follow a 5-step response shape: confirm-with-titled-link → 2–5 bullet summary → related items as tree/list → explicit gap callouts → next-action offer.
-- `DIAGNOSTIC_CONTRACT` — composed into `check_status`. Tool-authored output is now rendered verbatim; no agent-invented causes.
-- `CONFIRM_BEFORE_ACT_CONTRACT` — composed into `create_test_cases` and `clone_and_enhance_test_cases`. Explicit "offer plan → wait for yes → call NEXT tool → stop on no" pattern (ado-mcp's lighter equivalent to jira-mcp's resume-token protocol).
+- `INTERACTIVE_READ_CONTRACT` — composed into 9 read prompts (ado_story, ado_plans, ado_plan, ado_suites, ado_suite, ado_suite_tests, qa_tc_read, ado_fields, confluence_read). Agents using these tools now follow a 5-step response shape: confirm-with-titled-link → 2–5 bullet summary → related items as tree/list → explicit gap callouts → next-action offer.
+- `DIAGNOSTIC_CONTRACT` — composed into `ado-check`. Tool-authored output is now rendered verbatim; no agent-invented causes.
+- `CONFIRM_BEFORE_ACT_CONTRACT` — composed into `qa_publish` and `qa_clone`. Explicit "offer plan → wait for yes → call NEXT tool → stop on no" pattern (ado-mcp's lighter equivalent to jira-mcp's resume-token protocol).
 
 **`structuredContent` on all 14 read tools** (`src/tools/read-result.ts` + migrations in `work-items.ts`, `test-plans.ts`, `test-suites.ts`, `test-cases.ts`, `confluence.ts`, `tc-drafts.ts`):
 
 Every read tool now returns a `CanonicalReadResult` alongside its existing prose text. The canonical shape exposes `item` (id/type/title/summary), `children[]` (navigable related entities with `relationship` tags), `artifacts[]` (attachments, solution-design pages, markdown drafts, query strings), `completeness` (isPartial + reason), and optional `diagnostics[]`. MCP clients that consume `structuredContent` can render the response as a typed tree; clients that only read `content[0].text` see identical output to before.
 
-Migrated: get_user_story, get_test_case, list_test_cases, get_confluence_page (Tier 1 — commit `2934b84`); list_test_cases_linked_to_user_story, list_work_item_fields, list_test_plans, get_test_plan, list_test_suites, get_test_suite, get_tc_draft, list_tc_drafts (Tier 2 — commit `17cdf89`).
+Migrated: ado_story, qa_tc_read, ado_suite_tests, confluence_read (Tier 1 — commit `2934b84`); qa_tests, ado_fields, ado_plans, ado_plan, ado_suites, ado_suite, qa_draft_read, qa_drafts_list (Tier 2 — commit `17cdf89`).
 
-**Deterministic `check_setup_status`** (`src/tools/setup.ts`) — status table + overall verdict + Next Actions are now authored by the tool, not guessed by the agent. `SetupStatus` type + pure `computeSetupStatus()` / `formatSetupStatus()` helpers make the output reproducible.
+**Deterministic `ado_check`** (`src/tools/setup.ts`) — status table + overall verdict + Next Actions are now authored by the tool, not guessed by the agent. `SetupStatus` type + pure `computeSetupStatus()` / `formatSetupStatus()` helpers make the output reproducible.
 
 ### Supporting changes
 
-- **User-intent audit**: one borderline prose rewrite in the duplicate-TC preflight A/B/C menu (`push_tc_draft_to_ado`) — agent-attribution parallelism restored.
+- **User-intent audit**: one borderline prose rewrite in the duplicate-TC preflight A/B/C menu (`qa_publish_push`) — agent-attribution parallelism restored.
 - **Security audits**: token-leak grep across every console.* and new Error() site came back clean; path-traversal audit across file writes came back clean (userStoryId typed as `z.number().int().positive()`, filenames sanitized, paths always rooted under known-safe prefixes). Recorded in new `docs/decision-log.md`.
 
 ### Files Updated
@@ -40,7 +97,7 @@ Migrated: get_user_story, get_test_case, list_test_cases, get_confluence_page (T
 
 - **Prose byte-identity.** All 14 migrated read tools preserve their existing `content[0].text` payload byte-for-byte. Agents that only read prose see zero change.
 - **No wire breakage.** `structuredContent` is an additive field on the MCP response shape. Clients that don't know about it ignore it.
-- **No action tools migrated.** Write tools (save_tc_draft, push_tc_draft_to_ado, create/update/delete_*) remain on `server.tool()` and return text only. Phase H's image content parts continue to flow through `get_user_story` unchanged.
+- **No action tools migrated.** Write tools (qa_draft_save, qa_publish_push, create/update/delete_*) remain on `server.tool()` and return text only. Phase H's image content parts continue to flow through `ado_story` unchanged.
 - **Contracts are additive prose.** Appended to existing prompt bodies; no existing prompt text was rewritten. The composition tests pin this invariant.
 
 ---
@@ -49,7 +106,7 @@ Migrated: get_user_story, get_test_case, list_test_cases, get_confluence_page (T
 
 ### Feature
 
-`get_user_story` now returns a richer UserStoryContext so draft generation can incorporate every populated custom field, every linked Confluence page, and (optionally) the actual pixel contents of ADO / Confluence attachments.
+`ado_story` now returns a richer UserStoryContext so draft generation can incorporate every populated custom field, every linked Confluence page, and (optionally) the actual pixel contents of ADO / Confluence attachments.
 
 **New response fields** (all additive; pre-existing fields preserved):
 
@@ -61,15 +118,15 @@ Migrated: get_user_story, get_test_case, list_test_cases, get_confluence_page (T
 
 **New MCP image content parts** (ship-dark, opt-in):
 
-When `images.returnMcpImageParts: true` is set in `conventions.config.json`, `get_user_story` returns the actual image bytes as MCP image content parts alongside the text JSON — Cursor, Claude Desktop, and other vision-capable MCP clients render them as vision input so the agent can see wireframes, screenshots, and diagrams directly. Default is `false` so the existing response shape is unchanged until teams opt in. A `maxTotalBytesPerResponse` cap (default 4 MiB) protects the Claude context window; overflowed images are marked `skipped: "response-budget"` with `originalUrl` still clickable.
+When `images.returnMcpImageParts: true` is set in `conventions.config.json`, `ado_story` returns the actual image bytes as MCP image content parts alongside the text JSON — Cursor, Claude Desktop, and other vision-capable MCP clients render them as vision input so the agent can see wireframes, screenshots, and diagrams directly. Default is `false` so the existing response shape is unchanged until teams opt in. A `maxTotalBytesPerResponse` cap (default 4 MiB) protects the Claude context window; overflowed images are marked `skipped: "response-budget"` with `originalUrl` still clickable.
 
 **Prompt + skill updates:**
 
-- `draft_test_cases` step 2a: swapped the old "description / AC / Solution Design content" terminology for "primary inputs are `namedFields[*].plainText` and `fetchedConfluencePages[].body`." Legacy top-level fields remain equivalent.
-- `draft_test_cases` steps 2d + 2e (new): documents how to consume every new payload field, and mandates surfacing `unfetchedLinks` to the user BEFORE generating a draft (safety rule).
-- `create_test_cases` step 3: cross-references 2d–2e so the no-draft branch follows the same consumption rules.
-- `clone_and_enhance_test_cases` step 4: same cross-reference.
-- `get_user_story` slash command: now asks the agent to produce a structured 6-section summary (primary / namedFields / Confluence pages / images / unfetchedLinks / allFields).
+- `qa_draft` step 2a: swapped the old "description / AC / Solution Design content" terminology for "primary inputs are `namedFields[*].plainText` and `fetchedConfluencePages[].body`." Legacy top-level fields remain equivalent.
+- `qa_draft` steps 2d + 2e (new): documents how to consume every new payload field, and mandates surfacing `unfetchedLinks` to the user BEFORE generating a draft (safety rule).
+- `qa_publish` step 3: cross-references 2d–2e so the no-draft branch follows the same consumption rules.
+- `qa_clone` step 4: same cross-reference.
+- `ado_story` slash command: now asks the agent to produce a structured 6-section summary (primary / namedFields / Confluence pages / images / unfetchedLinks / allFields).
 - `draft-test-cases-salesforce-tpm/SKILL.md`: new "Context Inputs" section documenting the priority order (namedFields → fetchedConfluencePages → images → allFields → unfetchedLinks) with concrete test-design-relevant signals per field.
 - `test-case-asset-manager/SKILL.md`: new "Optional: attachments/ subfolder" section describing the on-disk layout when `images.saveLocally: true` is enabled.
 
@@ -89,14 +146,14 @@ When `images.returnMcpImageParts: true` is set in `conventions.config.json`, `ge
 ### Files Updated
 
 - **New helpers:** `src/helpers/basic-auth.ts`, `src/helpers/strip-html.ts`, `src/helpers/ado-attachments.ts`, `src/helpers/confluence-attachments.ts`, `src/helpers/image-downscale.ts`
-- **Extended:** `src/types.ts`, `src/config.ts`, `conventions.config.json`, `src/ado-client.ts` (`getBinary()`), `src/confluence-client.ts` (`listAttachments`, `fetchAttachmentBinary`, `getPageContentRaw`, 401→api.atlassian.com fallback), `src/helpers/confluence-url.ts` (`extractAllLinks`, `categorizeLink`, `extractConfluencePageIdFromUrl`), `src/tools/work-items.ts` (`extractUserStoryContext` rewrite, `buildGetUserStoryResponse` packing), `src/prompts/index.ts`, `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`, `.cursor/skills/test-case-asset-manager/SKILL.md`, `build-dist.mjs`, `package.json` (+jimp, +node-html-parser).
+- **Extended:** `src/types.ts`, `src/config.ts`, `conventions.config.json`, `src/ado-client.ts` (`getBinary()`), `src/confluence-client.ts` (`listAttachments`, `fetchAttachmentBinary`, `getPageContentRaw`, 401→api.atlassian.com fallback), `src/helpers/confluence-url.ts` (`extractAllLinks`, `categorizeLink`, `extractConfluencePageIdFromUrl`), `src/tools/work-items.ts` (`extractUserStoryContext` rewrite, `buildGetUserStoryResponse` packing), `src/prompts/index.ts`, `.cursor/skills/qa-test-drafting/SKILL.md`, `.cursor/skills/qa-test-assets/SKILL.md`, `build-dist.mjs`, `package.json` (+jimp, +node-html-parser).
 - **Tests:** ~110 new `node:test` unit tests covering link extraction, binary fetch, attachment parsing, downscale, guardrails, response-budget packing, 401 fallbacks, and the full context build.
 
 ### Backward Compatibility
 
 - Every pre-existing `UserStoryContext` field preserved (`title`, `description`, `acceptanceCriteria`, `areaPath`, `iterationPath`, `state`, `parentId`, `parentTitle`, `relations`).
 - `solutionDesignUrl` and `solutionDesignContent` kept as deprecated aliases; populated from the FIRST fetched Confluence page so legacy consumers continue to work.
-- `get_user_story` response shape stays `[text]` by default (`returnMcpImageParts: false`). Flip in config to get `[text, image, image, …]`.
+- `ado_story` response shape stays `[text]` by default (`returnMcpImageParts: false`). Flip in config to get `[text, image, image, …]`.
 - New config blocks are all optional; absence restores pre-refactor behavior.
 
 ---
@@ -119,12 +176,12 @@ When `images.returnMcpImageParts: true` is set in `conventions.config.json`, `ge
 Tool responses now include browsable ADO URLs (`https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`) so the agent can render clickable links in chat instead of bare `ADO #1234` text.
 
 - **New `src/helpers/ado-urls.ts`** — `adoWorkItemUrl(adoClient, id)` helper. Reuses the `AdoClient.baseUrl` already constructed in the constructor; no duplication.
-- **`push_tc_draft_to_ado` success message** — TC→ADO mappings now render as markdown links: `TC_1363736_01 → [ADO #1386085](https://dev.azure.com/.../_workitems/edit/1386085)`.
-- **`get_tc_draft`** — when the draft has ADO IDs, appends a new **"## ADO Links (agent display — not persisted)"** section to the returned text with clickable links for the User Story and each TC. The file on disk is **untouched** — this is a response-level convenience so the agent has URLs to build tables/summaries from.
-- **`list_test_cases_linked_to_user_story`** — response now includes `testCases: [{id, webUrl}]` and `userStoryWebUrl` **alongside** the existing `testCaseIds` field (kept for backward compatibility with the clone-and-enhance flow and any other consumers).
-- **`get_test_case`** — adds `webUrl` field to the response (distinct from ADO's native `url` field which is the API endpoint).
-- **`get_user_story`** — adds `webUrl` field to the response.
-- **`create_test_cases` prompt** — new step (9) instructs the agent to use `webUrl` fields when rendering ADO IDs in chat, and to surface `get_tc_draft`'s "ADO Links" section in draft summaries.
+- **`qa_publish_push` success message** — TC→ADO mappings now render as markdown links: `TC_1363736_01 → [ADO #1386085](https://dev.azure.com/.../_workitems/edit/1386085)`.
+- **`qa_draft_read`** — when the draft has ADO IDs, appends a new **"## ADO Links (agent display — not persisted)"** section to the returned text with clickable links for the User Story and each TC. The file on disk is **untouched** — this is a response-level convenience so the agent has URLs to build tables/summaries from.
+- **`qa_tests`** — response now includes `testCases: [{id, webUrl}]` and `userStoryWebUrl` **alongside** the existing `testCaseIds` field (kept for backward compatibility with the clone-and-enhance flow and any other consumers).
+- **`qa_tc_read`** — adds `webUrl` field to the response (distinct from ADO's native `url` field which is the API endpoint).
+- **`ado_story`** — adds `webUrl` field to the response.
+- **`qa_publish` prompt** — new step (9) instructs the agent to use `webUrl` fields when rendering ADO IDs in chat, and to surface `qa_draft_read`'s "ADO Links" section in draft summaries.
 
 ### Why This Shape
 
@@ -133,17 +190,17 @@ The draft markdown on disk is a **round-trip format** — the formatter writes i
 ### Files Updated
 
 - **New:** `src/helpers/ado-urls.ts`
-- `src/tools/tc-drafts.ts` — push summary uses markdown links; `get_tc_draft` appends ADO Links section.
-- `src/tools/work-items.ts` — `get_user_story` + `list_test_cases_linked_to_user_story` responses include `webUrl`.
-- `src/tools/test-cases.ts` — `get_test_case` response includes `webUrl`.
+- `src/tools/tc-drafts.ts` — push summary uses markdown links; `qa_draft_read` appends ADO Links section.
+- `src/tools/work-items.ts` — `ado_story` + `qa_tests` responses include `webUrl`.
+- `src/tools/test-cases.ts` — `qa_tc_read` response includes `webUrl`.
 - `src/prompts/index.ts` — agent instruction to use `webUrl` when rendering ADO IDs.
 
 ### Backward Compatibility
 
-- `list_test_cases_linked_to_user_story` response keeps `testCaseIds: number[]` alongside the new `testCases` and `userStoryWebUrl` fields. Clone-and-enhance flow unaffected.
-- `AdoWorkItem.url` (the native ADO API URL) is preserved in `get_test_case`; the new browsable URL is on a separate `webUrl` field to avoid clobbering.
+- `qa_tests` response keeps `testCaseIds: number[]` alongside the new `testCases` and `userStoryWebUrl` fields. Clone-and-enhance flow unaffected.
+- `AdoWorkItem.url` (the native ADO API URL) is preserved in `qa_tc_read`; the new browsable URL is on a separate `webUrl` field to avoid clobbering.
 - Draft markdown format unchanged. Parser unchanged. Old drafts still work.
-- `get_tc_draft` output contains all previous content verbatim; new section is **appended** at the end, not injected.
+- `qa_draft_read` output contains all previous content verbatim; new section is **appended** at the end, not injected.
 
 ---
 
@@ -151,17 +208,17 @@ The draft markdown on disk is a **round-trip format** — the formatter writes i
 
 ### Feature
 
-- **`push_tc_draft_to_ado` now runs a preflight check for existing linked test cases.** When the User Story already has test cases linked via `Microsoft.VSTS.Common.TestedBy` and the draft has no ADO IDs, the tool aborts the insert and returns a counts-based risk message (no listing dump) with three lettered options: **A.** proceed with `insertAnyway: true`, **B.** inspect existing TCs first via `list_test_cases_linked_to_user_story` + `get_test_case`, **C.** cancel. Prevents accidental duplicate creation when a draft is regenerated after a previous push, when TCs were created manually/elsewhere, or when pushing from a different workspace.
-- **Counts, not dumps.** The preflight message shows only the count of existing TCs + count of new ones that would be created + a duplicate-risk warning. Full titles/steps are available on demand via the existing investigative tools if the user picks option B. Clean separation: publish prompts are operational, `list_test_cases_linked_to_user_story` + `get_test_case` are investigative.
+- **`qa_publish_push` now runs a preflight check for existing linked test cases.** When the User Story already has test cases linked via `Microsoft.VSTS.Common.TestedBy` and the draft has no ADO IDs, the tool aborts the insert and returns a counts-based risk message (no listing dump) with three lettered options: **A.** proceed with `insertAnyway: true`, **B.** inspect existing TCs first via `qa_tests` + `qa_tc_read`, **C.** cancel. Prevents accidental duplicate creation when a draft is regenerated after a previous push, when TCs were created manually/elsewhere, or when pushing from a different workspace.
+- **Counts, not dumps.** The preflight message shows only the count of existing TCs + count of new ones that would be created + a duplicate-risk warning. Full titles/steps are available on demand via the existing investigative tools if the user picks option B. Clean separation: publish prompts are operational, `qa_tests` + `qa_tc_read` are investigative.
 - **Silent happy path.** If the US has zero linked TCs, the preflight is invisible — push proceeds as before.
 - **Network-failure honesty.** If the ADO relations call fails (timeout, 500, etc.), the tool surfaces the error and asks the user to either cancel or pass `insertAnyway: true` if they're confident. Never silently proceeds past a failed check.
 - **New `insertAnyway: boolean` parameter** — explicit override. Set `true` only after the user has seen the A/B/C prompt and replied **A**. Default `false`.
-- **`create_test_cases` prompt updated** — new step (6) instructs the agent to surface the preflight message verbatim (no re-formatting, no listing), wait for the user's A/B/C reply, and only pass `insertAnyway: true` on A.
+- **`qa_publish` prompt updated** — new step (6) instructs the agent to surface the preflight message verbatim (no re-formatting, no listing), wait for the user's A/B/C reply, and only pass `insertAnyway: true` on A.
 
 ### Files Updated
 
 - `src/tools/tc-drafts.ts` — Added `fetchLinkedTestCaseIds()` helper (resolves TestedBy relations on the US); added preflight branch before the insert loop; added `insertAnyway` parameter.
-- `src/prompts/index.ts` — Updated `create_test_cases` prompt flow to handle the new preflight response (counts-based, lettered-options).
+- `src/prompts/index.ts` — Updated `qa_publish` prompt flow to handle the new preflight response (counts-based, lettered-options).
 
 ### Behavior Matrix
 
@@ -185,24 +242,24 @@ The draft markdown on disk is a **round-trip format** — the formatter writes i
 ### Feature
 
 - **Drafts now organized per User Story** — Test case drafts are saved in `tc-drafts/US_<id>/` subfolders instead of flat files
-- **New `save_tc_supporting_doc` tool** — Save supporting documents (solution_design_summary, qa_cheat_sheet, regression_tests) to the same US folder
+- **New `qa_draft_doc_save` tool** — Save supporting documents (solution_design_summary, qa_cheat_sheet, regression_tests) to the same US folder
 - **Auto-generated Supporting Documents links** — Main test cases file includes relative links to solution_design_summary and qa_cheat_sheet
-- **Backward-compatible readers** — `get_tc_draft`, `list_tc_drafts`, and `push_tc_draft_to_ado` support both new subfolder layout and legacy flat layout
+- **Backward-compatible readers** — `qa_draft_read`, `qa_drafts_list`, and `qa_publish_push` support both new subfolder layout and legacy flat layout
 
 ### Files Updated
 
 - **Tools:**
-  - `src/tools/tc-drafts.ts` — Updated `save_tc_draft` to create per-US subfolders, added `save_tc_supporting_doc` tool, updated all read tools for backward compatibility
+  - `src/tools/tc-drafts.ts` — Updated `qa_draft_save` to create per-US subfolders, added `qa_draft_doc_save` tool, updated all read tools for backward compatibility
   
 - **Formatter/Parser:**
   - `src/helpers/tc-draft-formatter.ts` — Added "Supporting Documents" section with relative links after metadata
   - `src/helpers/tc-draft-parser.ts` — Made header parsing robust against new sections by anchoring to first H2
 
 - **Prompts:**
-  - `src/prompts/index.ts` — Updated `draft_test_cases` and `create_test_cases` to use `save_tc_supporting_doc` for supporting documents
+  - `src/prompts/index.ts` — Updated `qa_draft` and `qa_publish` to use `qa_draft_doc_save` for supporting documents
 
 - **Documentation:**
-  - `docs/implementation.md` — Documented new folder structure and `save_tc_supporting_doc` tool
+  - `docs/implementation.md` — Documented new folder structure and `qa_draft_doc_save` tool
   - `docs/testing-guide.md` — Updated tool quick reference
   - `.cursor/rules/test-case-draft-formatting.mdc` — Updated rule 1 wording for new folder structure
 
@@ -220,7 +277,7 @@ tc-drafts/
 ### Backward Compatibility
 
 - Legacy flat drafts (`tc-drafts/US_<id>_test_cases.md`) are still readable and pushable
-- `list_tc_drafts` shows both layouts with `(legacy flat)` suffix for old files
+- `qa_drafts_list` shows both layouts with `(legacy flat)` suffix for old files
 - New drafts always use the subfolder structure
 
 ---
@@ -287,7 +344,7 @@ tc-drafts/
   - `docs/ado-test-case-update-guide.md` — Changed structured prerequisites format from `{ personas?, preConditions, toBeTested, testData }` to `{ personas?, preConditions, testData }`
   - `docs/test-case-writing-style-reference.md` — Updated prerequisite field description
   - `docs/prerequisite-field-table-compatibility.md` — Removed `toBeTested` from all JSON examples and table format proposals
-  - `.cursor/skills/update-test-case-prerequisites/SKILL.md` — Updated structure definition and removed from example
+  - `.cursor/skills/qa-tc-prerequisites/SKILL.md` — Updated structure definition and removed from example
 
 ### Impact
 
@@ -299,10 +356,10 @@ tc-drafts/
 
 ## v1.1.0 — 2026-04-24 — State-Aware Welcome and Status Updates
 
-- Added first-run detection via `~/.ado-testforge-mcp/.ado-testforge-initialized` so `check_status` shows the full welcome only once per version.
+- Added first-run detection via `~/.ado-testforge-mcp/.ado-testforge-initialized` so `ado-check` shows the full welcome only once per version.
 - Added state-aware status output with distinct first-run, returning-user, setup-incomplete, and version-update experiences.
-- Added version-aware update summaries in `check_status`, driven by the current package version and top changelog highlights.
-- Changed `get_user_story` so Confluence fetch failures are silently skipped and return `solutionDesignContent = null` instead of leaking warning text into the ADO workflow.
+- Added version-aware update summaries in `ado-check`, driven by the current package version and top changelog highlights.
+- Changed `ado_story` so Confluence fetch failures are silently skipped and return `solutionDesignContent = null` instead of leaking warning text into the ADO workflow.
 - Added deployment backups and rollback notes so `npm run deploy` preserves the previously deployed build before overwrite.
 
 ---
@@ -326,7 +383,7 @@ tc-drafts/
   - Operator, state, and outcome reference tables
   - Decision tree for format selection
   - Bad vs good examples
-- **Files updated:** `.cursor/skills/test-case-asset-manager/SKILL.md`, `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`, `src/prompts/index.ts`, `.cursor/rules/test-case-draft-formatting.mdc`, `docs/test-case-writing-style-reference.md`, templates
+- **Files updated:** `.cursor/skills/qa-test-assets/SKILL.md`, `.cursor/skills/qa-test-drafting/SKILL.md`, `src/prompts/index.ts`, `.cursor/rules/test-case-draft-formatting.mdc`, `docs/test-case-writing-style-reference.md`, templates
 
 ---
 
@@ -334,7 +391,7 @@ tc-drafts/
 
 ### Test Case Asset Manager Skill
 
-- **New skill:** `.cursor/skills/test-case-asset-manager/SKILL.md` — orchestrates folder structure and file organization for test case documentation
+- **New skill:** `.cursor/skills/qa-test-assets/SKILL.md` — orchestrates folder structure and file organization for test case documentation
 - **Folder structure:** Enforces `tc-drafts/US_<ID>/` convention for organizing test case documentation
 - **Three-file structure per US:**
   - `US_<ID>_test_cases.md` — Main test case draft with Supporting Documents links
@@ -405,17 +462,17 @@ All three artifacts (test cases, solution summary, cheat sheet) must be:
 
 ### Integration with Drafting Commands
 
-- **`draft_test_cases` and `create_test_cases` prompts updated:** Now explicitly instruct AI to:
+- **`qa_draft` and `qa_publish` prompts updated:** Now explicitly instruct AI to:
   - Create `tc-drafts/US_<ID>/` folder structure
   - Generate all three files (test cases, solution summary, QA cheat sheet)
   - Apply both skills: `test-case-asset-manager` for folder structure + `draft-test-cases-salesforce-tpm` for content quality
-  - Use save_tc_draft for main file, create supporting documents separately
+  - Use qa_draft_save for main file, create supporting documents separately
 - **Formatting rule updated:** `.cursor/rules/test-case-draft-formatting.mdc` Section 11 references new folder convention
 
 ### Files Changed
 
-- **New skill:** `.cursor/skills/test-case-asset-manager/SKILL.md`
-- **New templates:** `.cursor/skills/test-case-asset-manager/templates/` (4 files)
+- **New skill:** `.cursor/skills/qa-test-assets/SKILL.md`
+- **New templates:** `.cursor/skills/qa-test-assets/templates/` (4 files)
 - **Updated:** `src/prompts/index.ts`, `.cursor/rules/test-case-draft-formatting.mdc`
 
 ---
@@ -435,7 +492,7 @@ All three artifacts (test cases, solution summary, cheat sheet) must be:
   - `src/helpers/tc-draft-parser.ts` — Removed TO BE TESTED FOR parsing logic
   - `src/helpers/prerequisites.ts` — Removed `toBeTested` case from renderSection
   - `docs/implementation.md` — Removed `toBeTested` references from examples
-  - `.cursor/skills/test-case-asset-manager/templates/test_cases.template.md` — Removed TO BE TESTED FOR row
+  - `.cursor/skills/qa-test-assets/templates/test_cases.template.md` — Removed TO BE TESTED FOR row
   - `.cursor/rules/test-case-draft-formatting.mdc` — Updated description to remove TO BE TESTED FOR reference
 - **Deleted files:**
   - `.cursor/rules/to-be-tested-for-format.mdc` — Rule no longer needed
@@ -452,7 +509,7 @@ All three artifacts (test cases, solution summary, cheat sheet) must be:
 - Each scenario is now classified with: `covered` (true/false), `P/N` (Positive/Negative), `F/NF` (Functional/Non-Functional), `Priority` (High/Medium/Low), and optional `Notes`.
 - The formatter **auto-computes** a Coverage Summary: total scenarios, covered count, coverage %, P vs N distribution, F vs NF distribution.
 - 7-column table with emoji indicators (✅/❌ covered, 🟢/🔴 P/N, 🔵/🟣 F/NF, 🔴/🟡/🟢 priority) for universal rendering across all markdown viewers.
-- **Files changed:** `src/helpers/tc-draft-formatter.ts`, `src/helpers/tc-draft-parser.ts`, `src/tools/tc-drafts.ts`, `src/prompts/index.ts`, `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`
+- **Files changed:** `src/helpers/tc-draft-formatter.ts`, `src/helpers/tc-draft-parser.ts`, `src/tools/tc-drafts.ts`, `src/prompts/index.ts`, `.cursor/skills/qa-test-drafting/SKILL.md`
 
 ---
 
@@ -460,9 +517,9 @@ All three artifacts (test cases, solution summary, cheat sheet) must be:
 
 ### Simplified Draft Workflow
 
-- **`save_tc_draft`** — `planId` parameter is now **optional**. You can draft test cases with just the User Story ID.
-- **`draft_test_cases`** command — Now only asks for User Story ID (no longer asks for Test Plan ID).
-- **Auto-derivation** — When pushing a draft to ADO via `push_tc_draft_to_ado`, if the draft has no `planId`, the system automatically:
+- **`qa_draft_save`** — `planId` parameter is now **optional**. You can draft test cases with just the User Story ID.
+- **`qa_draft`** command — Now only asks for User Story ID (no longer asks for Test Plan ID).
+- **Auto-derivation** — When pushing a draft to ADO via `qa_publish_push`, if the draft has no `planId`, the system automatically:
   1. Calls `ensureSuiteHierarchyForUs(userStoryId)` to derive the Test Plan ID from the User Story's AreaPath (via `testPlanMapping` in config)
   2. Creates the suite hierarchy (sprint > parent > US folders)
   3. Creates the test cases with the correct plan context
@@ -509,19 +566,19 @@ The install command now checks:
 
 ### New Command and Tools
 
-- **`/ado-testforge/clone_and_enhance_test_cases`** — Clone test cases from a source User Story to a target User Story. Reads source TCs, analyzes target US + Solution Design, classifies each TC (Clone As-Is / Minor Update / Enhanced), generates preview, creates in ADO only after explicit APPROVED.
-- **`list_test_cases_linked_to_user_story`** — Get test case IDs linked to a User Story via Tests/Tested By relation. Use before cloning.
-- **`save_tc_clone_preview`** — Save clone preview to `tc-drafts/Clone_US_X_to_US_Y_preview.md`. User reviews and responds APPROVED / MODIFY / CANCEL.
+- **`/ado-testforge/qa-clone`** — Clone test cases from a source User Story to a target User Story. Reads source TCs, analyzes target US + Solution Design, classifies each TC (Clone As-Is / Minor Update / Enhanced), generates preview, creates in ADO only after explicit APPROVED.
+- **`qa_tests`** — Get test case IDs linked to a User Story via Tests/Tested By relation. Use before cloning.
+- **`qa_clone_preview_save`** — Save clone preview to `tc-drafts/Clone_US_X_to_US_Y_preview.md`. User reviews and responds APPROVED / MODIFY / CANCEL.
 
 ### Suite Hierarchy
 
-- **`ensure_suite_hierarchy_for_us`** — Now returns `planId` in the result (used by clone flow for save_tc_draft).
+- **`qa_suite_setup_auto`** — Now returns `planId` in the result (used by clone flow for qa_draft_save).
 
 ---
 
 ## 2026-02-25 — Create/Update Suite: User Story ID Only; Auto-Derive Plan & Sprint
 
-### New Tool: ensure_suite_hierarchy_for_us
+### New Tool: qa_suite_setup_auto
 
 - Takes **only User Story ID**. Derives test plan from US AreaPath (via `testPlanMapping`) and sprint from Iteration (e.g. SFTPM_24 → 24).
 - Creates folders if missing; updates naming if existing suite has wrong format (e.g. `||` → `|`).
@@ -532,8 +589,8 @@ The install command now checks:
 
 ### Prompt Updates
 
-- **`create_test_suite`** and **`update_test_suite`** now ask only for User Story ID and use `ensure_suite_hierarchy_for_us`.
-- **`/ado-testforge/ensure_suite_hierarchy_for_us`** — New slash command for the same flow.
+- **`qa_suite_create`** and **`qa_suite_update`** now ask only for User Story ID and use `qa_suite_setup_auto`.
+- **`/ado-testforge/qa-suite-setup-auto`** — New slash command for the same flow.
 
 ---
 
@@ -541,10 +598,10 @@ The install command now checks:
 
 ### New Tools and Slash Commands
 
-- **`create_test_suite`** — Create a new test suite under a parent. Uses find-or-create logic; returns existing suite if one with the same name already exists under that parent.
-- **`update_test_suite`** — Update an existing test suite. Supports partial updates: `name`, `parentSuiteId`, `queryString` (for dynamic suites).
-- **`delete_test_suite`** — Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.
-- **Slash commands:** `/ado-testforge/create_test_suite`, `/ado-testforge/update_test_suite`, `/ado-testforge/delete_test_suite`
+- **`qa_suite_create`** — Create a new test suite under a parent. Uses find-or-create logic; returns existing suite if one with the same name already exists under that parent.
+- **`qa_suite_update`** — Update an existing test suite. Supports partial updates: `name`, `parentSuiteId`, `queryString` (for dynamic suites).
+- **`qa_suite_delete`** — Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.
+- **Slash commands:** `/ado-testforge/qa-suite-create`, `/ado-testforge/qa-suite-update`, `/ado-testforge/qa-suite-delete`
 
 ---
 
@@ -581,11 +638,11 @@ The install command now checks:
 - **Problem:** When draft content had literal `<br>` (e.g. "A. X<br>B. Y"), it displayed as raw text in ADO.
 - **Fix:** Normalize `<br>` and `<br/>` to newlines before processing, so `convertListPatterns` can detect and convert "A./B." to proper lists. Same behavior as `formatStepContent`.
 
-### Repush Support (push_tc_draft_to_ado)
+### Repush Support (qa_publish_push)
 
 - **New parameter:** `repush: true` — When draft is APPROVED and user revised it, call with `repush: true` to **update** existing test cases instead of creating new ones.
 - **Flow:** Parses draft → for each TC with `adoWorkItemId`, calls `updateTestCaseFromParams` (applies full formatting) → no new work items created.
-- **Benefit:** Revise draft, run create_test_cases with repush → formatting applied every time.
+- **Benefit:** Revise draft, run qa_publish with repush → formatting applied every time.
 
 ### expandListItems — Don't Split on Semicolons Inside Parentheses
 
@@ -599,15 +656,15 @@ The install command now checks:
 
 ### New Skill: draft-test-cases-salesforce-tpm
 
-- **Location:** `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`
+- **Location:** `.cursor/skills/qa-test-drafting/SKILL.md`
 - **Purpose:** QA architect methodology for drafting test cases from User Story + Confluence Solution Design
 - **Steps:** Analyze US (extract functional behavior, field updates, status transitions, config dependency, etc.); use Confluence SD (extract business rules, config variables, conditional flows; ignore code/implementation); validate coverage matrix (market variations, trigger fields, status scenarios, config logics, backward compatibility); add Functionality Process Flow and Test Coverage Insights at draft start; generate complete test cases
 - **Reference:** `config-summary-examples.md` for Pre-requisite config summary templates
 
 ### Draft Structure Enhancements
 
-- **save_tc_draft:** Optional `functionalityProcessFlow` (mermaid/process diagram) and `testCoverageInsights` (classified coverage scenarios with auto-computed summary) added at draft start
-- **Prompts:** `draft_test_cases` and `create_test_cases` (when creating draft) now reference the QA architect skill
+- **qa_draft_save:** Optional `functionalityProcessFlow` (mermaid/process diagram) and `testCoverageInsights` (classified coverage scenarios with auto-computed summary) added at draft start
+- **Prompts:** `qa_draft` and `qa_publish` (when creating draft) now reference the QA architect skill
 - **Files:** `src/helpers/tc-draft-formatter.ts`, `src/helpers/tc-draft-parser.ts`, `src/tools/tc-drafts.ts`, `src/prompts/index.ts`
 
 ---
@@ -632,15 +689,15 @@ The install command now checks:
 
 ### Drafted By (OS Username)
 
-- **Header field:** `save_tc_draft` now adds **Drafted By** to the markdown header table using the system username (macOS: `os.userInfo().username` or `USER`; Windows: `USERNAME`).
+- **Header field:** `qa_draft_save` now adds **Drafted By** to the markdown header table using the system username (macOS: `os.userInfo().username` or `USER`; Windows: `USERNAME`).
 - **File:** `src/helpers/system-username.ts`, `src/helpers/tc-draft-formatter.ts`
 
 ### Deferred JSON Until Push
 
-- **save_tc_draft:** Writes only `.md`; no JSON until push. Avoids JSON drift during multiple revisions.
-- **list_tc_drafts:** Lists `.md` files; parses header for US ID, title, status, version.
-- **get_tc_draft:** Returns markdown only; no version-sync validation (no JSON).
-- **push_tc_draft_to_ado:** Reads `.md` only, parses via `parseTcDraftFromMarkdown`, creates TCs in ADO, then generates JSON with correct mappings for audit/reference.
+- **qa_draft_save:** Writes only `.md`; no JSON until push. Avoids JSON drift during multiple revisions.
+- **qa_drafts_list:** Lists `.md` files; parses header for US ID, title, status, version.
+- **qa_draft_read:** Returns markdown only; no version-sync validation (no JSON).
+- **qa_publish_push:** Reads `.md` only, parses via `parseTcDraftFromMarkdown`, creates TCs in ADO, then generates JSON with correct mappings for audit/reference.
 - **File:** `src/helpers/tc-draft-parser.ts`, `src/tools/tc-drafts.ts`
 
 ---
@@ -657,9 +714,9 @@ The install command now checks:
 
 ### Version Sync Validation (Option C)
 
-- **get_tc_draft:** If .md and .json versions differ, appends a warning and suggests calling `save_tc_draft` to sync.
-- **push_tc_draft_to_ado:** Rejects with error if .md and .json versions differ; user must call `save_tc_draft` first.
-- **save_tc_draft:** Always writes both .md and .json in sync (unchanged).
+- **qa_draft_read:** If .md and .json versions differ, appends a warning and suggests calling `qa_draft_save` to sync.
+- **qa_publish_push:** Rejects with error if .md and .json versions differ; user must call `qa_draft_save` first.
+- **qa_draft_save:** Always writes both .md and .json in sync (unchanged).
 
 ---
 
@@ -667,10 +724,10 @@ The install command now checks:
 
 ### Commands Added
 
-#### `delete_test_cases`
+#### `qa-tc-bulk-delete`
 
 - **File:** `src/prompts/index.ts`
-- **Purpose:** Delete multiple test cases by ID. Asks for comma-separated or list of IDs, confirms, warns about Recycle Bin (restorable within 30 days), calls `delete_test_case` for each, reports success/failure per ID.
+- **Purpose:** Delete multiple test cases by ID. Asks for comma-separated or list of IDs, confirms, warns about Recycle Bin (restorable within 30 days), calls `qa_tc_delete` for each, reports success/failure per ID.
 
 ---
 
@@ -693,7 +750,7 @@ The install command now checks:
 
 ### Tool Enhancements
 
-#### `update_test_case`
+#### `qa_tc_update`
 
 - **File:** `src/tools/test-cases.ts`
 - **New parameters:**
@@ -706,8 +763,8 @@ The install command now checks:
 
 ### New Tools (Already Present)
 
-- **`list_work_item_fields`** — List all work item field definitions (reference names, types, readOnly). Optional `expand` param for extension fields.
-- **`delete_test_case`** — Delete a test case by ID. Default: move to Recycle Bin. Use `destroy=true` for permanent delete (not recommended).
+- **`ado_fields`** — List all work item field definitions (reference names, types, readOnly). Optional `expand` param for extension fields.
+- **`qa_tc_delete`** — Delete a test case by ID. Default: move to Recycle Bin. Use `destroy=true` for permanent delete (not recommended).
 
 ---
 
@@ -715,8 +772,8 @@ The install command now checks:
 
 | Command | Change |
 |---------|--------|
-| `update_test_case` | Prompt now mentions: title, description/prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath |
-| `delete_test_case` | Prompt now requires confirmation before delete; warns when `destroy=true` is requested |
+| `qa_tc_update` | Prompt now mentions: title, description/prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath |
+| `qa_tc_delete` | Prompt now requires confirmation before delete; warns when `destroy=true` is requested |
 
 ---
 
@@ -761,7 +818,7 @@ The install command now checks:
 - **Change:** Truncates titles exceeding `maxLength` (default 256) with ellipsis.
 - **Config:** Uses `testCaseTitle.maxLength` from conventions.config.json.
 
-#### `draft_test_cases` Prompt
+#### `qa_draft` Prompt
 
 - **Added styling rules:**
   - Ensure all test case titles are ≤ 256 characters.
@@ -786,7 +843,7 @@ The install command now checks:
 
 ### Setup Guide Updates
 
-- **Post-Setup Verification** — Verify 21 tools, delete_test_cases, update_test_case, list_work_item_fields, title limit
+- **Post-Setup Verification** — Verify 21 tools, qa-tc-bulk-delete, qa_tc_update, ado_fields, title limit
 - **Rules for tc-drafts** — How to copy test-case-draft-formatting.mdc to a separate workspace; multi-root option
 
 ---
@@ -795,7 +852,7 @@ The install command now checks:
 
 1. **Rebuild** — `npm run build`
 2. **Restart MCP** — Restart Cursor or reload ado-testforge in Settings → MCP
-3. **Verify tools** — `list_work_item_fields`, `delete_test_case`, `update_test_case` (with prerequisites, areaPath, iterationPath)
-4. **Verify commands** — `/ado-testforge/update_test_case`, `/ado-testforge/list_work_item_fields`, `/ado-testforge/delete_test_case`
+3. **Verify tools** — `ado_fields`, `qa_tc_delete`, `qa_tc_update` (with prerequisites, areaPath, iterationPath)
+4. **Verify commands** — `/ado-testforge/qa-tc-update`, `/ado-testforge/ado-fields`, `/ado-testforge/qa-tc-delete`
 5. **Verify prerequisite formatting** — Update a test case; confirm HTML renders in ADO
 6. **Verify title limit** — Draft a TC with long title; confirm truncation works

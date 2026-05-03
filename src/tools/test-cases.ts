@@ -17,8 +17,8 @@ import {
 } from "./read-result.ts";
 
 // Formatting (bold, lists, persona sub-bullets, TO BE TESTED FOR expansion) is applied
-// via buildPrerequisitesHtml and buildStepsXml for ALL paths: createTestCase (push_tc_draft_to_ado),
-// update_test_case, and any future create_test_case tool.
+// via buildPrerequisitesHtml and buildStepsXml for ALL paths: createTestCase (qa_publish_push),
+// qa_tc_update, and any future create_test_case tool.
 
 const StepSchema = z.object({
   action: z.string(),
@@ -36,11 +36,11 @@ export function registerTestCaseTools(
   client: AdoClient,
   _confluenceClient: ConfluenceClient | null
 ) {
-  // Note: create_test_case tool removed. Test cases are inserted only via create_test_cases
-  // command → push_tc_draft_to_ado (after draft review and user confirmation).
+  // Note: create_test_case tool removed. Test cases are inserted only via the /qa-publish
+  // command → qa_publish_push (after draft review and user confirmation).
 
   server.registerTool(
-    "list_test_cases",
+    "ado_suite_tests",
     {
       description: "List test cases within a specific test suite",
       inputSchema: {
@@ -75,7 +75,7 @@ export function registerTestCaseTools(
   );
 
   server.registerTool(
-    "get_test_case",
+    "qa_tc_read",
     {
       description: "Get a test case work item by ID with all fields",
       inputSchema: {
@@ -107,7 +107,7 @@ export function registerTestCaseTools(
   );
 
   server.tool(
-    "update_test_case",
+    "qa_tc_update",
     "Update fields or steps of an existing test case",
     {
       workItemId: z.number().int().positive().describe("The test case work item ID"),
@@ -162,7 +162,7 @@ export function registerTestCaseTools(
   );
 
   server.tool(
-    "add_test_cases_to_suite",
+    "qa_suite_add_tests",
     "Add existing test case IDs to a static test suite (not needed for query-based suites)",
     {
       planId: z.number().int().positive().describe("The test plan ID"),
@@ -191,7 +191,7 @@ export function registerTestCaseTools(
   );
 
   server.tool(
-    "delete_test_case",
+    "qa_tc_delete",
     "Delete a test case work item by ID. By default moves to Recycle Bin (restorable). Set destroy=true to permanently delete (not recommended).",
     {
       workItemId: z.number().int().positive().describe("The test case work item ID to delete"),
@@ -308,7 +308,7 @@ export function buildTestCaseCanonicalResult(item: AdoWorkItem): CanonicalReadRe
   };
 }
 
-// ── Core Logic (exported for push_tc_draft_to_ado) ──
+// ── Core Logic (exported for qa_publish_push) ──
 
 export interface CreateTestCaseParams {
   planId: number;

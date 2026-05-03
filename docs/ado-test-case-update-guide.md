@@ -8,9 +8,9 @@ Short guide for updating test case prerequisites and TO BE TESTED FOR content in
 
 ### Structured vs Raw HTML
 
-- **Always use structured prerequisites** when calling `update_test_case`.
+- **Always use structured prerequisites** when calling `qa_tc_update`.
 - Pass `{ personas?, preConditions, testData }` — the MCP server converts this to ADO-compatible HTML via `buildPrerequisitesHtml()`.
-- **Do not** pass raw HTML from `get_test_case`; parsing it back is error-prone.
+- **Do not** pass raw HTML from `qa_tc_read`; parsing it back is error-prone.
 
 ### Source of Truth
 

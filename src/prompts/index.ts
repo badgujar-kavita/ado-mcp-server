@@ -6,7 +6,7 @@ import {
 } from "./shared-contracts.ts";
 
 export function registerAllPrompts(server: McpServer) {
-  server.registerPrompt("configure", {
+  server.registerPrompt("ado-connect", {
     title: "Configure Credentials",
     description: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing",
   }, async () => ({
@@ -14,12 +14,12 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "Launch the configuration UI using the configure tool. This opens a web interface where I can enter my Azure DevOps and Confluence credentials, test the connections, and save them securely.",
+        text: "Launch the configuration UI using the ado_connect tool. This opens a web interface where I can enter my Azure DevOps and Confluence credentials, test the connections, and save them securely.",
       },
     }],
   }));
 
-  server.registerPrompt("check_status", {
+  server.registerPrompt("ado-check", {
     title: "Check Setup Status",
     description: "Check if the ADO TestForge MCP server is fully configured",
   }, async () => ({
@@ -28,7 +28,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "Check if the ADO TestForge MCP server is fully configured using the check_setup_status tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
+          "Check if the ADO TestForge MCP server is fully configured using the ado_check tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
           "",
           DIAGNOSTIC_CONTRACT,
         ].join("\n"),
@@ -36,7 +36,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("list_test_plans", {
+  server.registerPrompt("ado-plans", {
     title: "List Test Plans",
     description: "List all test plans in the ADO project",
   }, async () => ({
@@ -45,7 +45,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "List all test plans in the project using the list_test_plans tool. Show results in a table with ID, name, area path, state, and root suite ID.",
+          "List all test plans in the project using the ado_plans tool. Show results in a table with ID, name, area path, state, and root suite ID.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
@@ -53,7 +53,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("get_user_story", {
+  server.registerPrompt("ado-story", {
     title: "Get User Story",
     description: "Fetch a User Story from ADO with the full context payload: primary fields, all populated fields (including custom), fetched Confluence pages, embedded ADO images, and unfetched links",
   }, async () => ({
@@ -62,7 +62,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "I want to fetch a User Story from ADO. Ask me for the work item ID, then use the get_user_story tool.",
+          "I want to fetch a User Story from ADO. Ask me for the work item ID, then use the ado_story tool.",
           "",
           "Present a structured summary in this order:",
           "1. **Primary fields** — title, description, acceptance criteria, area path, iteration path, state, parent info.",
@@ -80,7 +80,24 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("get_test_plan", {
+  server.registerPrompt("qa-tests", {
+    title: "List Test Cases Linked to User Story",
+    description: "List test case work item IDs linked to a User Story via the Tests/Tested By relation",
+  }, async () => ({
+    messages: [{
+      role: "user" as const,
+      content: {
+        type: "text" as const,
+        text: [
+          "I want to list test cases linked to a User Story. Ask me for the User Story ID, then use the qa_tests tool. Show the linked test case IDs in a numbered list with clickable webUrl links when present.",
+          "",
+          INTERACTIVE_READ_CONTRACT,
+        ].join("\n"),
+      },
+    }],
+  }));
+
+  server.registerPrompt("ado-plan", {
     title: "Get Test Plan",
     description: "Get details of a specific test plan by ID",
   }, async () => ({
@@ -89,7 +106,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "I want to get details of a test plan. Ask me for the plan ID, then use the get_test_plan tool. Show the name, area path, iteration, owner, state, and root suite ID.",
+          "I want to get details of a test plan. Ask me for the plan ID, then use the ado_plan tool. Show the name, area path, iteration, owner, state, and root suite ID.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
@@ -97,7 +114,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("list_test_suites", {
+  server.registerPrompt("ado-suites", {
     title: "List Test Suites",
     description: "List all test suites in a test plan",
   }, async () => ({
@@ -106,7 +123,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "I want to list all test suites in a test plan. Ask me for the plan ID, then use the list_test_suites tool. Show results in a table with ID, name, suite type, parent suite ID, and hasChildren.",
+          "I want to list all test suites in a test plan. Ask me for the plan ID, then use the ado_suites tool. Show results in a table with ID, name, suite type, parent suite ID, and hasChildren.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
@@ -114,7 +131,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("get_test_suite", {
+  server.registerPrompt("ado-suite", {
     title: "Get Test Suite",
     description: "Get details of a specific test suite",
   }, async () => ({
@@ -123,7 +140,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "I want to get details of a test suite. Ask me for the plan ID and suite ID, then use the get_test_suite tool.",
+          "I want to get details of a test suite. Ask me for the plan ID and suite ID, then use the ado_suite tool.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
@@ -131,7 +148,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("ensure_suite_hierarchy", {
+  server.registerPrompt("qa-suite-setup-manual", {
     title: "Ensure Suite Hierarchy",
     description: "Build the full suite folder hierarchy (sprint > parent-us > us-query) for a User Story",
   }, async () => ({
@@ -139,12 +156,12 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to set up the test suite folder hierarchy for a User Story. Ask me for the test plan ID, sprint number, and user story ID. Then use the ensure_suite_hierarchy tool and show which suites were created vs already existing.",
+        text: "I want to set up the test suite folder hierarchy for a User Story. Ask me for the test plan ID, sprint number, and user story ID. Then use the qa_suite_setup_manual tool and show which suites were created vs already existing.",
       },
     }],
   }));
 
-  server.registerPrompt("ensure_suite_hierarchy_for_us", {
+  server.registerPrompt("qa-suite-setup-auto", {
     title: "Ensure Suite Hierarchy (User Story ID Only)",
     description: "Build or fix suite folder structure. Asks only User Story ID — derives plan and sprint from US.",
   }, async () => ({
@@ -152,12 +169,12 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to ensure the test suite folder structure for a User Story. Ask only for the User Story ID. Use ensure_suite_hierarchy_for_us — it derives plan and sprint from the US AreaPath and Iteration, creates folders if missing, and updates naming if wrong format.",
+        text: "I want to ensure the test suite folder structure for a User Story. Ask only for the User Story ID. Use qa_suite_setup_auto — it derives plan and sprint from the US AreaPath and Iteration, creates folders if missing, and updates naming if wrong format.",
       },
     }],
   }));
 
-  server.registerPrompt("create_test_suite", {
+  server.registerPrompt("qa-suite-create", {
     title: "Create Test Suite",
     description: "Create test suite folder structure for a User Story. Asks only User Story ID.",
   }, async () => ({
@@ -168,13 +185,13 @@ export function registerAllPrompts(server: McpServer) {
         text: [
           "I want to create a test suite for a User Story.",
           "",
-          "Ask only for the User Story ID. Then use ensure_suite_hierarchy_for_us — it derives plan and sprint from the US AreaPath and Iteration, checks if folders exist, creates if missing, and updates naming if existing suites have wrong format.",
+          "Ask only for the User Story ID. Then use qa_suite_setup_auto — it derives plan and sprint from the US AreaPath and Iteration, checks if folders exist, creates if missing, and updates naming if existing suites have wrong format.",
         ].join("\n"),
       },
     }],
   }));
 
-  server.registerPrompt("update_test_suite", {
+  server.registerPrompt("qa-suite-update", {
     title: "Update Test Suite",
     description: "Ensure test suite structure for a User Story (checks/creates/updates naming) or update a specific suite",
   }, async () => ({
@@ -185,15 +202,15 @@ export function registerAllPrompts(server: McpServer) {
         text: [
           "I want to update a test suite.",
           "",
-          "**Preferred:** If this is for a User Story, ask only for the User Story ID. Use ensure_suite_hierarchy_for_us — it checks if folders exist, creates if missing, and updates naming if wrong format.",
+          "**Preferred:** If this is for a User Story, ask only for the User Story ID. Use qa_suite_setup_auto — it checks if folders exist, creates if missing, and updates naming if wrong format.",
           "",
-          "**Alternative:** If updating a specific suite by ID, ask for plan ID and suite ID, show current state with get_test_suite, then use update_test_suite with the fields to change.",
+          "**Alternative:** If updating a specific suite by ID, ask for plan ID and suite ID, show current state with ado_suite, then use qa_suite_update with the fields to change.",
         ].join("\n"),
       },
     }],
   }));
 
-  server.registerPrompt("delete_test_suite", {
+  server.registerPrompt("qa-suite-delete", {
     title: "Delete Test Suite",
     description: "Delete a test suite (test cases are not deleted, only the suite association)",
   }, async () => ({
@@ -201,12 +218,12 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to delete a test suite. Ask me for the plan ID and suite ID, confirm the action, then use the delete_test_suite tool. Note: Test cases in the suite are not deleted—only their association with the suite is removed.",
+        text: "I want to delete a test suite. Ask me for the plan ID and suite ID, confirm the action, then use the qa_suite_delete tool. Note: Test cases in the suite are not deleted—only their association with the suite is removed.",
       },
     }],
   }));
 
-  server.registerPrompt("draft_test_cases", {
+  server.registerPrompt("qa-draft", {
     title: "Draft Test Cases",
     description: "Generate a test case draft (markdown) for review. Never creates in ADO.",
   }, async () => ({
@@ -220,14 +237,14 @@ export function registerAllPrompts(server: McpServer) {
           "IMPORTANT: You are acting as BOTH QA Architect AND Solution Architect. Be precise and accurate. DO NOT hallucinate or make vague assumptions. If something is unclear or missing from the US/Solution Design, ASK for clarification instead of guessing.",
           "",
           "Apply BOTH skills:",
-          "1. .cursor/skills/test-case-asset-manager/SKILL.md for folder structure (tc-drafts/US_<ID>/), file organization, and supporting documents (solution summary, QA cheat sheet).",
-          "2. .cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md for content quality: analyze US + Solution Design, validate coverage matrix, add Functionality Process Flow and Test Coverage Insights at the start of the draft, then generate test cases.",
-          "For Test Coverage Insights: classify each scenario with covered (true/false), P/N (Positive/Negative), F/NF (Functional/Non-Functional), Priority (High/Medium/Low), and optional Notes. Pass as testCoverageInsights array to save_tc_draft. The formatter auto-computes the coverage summary.",
+          "1. .cursor/skills/qa-test-assets/SKILL.md for folder structure (tc-drafts/US_<ID>/), file organization, and supporting documents (solution summary, QA cheat sheet).",
+          "2. .cursor/skills/qa-test-drafting/SKILL.md for content quality: analyze US + Solution Design, validate coverage matrix, add Functionality Process Flow and Test Coverage Insights at the start of the draft, then generate test cases.",
+          "For Test Coverage Insights: classify each scenario with covered (true/false), P/N (Positive/Negative), F/NF (Functional/Non-Functional), Priority (High/Medium/Low), and optional Notes. Pass as testCoverageInsights array to qa_draft_save. The formatter auto-computes the coverage summary.",
           "Derive business terminology and scope dimensions from the actual User Story and Solution Design. Do not assume TPM-specific terms such as Sales Org, Promotion, or KAM unless they are explicitly documented for the current project.",
           "",
           "Please:",
           "1. Ask me for the user story ID only (Test Plan ID will be auto-derived from US AreaPath during push).",
-          "2. Fetch the user story using the get_user_story tool (includes Solution Design if linked).",
+          "2. Fetch the user story using the ado_story tool (includes Solution Design if linked).",
           "   a. Read the US fully. Primary inputs are `namedFields[*].plainText` (Title, Description, Acceptance Criteria, Solution Notes, Impact Assessment, Reference Documentation) and `fetchedConfluencePages[].body` (authoritative Solution Design content). The legacy top-level `description`, `acceptanceCriteria`, and `solutionDesignContent` fields are still present and equivalent — use whichever is convenient.",
           "   b. When Solution Design is present, apply the usage rules from conventions.config.json solutionDesign section:",
           "      - USE: Business process, functionality context, new fields (Object.Field__c), new configurations, pre-requisite conditions (technical format), admin validation TCs.",
@@ -235,7 +252,7 @@ export function registerAllPrompts(server: McpServer) {
           "      - Extract new fields and config from SD; add them to pre-requisites in technical format (Object.Field = Value).",
           "      - For each new field or config introduced, create a System Administrator validation test case: verify the field/setting is accessible and present in the system.",
           "   c. If anything is unclear, ambiguous, or missing (e.g., unclear dependencies, missing object relationships, vague business rules), STOP and ASK the user for clarification before proceeding.",
-          "   d. Consume the full context payload. `get_user_story` now returns five additional fields beyond the primary text:",
+          "   d. Consume the full context payload. `ado_story` now returns five additional fields beyond the primary text:",
           "      - `namedFields` — a keyed map of the primary rich-text fields (Title, Description, Acceptance Criteria, Solution Notes, Impact Assessment, Reference Documentation if configured). Each entry has `label` (UI label), `html` (raw ADO HTML), `plainText` (markdown-ish text). Use `plainText` for reading; use `html` only if you need to detect `<img>` markers. These are your PRIMARY inputs for test design.",
           "      - `allFields` — every other populated ADO field on this work item (system-noise filtered). Scan for custom fields the team has configured that look relevant: `Custom.NonFunctional` (boolean — if true, include NFR test scenarios), `Custom.*Dependency` flags (determine integration test scope), `Microsoft.VSTS.Common.Priority` (test case priority hint), `System.Tags`, region/persona flags, etc. Use as SUPPORTING context — do not invent meaning for fields you don't recognize. If a field's relevance is unclear, mention it in your draft and ASK the user whether it should influence test coverage.",
           "      - `fetchedConfluencePages[]` — every Confluence page linked from any context field that was successfully fetched. Each entry has `{ pageId, title, url, body, sourceField, images[] }`. Treat `body` as authoritative solution design content. Multiple pages may be present — the first is typically Solution Notes; later ones are from Impact Assessment / Reference Documentation / custom fields.",
@@ -269,21 +286,21 @@ export function registerAllPrompts(server: McpServer) {
           "     • NEVER use vague: 'should work properly', 'appropriate access', 'should be correct'. Do NOT apply for single simple outcomes.",
           "   - Use <br> between numbered items in steps/expected results (e.g., \"Fields to validate:<br>1. X<br>2. Y\").",
           "7. Based on ALL available context (description, acceptance criteria, and Solution Design), propose test cases. If you need to make ANY assumptions about business logic, object relationships, or data dependencies, EXPLICITLY STATE your assumptions and ask the user to confirm before proceeding.",
-          "8. Create organized US folder and all assets per test-case-asset-manager skill:",
-          "   a. Call save_tc_draft for the main test cases file. This AUTOMATICALLY creates tc-drafts/US_<ID>/ folder and writes US_<ID>_test_cases.md with Supporting Documents links (auto-generated). Do NOT pass planId (auto-derived during push). Pass workspaceRoot or draftsPath.",
-          "   b. Generate solution_design_summary content following the 11-section template (Purpose, Process, Decision Logic, Fields/Config, Setup Prerequisites as compact table with max 10 rows, Behavior by Scenario, etc.). Keep Section 6 (Setup Prerequisites) concise: use table format with Component → Required State, no exact formulas/error messages. Call save_tc_supporting_doc with docType: 'solution_summary'.",
-          "   c. Generate qa_cheat_sheet content — CRITICAL: Keep scannable (40-60 lines max). Use Decision Logic TABLE (Use Case | Config/Fields | Conditions | Outcome) instead of separate positive/negative sections. Include Quick Maps for field/value lookups. Max 5 setup items. Single debug order (6 steps max). Favor tables over prose. Call save_tc_supporting_doc with docType: 'qa_cheat_sheet'.",
-          "   d. Regression tests: when explicitly requested, generate per the SKILL §Regression Test Case Preparation and call save_tc_supporting_doc with docType: 'regression_tests'.",
+          "8. Create organized US folder and all assets per qa-test-assets skill:",
+          "   a. Call qa_draft_save for the main test cases file. This AUTOMATICALLY creates tc-drafts/US_<ID>/ folder and writes US_<ID>_test_cases.md with Supporting Documents links (auto-generated). Do NOT pass planId (auto-derived during push). Pass workspaceRoot or draftsPath.",
+          "   b. Generate solution_design_summary content following the 11-section template (Purpose, Process, Decision Logic, Fields/Config, Setup Prerequisites as compact table with max 10 rows, Behavior by Scenario, etc.). Keep Section 6 (Setup Prerequisites) concise: use table format with Component → Required State, no exact formulas/error messages. Call qa_draft_doc_save with docType: 'solution_summary'.",
+          "   c. Generate qa_cheat_sheet content — CRITICAL: Keep scannable (40-60 lines max). Use Decision Logic TABLE (Use Case | Config/Fields | Conditions | Outcome) instead of separate positive/negative sections. Include Quick Maps for field/value lookups. Max 5 setup items. Single debug order (6 steps max). Favor tables over prose. Call qa_draft_doc_save with docType: 'qa_cheat_sheet'.",
+          "   d. Regression tests: when explicitly requested, generate per the SKILL §Regression Test Case Preparation and call qa_draft_doc_save with docType: 'regression_tests'.",
           "9. After creating all files, present a concise summary with file links prominently displayed: test cases, solution summary, and QA cheat sheet. Include: version, test case count, and key highlights (coverage checklist, process flow type [Mermaid/Text], TC breakdown by category).",
-          "10. Remind the user: 'Plan ID will be auto-derived from the User Story when you push. Provide feedback for revisions, or run /ado-testforge/create_test_cases when ready to push to ADO.'",
-          "11. On feedback, revise and call save_tc_draft again (increment version).",
-          "12. NEVER call push_tc_draft_to_ado from this prompt — that is only via create_test_cases.",
+          "10. Remind the user: 'Plan ID will be auto-derived from the User Story when you push. Provide feedback for revisions, or run /ado-testforge/qa-publish when ready to push to ADO.'",
+          "11. On feedback, revise and call qa_draft_save again (increment version).",
+          "12. NEVER call qa_publish_push from this prompt — that is only via qa-publish.",
         ].join("\n"),
       },
     }],
   }));
 
-  server.registerPrompt("create_test_cases", {
+  server.registerPrompt("qa-publish", {
     title: "Create Test Cases (Push to ADO)",
     description: "Push reviewed test cases to ADO. Always requires prior draft review and explicit confirmation.",
   }, async () => ({
@@ -298,14 +315,14 @@ export function registerAllPrompts(server: McpServer) {
           "",
           "Please:",
           "1. Ask for plan ID and US ID if not in context.",
-          "2. Check: Does a draft exist? Call list_tc_drafts or get_tc_draft(userStoryId) with workspaceRoot or draftsPath (same location user will save to).",
-          "3. If NO draft: Fetch US via get_user_story. Apply BOTH skills: test-case-asset-manager for folder structure and draft-test-cases-salesforce-tpm for content quality (analyze US + Solution Design, coverage matrix, process flow, Test Coverage Insights). Derive business-specific terms from source material. Create all three files: (a) call save_tc_draft for main test cases (auto-creates tc-drafts/US_<ID>/ folder), (b) call save_tc_supporting_doc with docType='solution_summary' for solution design summary, (c) call save_tc_supporting_doc with docType='qa_cheat_sheet' for QA cheat sheet. ALWAYS pass workspaceRoot or draftsPath. Tell me: 'I've created draft files. Please review at the paths shown. When ready, run this command again and confirm.' Do NOT call push_tc_draft_to_ado. When consuming `get_user_story`, apply the same rules as `draft_test_cases` step 2d–2e: scan `namedFields`, `allFields`, and `fetchedConfluencePages` for context; surface `unfetchedLinks` to the user before drafting; reference `embeddedImages` via `originalUrl`.",
-          "4. If draft exists but I have NOT confirmed: Show draft summary via get_tc_draft. Ask: 'Have you reviewed the draft? If yes, type YES to push N test cases to ADO.' Do NOT push until I confirm.",
-          "5. If I type YES (or approved, confirmed, push): Ask one more time: 'Type YES to push.' Then call push_tc_draft_to_ado with the same workspaceRoot or draftsPath used for the draft. If the draft is already APPROVED and I revised it, pass repush: true to update existing test cases (formatting will be re-applied).",
-          "6. If push_tc_draft_to_ado returns 'US {id} — existing test cases detected' with A/B/C options: show the message verbatim (do NOT list the existing TCs yourself; counts are deliberate). Wait for my reply. On A, call push_tc_draft_to_ado again with insertAnyway: true. On B, call list_test_cases_linked_to_user_story and then get_test_case for each linked ID to show me titles/steps, then ask me again. On C, stop. Never set insertAnyway: true without my A/C-style reply.",
-          "7. If I provide feedback or edits: Update draft via save_tc_draft, then ask for confirmation again.",
-          "8. NEVER call push_tc_draft_to_ado without explicit user confirmation (YES, approved, push, etc.). NEVER pass insertAnyway=true without showing me the A/B/C prompt first and receiving an explicit 'A' reply.",
-          "9. When showing ADO work item IDs in chat (push summaries, linked TC lists, test case details, etc.), format them as markdown links using the webUrl field from the tool response, e.g. `[ADO #1234](https://dev.azure.com/.../_workitems/edit/1234)`. get_tc_draft also appends an 'ADO Links' section when the draft has IDs — surface those links in tables/summaries for the user. Never show bare `ADO #1234` when a URL is available.",
+          "2. Check: Does a draft exist? Call qa_drafts_list or qa_draft_read(userStoryId) with workspaceRoot or draftsPath (same location user will save to).",
+          "3. If NO draft: Fetch US via ado_story. Apply BOTH skills: qa-test-assets for folder structure and qa-test-drafting for content quality (analyze US + Solution Design, coverage matrix, process flow, Test Coverage Insights). Derive business-specific terms from source material. Create all three files: (a) call qa_draft_save for main test cases (auto-creates tc-drafts/US_<ID>/ folder), (b) call qa_draft_doc_save with docType='solution_summary' for solution design summary, (c) call qa_draft_doc_save with docType='qa_cheat_sheet' for QA cheat sheet. ALWAYS pass workspaceRoot or draftsPath. Tell me: 'I've created draft files. Please review at the paths shown. When ready, run this command again and confirm.' Do NOT call qa_publish_push. When consuming `ado_story`, apply the same rules as `qa-draft` step 2d–2e: scan `namedFields`, `allFields`, and `fetchedConfluencePages` for context; surface `unfetchedLinks` to the user before drafting; reference `embeddedImages` via `originalUrl`.",
+          "4. If draft exists but I have NOT confirmed: Show draft summary via qa_draft_read. Ask: 'Have you reviewed the draft? If yes, type YES to push N test cases to ADO.' Do NOT push until I confirm.",
+          "5. If I type YES (or approved, confirmed, push): Ask one more time: 'Type YES to push.' Then call qa_publish_push with the same workspaceRoot or draftsPath used for the draft. If the draft is already APPROVED and I revised it, pass repush: true to update existing test cases (formatting will be re-applied).",
+          "6. If qa_publish_push returns 'US {id} — existing test cases detected' with A/B/C options: show the message verbatim (do NOT list the existing TCs yourself; counts are deliberate). Wait for my reply. On A, call qa_publish_push again with insertAnyway: true. On B, call qa_tests and then qa_tc_read for each linked ID to show me titles/steps, then ask me again. On C, stop. Never set insertAnyway: true without my A/C-style reply.",
+          "7. If I provide feedback or edits: Update draft via qa_draft_save, then ask for confirmation again.",
+          "8. NEVER call qa_publish_push without explicit user confirmation (YES, approved, push, etc.). NEVER pass insertAnyway=true without showing me the A/B/C prompt first and receiving an explicit 'A' reply.",
+          "9. When showing ADO work item IDs in chat (push summaries, linked TC lists, test case details, etc.), format them as markdown links using the webUrl field from the tool response, e.g. `[ADO #1234](https://dev.azure.com/.../_workitems/edit/1234)`. qa_draft_read also appends an 'ADO Links' section when the draft has IDs — surface those links in tables/summaries for the user. Never show bare `ADO #1234` when a URL is available.",
           "",
           CONFIRM_BEFORE_ACT_CONTRACT,
         ].join("\n"),
@@ -313,7 +330,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("list_test_cases", {
+  server.registerPrompt("ado-suite-tests", {
     title: "List Test Cases",
     description: "List test cases within a specific test suite",
   }, async () => ({
@@ -322,7 +339,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "I want to list test cases in a test suite. Ask me for the plan ID and suite ID, then use the list_test_cases tool. Show results in a table with ID and name.",
+          "I want to list test cases in a test suite. Ask me for the plan ID and suite ID, then use the ado_suite_tests tool. Show results in a table with ID and name.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
@@ -330,7 +347,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("get_test_case", {
+  server.registerPrompt("qa-tc-read", {
     title: "Get Test Case",
     description: "Get a test case work item by ID with all fields",
   }, async () => ({
@@ -339,7 +356,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "I want to view a test case. Ask me for the work item ID, then use the get_test_case tool. Show the title, description, steps, priority, state, area path, and iteration path.",
+          "I want to view a test case. Ask me for the work item ID, then use the qa_tc_read tool. Show the title, description, steps, priority, state, area path, and iteration path.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
@@ -347,7 +364,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("update_test_case", {
+  server.registerPrompt("qa-tc-update", {
     title: "Update Test Case",
     description: "Update fields or steps of an existing test case",
   }, async () => ({
@@ -360,15 +377,15 @@ export function registerAllPrompts(server: McpServer) {
           "",
           "Please:",
           "1. Ask me for the work item ID.",
-          "2. Fetch it using the get_test_case tool to show the current state.",
+          "2. Fetch it using the qa_tc_read tool to show the current state.",
           "3. Ask me what I want to change. Options: title, description/prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath.",
-          "4. Use the update_test_case tool with only the fields to update (partial) or all fields (full).",
+          "4. Use the qa_tc_update tool with only the fields to update (partial) or all fields (full).",
         ].join("\n"),
       },
     }],
   }));
 
-  server.registerPrompt("list_work_item_fields", {
+  server.registerPrompt("ado-fields", {
     title: "List Work Item Fields",
     description: "List all work item field definitions (reference names, types) in the ADO project",
   }, async () => ({
@@ -377,7 +394,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "List all work item field definitions using the list_work_item_fields tool. Show reference names (e.g. Custom.PrerequisiteforTest, System.Title), types, and readOnly status. Use to verify field names before updating work items.",
+          "List all work item field definitions using the ado_fields tool. Show reference names (e.g. Custom.PrerequisiteforTest, System.Title), types, and readOnly status. Use to verify field names before updating work items.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),
@@ -385,7 +402,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("delete_test_case", {
+  server.registerPrompt("qa-tc-delete", {
     title: "Delete Test Case",
     description: "Delete a test case by ID (Recycle Bin by default)",
   }, async () => ({
@@ -393,12 +410,12 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to delete a test case. Ask me for the work item ID, confirm the action, then use the delete_test_case tool. By default the work item is moved to Recycle Bin (restorable). Warn if destroy=true is requested (permanent delete).",
+        text: "I want to delete a test case. Ask me for the work item ID, confirm the action, then use the qa_tc_delete tool. By default the work item is moved to Recycle Bin (restorable). Warn if destroy=true is requested (permanent delete).",
       },
     }],
   }));
 
-  server.registerPrompt("delete_test_cases", {
+  server.registerPrompt("qa-tc-bulk-delete", {
     title: "Delete Multiple Test Cases",
     description: "Delete multiple test cases by ID (Recycle Bin by default)",
   }, async () => ({
@@ -412,14 +429,14 @@ export function registerAllPrompts(server: McpServer) {
           "Please:",
           "1. Ask me for the work item IDs (comma-separated or list).",
           "2. Confirm the list and warn that they will be moved to Recycle Bin (restorable within 30 days).",
-          "3. Call delete_test_case for each ID in sequence.",
+          "3. Call qa_tc_delete for each ID in sequence.",
           "4. Report success/failure for each.",
         ].join("\n"),
       },
     }],
   }));
 
-  server.registerPrompt("clone_and_enhance_test_cases", {
+  server.registerPrompt("qa-clone", {
     title: "Clone and Enhance Test Cases",
     description: "Clone test cases from a source User Story to a target User Story. Analyzes target US + Solution Design, classifies impact, generates preview, creates in ADO only after APPROVED.",
   }, async () => ({
@@ -432,18 +449,18 @@ export function registerAllPrompts(server: McpServer) {
           "",
           "**Flow:**",
           "1. Ask for source User Story ID and target User Story ID.",
-          "2. Call list_test_cases_linked_to_user_story(sourceUserStoryId) to get linked TC IDs.",
-          "3. Call get_test_case for each TC ID to read title, prerequisites (System.Description or Custom.PrerequisiteforTest), and steps (Microsoft.VSTS.TCM.Steps XML).",
-          "4. Call get_user_story(targetUserStoryId) to get target US context and Solution Design. When consuming `get_user_story`, apply the same rules as `draft_test_cases` step 2d–2e: scan `namedFields`, `allFields`, and `fetchedConfluencePages` for context; surface `unfetchedLinks` to the user before proceeding; reference `embeddedImages` via `originalUrl`.",
+          "2. Call qa_tests(sourceUserStoryId) to get linked TC IDs.",
+          "3. Call qa_tc_read for each TC ID to read title, prerequisites (System.Description or Custom.PrerequisiteforTest), and steps (Microsoft.VSTS.TCM.Steps XML).",
+          "4. Call ado_story(targetUserStoryId) to get target US context and Solution Design. When consuming `ado_story`, apply the same rules as `qa-draft` step 2d–2e: scan `namedFields`, `allFields`, and `fetchedConfluencePages` for context; surface `unfetchedLinks` to the user before proceeding; reference `embeddedImages` via `originalUrl`.",
           "5. For each source TC: classify as Clone As-Is | Minor Update | Enhanced. Apply target US + Solution Design context. Update prerequisites and steps where needed.",
           "6. Build a markdown preview with: source/target US summary, each TC with classification, transformed title, prerequisites, and steps.",
-          "7. Call save_tc_clone_preview with the markdown. Pass workspaceRoot or draftsPath.",
+          "7. Call qa_clone_preview_save with the markdown. Pass workspaceRoot or draftsPath.",
           "8. Tell me: 'Review the preview at the path shown. Respond APPROVED to create in ADO, MODIFY to revise, or CANCEL to abort.'",
           "9. On APPROVED:",
-          "   a. Call ensure_suite_hierarchy_for_us(targetUserStoryId) to ensure suite (returns planId).",
-          "   b. Call save_tc_draft with transformed TCs (target US context, planId from step a, version 1). Pass workspaceRoot or draftsPath.",
-          "   c. Call push_tc_draft_to_ado with same workspaceRoot/draftsPath.",
-          "10. On MODIFY: Revise the preview and save_tc_clone_preview again, then ask for APPROVED/MODIFY/CANCEL.",
+          "   a. Call qa_suite_setup_auto(targetUserStoryId) to ensure suite (returns planId).",
+          "   b. Call qa_draft_save with transformed TCs (target US context, planId from step a, version 1). Pass workspaceRoot or draftsPath.",
+          "   c. Call qa_publish_push with same workspaceRoot/draftsPath.",
+          "10. On MODIFY: Revise the preview and qa_clone_preview_save again, then ask for APPROVED/MODIFY/CANCEL.",
           "11. On CANCEL: Confirm abort.",
           "",
           "**Rules:**",
@@ -457,7 +474,7 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("get_confluence_page", {
+  server.registerPrompt("confluence-read", {
     title: "Get Confluence Page",
     description: "Read a Confluence page by ID for Solution Design reference",
   }, async () => ({
@@ -466,7 +483,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "I want to read a Confluence page for reference. Ask me for the page ID, then use the get_confluence_page tool. Display the page title and content.",
+          "I want to read a Confluence page for reference. Ask me for the page ID, then use the confluence_read tool. Display the page title and content.",
           "",
           INTERACTIVE_READ_CONTRACT,
         ].join("\n"),

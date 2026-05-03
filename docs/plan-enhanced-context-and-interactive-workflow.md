@@ -37,7 +37,7 @@
 
 ## 1. Problem Statement
 
-The current `get_user_story` and `draft_test_cases` workflow has several gaps:
+The current `ado_story` and `qa_draft` workflow has several gaps:
 
 1. **Missing ADO fields:** Only reads `Custom.TechnicalSolution` (Solution Notes). Does NOT read `Description`, `Impact Assessment`, or `Reference Documentation` fields for context.
 2. **Single Confluence link:** Only fetches the FIRST Confluence URL from Solution Design. If a field has 3 links, 2 are silently ignored.
@@ -50,7 +50,7 @@ The current `get_user_story` and `draft_test_cases` workflow has several gaps:
 
 ## 2. Current State Analysis
 
-### Fields currently read by `get_user_story`
+### Fields currently read by `ado_story`
 
 | Field | ADO Reference | Status |
 |---|---|---|
@@ -86,8 +86,8 @@ The current `get_user_story` and `draft_test_cases` workflow has several gaps:
 | `src/confluence-client.ts` | `getPageContent(pageId)` — fetches one Confluence page |
 | `src/config.ts` | Zod schema for `conventions.config.json` |
 | `conventions.config.json` | `solutionDesign.adoFieldRef` — only one field configured |
-| `src/prompts/index.ts` | `draft_test_cases` prompt — workflow instructions |
-| `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` | QA Architect skill |
+| `src/prompts/index.ts` | `qa_draft` prompt — workflow instructions |
+| `.cursor/skills/qa-test-drafting/SKILL.md` | QA Architect skill |
 
 ---
 
@@ -131,7 +131,7 @@ Add a new `additionalContextFields` array:
 }
 ```
 
-> **PREREQUISITE:** Run `list_work_item_fields` tool to confirm exact ADO field reference names (`Custom.ImpactAssessment`, `Custom.ReferenceDocumentation`). These may differ per ADO project.
+> **PREREQUISITE:** Run `ado_fields` tool to confirm exact ADO field reference names (`Custom.ImpactAssessment`, `Custom.ReferenceDocumentation`). These may differ per ADO project.
 
 **Files to change:**
 - `conventions.config.json` — Add `additionalContextFields`
@@ -315,7 +315,7 @@ interface UserStoryContext {
 
 ### 5.1 Role Definition
 
-**Update:** `src/prompts/index.ts` (draft_test_cases prompt) and `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md`
+**Update:** `src/prompts/index.ts` (qa_draft prompt) and `.cursor/skills/qa-test-drafting/SKILL.md`
 
 ```
 Role: You are an AI QA Architect and Lead QA Architect. Your goal is to guide the user 
@@ -328,7 +328,7 @@ data sources. If a decision path is ambiguous, pause and consult the user.
 
 ### 5.2 Documentation and Link Handling UX
 
-After `get_user_story` returns, the AI must present a **Source Discovery Report** before proceeding:
+After `ado_story` returns, the AI must present a **Source Discovery Report** before proceeding:
 
 #### Multiple Confluence Links
 
@@ -476,7 +476,7 @@ Every draft output must conclude with a **Traceability Matrix** table:
 | TC_1244695_07 | Negative — no Product Category assigned | Inferred from AC #3 + SD | 70% |
 ```
 
-**Implementation:** Add the traceability matrix as a section in the markdown draft (after test cases, before Review Notes). The `save_tc_draft` tool and `tc-draft-formatter.ts` need to support a `traceabilityMatrix` field.
+**Implementation:** Add the traceability matrix as a section in the markdown draft (after test cases, before Review Notes). The `qa_draft_save` tool and `tc-draft-formatter.ts` need to support a `traceabilityMatrix` field.
 
 ---
 
@@ -498,8 +498,8 @@ Every draft output must conclude with a **Traceability Matrix** table:
 
 | # | File | Change | Effort |
 |---|---|---|---|
-| 8 | `src/prompts/index.ts` | Update `draft_test_cases` prompt: add Source Discovery Report, Execution Plan gate, unfetched link handling, traceability matrix instruction | Large |
-| 9 | `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` | Add interactive consultant role, decision gates, UX formatting rules, traceability matrix step | Medium |
+| 8 | `src/prompts/index.ts` | Update `qa_draft` prompt: add Source Discovery Report, Execution Plan gate, unfetched link handling, traceability matrix instruction | Large |
+| 9 | `.cursor/skills/qa-test-drafting/SKILL.md` | Add interactive consultant role, decision gates, UX formatting rules, traceability matrix step | Medium |
 
 ### Phase 3: Draft Format — Traceability Matrix
 
@@ -541,7 +541,7 @@ Every draft output must conclude with a **Traceability Matrix** table:
 }
 ```
 
-> **ACTION REQUIRED before implementation:** Run `list_work_item_fields` to confirm the exact ADO field reference names. The names above (`Custom.ImpactAssessment`, `Custom.ReferenceDocumentation`) are educated guesses and may differ.
+> **ACTION REQUIRED before implementation:** Run `ado_fields` to confirm the exact ADO field reference names. The names above (`Custom.ImpactAssessment`, `Custom.ReferenceDocumentation`) are educated guesses and may differ.
 
 ### No changes to `credentials.json`
 
@@ -588,7 +588,7 @@ Confluence credentials already support any space on the configured instance. No 
 
 | # | Question | Status |
 |---|---|---|
-| 1 | What are the exact ADO field reference names for "Impact Assessment" and "Reference Documentation"? | ❓ Run `list_work_item_fields` to confirm |
+| 1 | What are the exact ADO field reference names for "Impact Assessment" and "Reference Documentation"? | ❓ Run `ado_fields` to confirm |
 | 2 | Should the traceability matrix be included in the markdown draft file, or only shown in chat? | ❓ Recommend: both (draft file + chat summary) |
 | 3 | Should the Execution Plan gate be mandatory (always pause) or configurable? | ❓ Recommend: mandatory for first draft, optional on revisions |
 | 4 | Should confidence levels be shown in the draft markdown or only in the traceability matrix? | ❓ Recommend: traceability matrix only |

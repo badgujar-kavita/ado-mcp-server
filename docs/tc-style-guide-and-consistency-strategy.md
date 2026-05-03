@@ -99,7 +99,7 @@
 
 ### Phase 2: Prompt & Draft Enhancements (Medium Effort)
 
-4. **Update `draft_test_cases` and `create_test_cases` prompts:**
+4. **Update `qa_draft` and `qa_publish` prompts:**
    - Add explicit instructions:
      - "Use generic feature tags based on Acceptance Criteria (e.g., Promotion Management, Account Management, Product Management, Fund Management)."
      - "For setup steps, use expected result: 'you should be able to do so'."
@@ -122,7 +122,7 @@
    - Loaded when generating drafts; ensures consistency even if ADO samples change.
 
 8. **Validation step (optional):**
-   - Before `push_tc_draft_to_ado`, run lightweight checks:
+   - Before `qa_publish_push`, run lightweight checks:
      - Title matches `TC_{USID}_{##} -> ...` pattern.
      - Feature tags length.
      - Step expected phrasing for setup vs. validation.
@@ -154,7 +154,7 @@
 
 **Finding:** Existing TCs in plan 1066479 use **Custom.PrerequisiteforTest** for Persona + Pre-requisite content.
 
-**Implementation:** Added `prerequisiteFieldRef` to `conventions.config.json` (set to `"Custom.PrerequisiteforTest"`). Both `createTestCase` and `update_test_case` now write prerequisites to the configured field, with fallback to `System.Description` when not set.
+**Implementation:** Added `prerequisiteFieldRef` to `conventions.config.json` (set to `"Custom.PrerequisiteforTest"`). Both `createTestCase` and `qa_tc_update` now write prerequisites to the configured field, with fallback to `System.Description` when not set.
 
 ---
 

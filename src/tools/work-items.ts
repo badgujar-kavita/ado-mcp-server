@@ -82,7 +82,7 @@ export function registerWorkItemTools(
   confluenceClient: ConfluenceClient | null
 ) {
   server.registerTool(
-    "get_user_story",
+    "ado_story",
     {
       description:
         "Fetch a User Story from ADO with description, acceptance criteria, parent info, Solution Design content from Confluence, and all relations",
@@ -125,7 +125,7 @@ export function registerWorkItemTools(
   );
 
   server.registerTool(
-    "list_test_cases_linked_to_user_story",
+    "qa_tests",
     {
       description:
         "Get test case work item IDs linked to a User Story via Tests/Tested By relation. Use before cloning test cases from one US to another.",
@@ -177,7 +177,7 @@ export function registerWorkItemTools(
   );
 
   server.registerTool(
-    "list_work_item_fields",
+    "ado_fields",
     {
       description:
         "List all work item field definitions in the ADO project. Returns reference names (e.g. Custom.PrerequisiteforTest, System.Title) and metadata. Use to verify field names before updating work items.",
@@ -224,7 +224,7 @@ export function registerWorkItemTools(
  * extraction, and backward-compatible deprecated aliases (solutionDesignUrl,
  * solutionDesignContent).
  *
- * Exported for testing. Internal to the `get_user_story` tool otherwise.
+ * Exported for testing. Internal to the `ado_story` tool otherwise.
  */
 export async function extractUserStoryContext(
   item: AdoWorkItem,
@@ -655,13 +655,13 @@ export function buildGetUserStoryResponse(
 }
 
 /**
- * Synthesise the canonical read result for `get_user_story` from the
+ * Synthesise the canonical read result for `ado_story` from the
  * same `UserStoryContext + webUrl` that was serialised into the prose.
  *
  * - `item.type` = "user-story"
  * - `item.summary` is a 500-char stripped-HTML excerpt of description.
  * - `children`: the parent (if any). Linked test cases require a
- *   second API call (`list_test_cases_linked_to_user_story`) that this
+ *   second API call (`qa_tests`) that this
  *   tool deliberately doesn't make — documented skip.
  * - `artifacts`: one entry per fetched Confluence page
  *   (`kind: "solution-design"`) and one per successfully-attached
@@ -753,7 +753,7 @@ export function buildUserStoryCanonicalResult(
 }
 
 /**
- * Build the CanonicalReadResult for `list_test_cases_linked_to_user_story`.
+ * Build the CanonicalReadResult for `qa_tests`.
  *
  * - `item.type` = "user-story" (the US is the read target; the tool
  *   reports the set of test cases linked to it).
@@ -785,7 +785,7 @@ export function buildLinkedTestCasesCanonicalResult(
 }
 
 /**
- * Build the CanonicalReadResult for `list_work_item_fields`.
+ * Build the CanonicalReadResult for `ado_fields`.
  *
  * - `item.type` = "field-inventory"; the read target is the whole
  *   project field catalogue.

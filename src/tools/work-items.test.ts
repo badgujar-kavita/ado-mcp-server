@@ -622,7 +622,7 @@ function captureToolHandlers(
   return handlers;
 }
 
-test("list_test_cases_linked_to_user_story returns structuredContent with children", async () => {
+test("qa_tests returns structuredContent with children", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const userStoryId = 500;
   const restore = mockFetch((url) => {
@@ -653,7 +653,7 @@ test("list_test_cases_linked_to_user_story returns structuredContent with childr
   });
   try {
     const handlers = captureToolHandlers(adoClient, null);
-    const handler = handlers.get("list_test_cases_linked_to_user_story");
+    const handler = handlers.get("qa_tests");
     assert.ok(handler, "handler should be registered");
     const result = await handler!({ userStoryId });
     assert.ok(result.structuredContent, "structuredContent should be present");
@@ -672,7 +672,7 @@ test("list_test_cases_linked_to_user_story returns structuredContent with childr
   }
 });
 
-test("list_test_cases_linked_to_user_story with zero links returns empty children", async () => {
+test("qa_tests with zero links returns empty children", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const userStoryId = 600;
   const restore = mockFetch((url) => {
@@ -692,7 +692,7 @@ test("list_test_cases_linked_to_user_story with zero links returns empty childre
   });
   try {
     const handlers = captureToolHandlers(adoClient, null);
-    const handler = handlers.get("list_test_cases_linked_to_user_story");
+    const handler = handlers.get("qa_tests");
     assert.ok(handler, "handler should be registered");
     const result = await handler!({ userStoryId });
     assert.ok(result.structuredContent);
@@ -704,7 +704,7 @@ test("list_test_cases_linked_to_user_story with zero links returns empty childre
   }
 });
 
-test("list_work_item_fields with <=50 fields returns complete inventory", async () => {
+test("ado_fields with <=50 fields returns complete inventory", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const fields = Array.from({ length: 10 }, (_, i) => ({
     referenceName: `Custom.Field${i}`,
@@ -723,7 +723,7 @@ test("list_work_item_fields with <=50 fields returns complete inventory", async 
   });
   try {
     const handlers = captureToolHandlers(adoClient, null);
-    const handler = handlers.get("list_work_item_fields");
+    const handler = handlers.get("ado_fields");
     assert.ok(handler, "handler should be registered");
     const result = await handler!({});
     assert.ok(result.structuredContent);
@@ -740,7 +740,7 @@ test("list_work_item_fields with <=50 fields returns complete inventory", async 
   }
 });
 
-test("list_work_item_fields with >50 fields marks partial", async () => {
+test("ado_fields with >50 fields marks partial", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const fields = Array.from({ length: 75 }, (_, i) => ({
     referenceName: `Custom.Field${i}`,
@@ -759,7 +759,7 @@ test("list_work_item_fields with >50 fields marks partial", async () => {
   });
   try {
     const handlers = captureToolHandlers(adoClient, null);
-    const handler = handlers.get("list_work_item_fields");
+    const handler = handlers.get("ado_fields");
     assert.ok(handler, "handler should be registered");
     const result = await handler!({});
     assert.ok(result.structuredContent);

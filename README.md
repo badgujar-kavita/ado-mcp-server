@@ -87,15 +87,15 @@ After setup, ADO TestForge MCP is available globally in all workspaces.
 
 | Command | Purpose |
 |---------|---------|
-| `/ado-testforge/check_status` | Verify setup and credentials |
-| `/ado-testforge/get_user_story` | Fetch User Story with acceptance criteria and Solution Design |
-| `/ado-testforge/draft_test_cases` | Generate test case draft for review (no ADO write) |
-| `/ado-testforge/create_test_cases` | Push draft to ADO (create test cases) |
-| `/ado-testforge/update_test_case` | Update existing test case (prerequisites, steps, etc.) |
-| `/ado-testforge/delete_test_case` | Delete a single test case |
-| `/ado-testforge/delete_test_cases` | Delete multiple test cases |
-| `/ado-testforge/list_test_plans` | List test plans in the project |
-| `/ado-testforge/list_work_item_fields` | List ADO field definitions |
+| `/ado-testforge/ado-check` | Verify setup and credentials |
+| `/ado-testforge/ado-story` | Fetch User Story with acceptance criteria and Solution Design |
+| `/ado-testforge/qa-draft` | Generate test case draft for review (no ADO write) |
+| `/ado-testforge/qa-publish` | Push draft to ADO (create test cases) |
+| `/ado-testforge/qa-tc-update` | Update existing test case (prerequisites, steps, etc.) |
+| `/ado-testforge/qa-tc-delete` | Delete a single test case |
+| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases |
+| `/ado-testforge/ado-plans` | List test plans in the project |
+| `/ado-testforge/ado-fields` | List ADO field definitions |
 
 ---
 

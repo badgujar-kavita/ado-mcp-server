@@ -26,7 +26,7 @@ The installer will:
 
 1. **Configure credentials** \-\- Edit `~/.ado-testforge-mcp/credentials.json` with your ADO PAT, org, and project (see [Step 2](#step-2-configure-your-credentials))
 2. **Restart Cursor** (or reload MCP in Settings > MCP)
-3. **Verify** \-\- Type `/ado-testforge/check_status` in AI chat
+3. **Verify** \-\- Type `/ado-testforge/ado-check` in AI chat
 
 After setup, ADO TestForge MCP is available in **all workspaces** automatically.
 
@@ -115,7 +115,7 @@ This is only relevant for production/shared deployments. For individual use, PAT
 After restarting Cursor, run this command in the AI chat:
 
 ```
-/ado-testforge/configure
+/ado-testforge/ado-connect
 ```
 
 This opens a beautiful web interface where you can:
@@ -174,7 +174,7 @@ The Confluence fields are **optional** \-\- leave them empty if you don't use Co
 
 ## Step 2b: Configure Confluence (Optional)
 
-If your User Stories have Solution Design documents linked in the **Solution Notes** field (ADO field name: "Technical Solution"), you can configure Confluence so the MCP server automatically fetches that content when you run `get_user_story`. This gives the AI richer context for test case generation.
+If your User Stories have Solution Design documents linked in the **Solution Notes** field (ADO field name: "Technical Solution"), you can configure Confluence so the MCP server automatically fetches that content when you run `ado_story`. This gives the AI richer context for test case generation.
 
 ### Path 1: Confluence Cloud API Token (Current Setup)
 
@@ -245,7 +245,7 @@ If your team later migrates to an Atlassian OAuth 2.0 (3-legged) app for shared/
 
 ### How the Confluence Integration Works
 
-When you fetch a User Story with `get_user_story`, the tool:
+When you fetch a User Story with `ado_story`, the tool:
 
 1. Reads the **Technical Solution** field from the ADO work item
 2. Extracts the Confluence page URL from the field value
@@ -259,7 +259,7 @@ If Confluence is not configured, the field is empty, or the linked page cannot b
 
 ## Step 2c: Tune Context Richness (Optional)
 
-The following knobs in `conventions.config.json` control how much work-item context `get_user_story` returns. Both are optional — defaults work for most teams.
+The following knobs in `conventions.config.json` control how much work-item context `ado_story` returns. Both are optional — defaults work for most teams.
 
 > **⚠️ Important — edits to `conventions.config.json` are overwritten by re-install.**
 >
@@ -269,7 +269,7 @@ The following knobs in `conventions.config.json` control how much work-item cont
 
 ### Enabling embedded image vision (optional)
 
-By default `get_user_story` returns work-item context as a single text content part. To let vision-capable MCP clients (Cursor, Claude Desktop) see ADO-attached screenshots and Confluence diagrams directly, flip this flag in `conventions.config.json`:
+By default `ado_story` returns work-item context as a single text content part. To let vision-capable MCP clients (Cursor, Claude Desktop) see ADO-attached screenshots and Confluence diagrams directly, flip this flag in `conventions.config.json`:
 
 ```json
 {
@@ -308,7 +308,7 @@ If your project uses additional custom fields (Impact Assessment, Reference Docu
 
 Each entry adds the field to `namedFields` in the response. `fetchLinks` controls whether Confluence URLs found in the field are auto-fetched (default `true`); `fetchImages` controls whether embedded `<img>` attachments are downloaded (default `true`).
 
-To discover the `adoFieldRef` of a field you see in the ADO UI, use the `list_work_item_fields` tool — it returns both the display name and the reference name.
+To discover the `adoFieldRef` of a field you see in the ADO UI, use the `ado_fields` tool — it returns both the display name and the reference name.
 
 Every other populated field (standard + custom) is still surfaced in `allFields` as a pass-through map, with system-noise fields filtered out by default. You don't need to register them — the agent scans the map for anything that looks relevant.
 
@@ -325,7 +325,7 @@ Every other populated field (standard + custom) is still surfaced in `allFields`
 
 ## Step 4: Verify Everything Works
 
-In Cursor's AI chat, type `/ado-testforge` and select **check_status**.
+In Cursor's AI chat, type `/ado-testforge` and select **ado-check**.
 
 ### First Successful Run
 
@@ -340,15 +340,15 @@ ADO TestForge MCP connects Cursor IDE directly to Azure DevOps — so you can dr
 review, and push test cases without ever leaving your editor.
 
 Two ways to work — pick what feels natural:
-- Slash command: /ado-testforge/draft_test_cases
+- Slash command: /ado-testforge/qa-draft
 - Plain English: "Draft test cases for User Story #12345"
 
 Ready? Start here:
-- /ado-testforge/get_user_story — Fetch a User Story with full QA context
-- /ado-testforge/draft_test_cases — Generate test cases ready for ADO
-- /ado-testforge/check_status — Verify your setup anytime
+- /ado-testforge/ado-story — Fetch a User Story with full QA context
+- /ado-testforge/qa-draft — Generate test cases ready for ADO
+- /ado-testforge/ado-check — Verify your setup anytime
 
-Quick start: Try /ado-testforge/get_user_story or say "Draft test cases for User Story #12345".
+Quick start: Try /ado-testforge/ado-story or say "Draft test cases for User Story #12345".
 
 Setup Status
 ------------
@@ -375,7 +375,7 @@ TC Drafts: /Users/you/.ado-testforge-mcp/tc-drafts
 
 ### After a New Deploy
 
-If a newer version has been deployed, `check_status` shows a short "What's New" summary once, then updates your local first-run flag.
+If a newer version has been deployed, `ado-check` shows a short "What's New" summary once, then updates your local first-run flag.
 
 If you see **READY**, setup is complete.
 
@@ -383,8 +383,8 @@ If you see **READY**, setup is complete.
 
 After deployment, verify:
 
-- **21 tools** total (including `list_work_item_fields`, `delete_test_case`)
-- **Commands:** `/ado-testforge/delete_test_cases` (batch delete), `/ado-testforge/update_test_case`, `/ado-testforge/list_work_item_fields`
+- **21 tools** total (including `ado_fields`, `qa_tc_delete`)
+- **Commands:** `/ado-testforge/qa-tc-bulk-delete` (batch delete), `/ado-testforge/qa-tc-update`, `/ado-testforge/ado-fields`
 - **Title limit:** Test case titles ≤ 256 characters (ADO constraint)
 
 ---
@@ -395,27 +395,27 @@ You can now use any of the available commands. Type `/ado-testforge` in the chat
 
 | Command | What It Does |
 |---|---|
-| `/ado-testforge/check_status` | Verify your setup |
-| `/ado-testforge/list_test_plans` | List all test plans in your project |
-| `/ado-testforge/get_user_story` | Fetch a User Story with full context |
-| `/ado-testforge/get_test_plan` | Get test plan details |
-| `/ado-testforge/list_test_suites` | List all suites in a test plan |
-| `/ado-testforge/get_test_suite` | Get test suite details |
-| `/ado-testforge/create_test_suite` | Create test suite structure — asks only User Story ID (derives plan and sprint from US) |
-| `/ado-testforge/update_test_suite` | Ensure or update test suite structure — asks only User Story ID |
-| `/ado-testforge/ensure_suite_hierarchy_for_us` | Same as create — ensures folder structure from User Story ID only |
-| `/ado-testforge/delete_test_suite` | Delete a test suite (test cases remain, only suite association removed) |
-| `/ado-testforge/ensure_suite_hierarchy` | Build the test suite folder structure |
-| `/ado-testforge/draft_test_cases` | Generate a test case draft for review (never creates in ADO). Uses a generic QA architect method and derives project-specific terms from the User Story and Solution Design. |
-| `/ado-testforge/create_test_cases` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
-| `/ado-testforge/list_test_cases` | List test cases in a suite |
-| `/ado-testforge/get_test_case` | View a test case by ID |
-| `/ado-testforge/update_test_case` | Update one or more fields of an existing test case (partial or full) |
-| `/ado-testforge/list_work_item_fields` | List all work item field definitions (reference names, types) |
-| `/ado-testforge/delete_test_case` | Delete a test case (Recycle Bin by default) |
-| `/ado-testforge/delete_test_cases` | Delete multiple test cases by ID (Recycle Bin by default) |
-| `/ado-testforge/get_confluence_page` | Read a Confluence page for reference |
-| `/ado-testforge/clone_and_enhance_test_cases` | Clone TCs from source US to target US — analyzes target + Solution Design, classifies impact, preview → APPROVED creates in ADO |
+| `/ado-testforge/ado-check` | Verify your setup |
+| `/ado-testforge/ado-plans` | List all test plans in your project |
+| `/ado-testforge/ado-story` | Fetch a User Story with full context |
+| `/ado-testforge/ado-plan` | Get test plan details |
+| `/ado-testforge/ado-suites` | List all suites in a test plan |
+| `/ado-testforge/ado-suite` | Get test suite details |
+| `/ado-testforge/qa-suite-create` | Create test suite structure — asks only User Story ID (derives plan and sprint from US) |
+| `/ado-testforge/qa-suite-update` | Ensure or update test suite structure — asks only User Story ID |
+| `/ado-testforge/qa-suite-setup-auto` | Same as create — ensures folder structure from User Story ID only |
+| `/ado-testforge/qa-suite-delete` | Delete a test suite (test cases remain, only suite association removed) |
+| `/ado-testforge/qa-suite-setup-manual` | Build the test suite folder structure |
+| `/ado-testforge/qa-draft` | Generate a test case draft for review (never creates in ADO). Uses a generic QA architect method and derives project-specific terms from the User Story and Solution Design. |
+| `/ado-testforge/qa-publish` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
+| `/ado-testforge/ado-suite-tests` | List test cases in a suite |
+| `/ado-testforge/qa-tc-read` | View a test case by ID |
+| `/ado-testforge/qa-tc-update` | Update one or more fields of an existing test case (partial or full) |
+| `/ado-testforge/ado-fields` | List all work item field definitions (reference names, types) |
+| `/ado-testforge/qa-tc-delete` | Delete a test case (Recycle Bin by default) |
+| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases by ID (Recycle Bin by default) |
+| `/ado-testforge/confluence-read` | Read a Confluence page for reference |
+| `/ado-testforge/qa-clone` | Clone TCs from source US to target US — analyzes target + Solution Design, classifies impact, preview → APPROVED creates in ADO |
 
 You can also use natural language instead of commands. For example, type "Fetch user story 1273966 from ADO" and the AI will call the right tool.
 
@@ -430,7 +430,7 @@ You can also use natural language instead of commands. For example, type "Fetch 
 
 ### Reliability
 
-- Run `/ado-testforge/check_status` after setup or deployment to verify the current version and status before starting work.
+- Run `/ado-testforge/ado-check` after setup or deployment to verify the current version and status before starting work.
 - Confluence is optional. If it is not configured or a linked page cannot be fetched, the core ADO workflow still works and `solutionDesignContent` stays `null`.
 - The welcome flow uses a first-run flag file so users see the full orientation once per version instead of on every status check.
 
@@ -511,7 +511,7 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 - Open `~/.ado-testforge-mcp/credentials.json` and verify you replaced all placeholder values
 - Make sure the `ado_pat`, `ado_org`, and `ado_project` fields are not empty
-- Run `/ado-testforge/check_status` to see which field is missing
+- Run `/ado-testforge/ado-check` to see which field is missing
 
 ### PAT authentication errors (401)
 
@@ -521,7 +521,7 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 ### Confluence 401 Unauthorized
 
-When `get_user_story` or `get_confluence_page` returns "401 Unauthorized" when fetching Solution Design:
+When `ado_story` or `confluence_read` returns "401 Unauthorized" when fetching Solution Design:
 
 1. **Base URL** — Must be `https://yoursite.atlassian.net/wiki` (no `/spaces/...` or page path).  
    Example: `https://your-org.atlassian.net/wiki`

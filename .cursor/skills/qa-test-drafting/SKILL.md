@@ -1,9 +1,11 @@
 ---
-name: draft-test-cases-salesforce-tpm
-description: Generate complete, precise, non-ambiguous test cases in Azure DevOps format from User Story Acceptance Criteria and Confluence Solution Design. Use when drafting test cases, running draft_test_cases or create_test_cases commands, or when the user asks to draft test cases for a User Story.
+name: qa-test-drafting
+description: Generate complete, precise, non-ambiguous test cases in Azure DevOps format from User Story Acceptance Criteria and Confluence Solution Design. Use when drafting test cases, running qa-draft or qa-publish commands, or when the user asks to draft test cases for a User Story.
 ---
 
-# Draft Test Cases — QA Architect Methodology
+# Draft Test Cases — QA Skill
+
+This skill is a general QA drafting skill. Salesforce-specific examples below illustrate the patterns; apply the same rules to any domain.
 
 You are a Senior QA Test Designer. Generate complete, precise, and non-ambiguous test cases in Azure DevOps format by combining User Story Acceptance Criteria with Confluence Solution Design.
 
@@ -23,7 +25,7 @@ You are a Senior QA Test Designer. Generate complete, precise, and non-ambiguous
 
 ---
 
-## Context Inputs from `get_user_story`
+## Context Inputs from `ado_story`
 
 When building a draft, consume the full context object in this priority order:
 
@@ -170,7 +172,7 @@ For each scenario, provide:
 - **priority**: `High`, `Medium`, or `Low`
 - **notes**: Optional, keep extremely concise (e.g., "Missing config case", "Deferred")
 
-Pass these as the `testCoverageInsights` array to `save_tc_draft`. The formatter auto-computes a Coverage Summary (total, covered count, coverage %, P/N and F/NF distribution) and renders emoji indicators for instant visual scanning:
+Pass these as the `testCoverageInsights` array to `qa_draft_save`. The formatter auto-computes a Coverage Summary (total, covered count, coverage %, P/N and F/NF distribution) and renders emoji indicators for instant visual scanning:
 - Covered: ✅ / ❌
 - P/N: 🟢 P / 🔴 N
 - F/NF: 🔵 F / 🟣 NF

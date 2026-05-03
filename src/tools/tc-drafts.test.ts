@@ -82,13 +82,13 @@ function writeDraft(baseDir: string, data: TcDraftData): string {
   return tcDraftsDir;
 }
 
-// ── get_tc_draft tests ──────────────────────────────────────────────────
+// ── qa_draft_read tests ──────────────────────────────────────────────────
 
-test("get_tc_draft missing file returns isError with no structuredContent", async () => {
+test("qa_draft_read missing file returns isError with no structuredContent", async () => {
   const { server, handlers } = captureHandlers();
   registerTcDraftTools(server, fakeAdoClient());
-  const getDraft = handlers.get("get_tc_draft");
-  assert.ok(getDraft, "get_tc_draft should be registered via registerTool");
+  const getDraft = handlers.get("qa_draft_read");
+  assert.ok(getDraft, "qa_draft_read should be registered via registerTool");
 
   const base = mkdtempSync(join(tmpdir(), "tc-drafts-test-"));
   try {
@@ -105,10 +105,10 @@ test("get_tc_draft missing file returns isError with no structuredContent", asyn
   }
 });
 
-test("get_tc_draft with APPROVED draft populates children with relationship='pushed' for TCs with adoWorkItemId", async () => {
+test("qa_draft_read with APPROVED draft populates children with relationship='pushed' for TCs with adoWorkItemId", async () => {
   const { server, handlers } = captureHandlers();
   registerTcDraftTools(server, fakeAdoClient());
-  const getDraft = handlers.get("get_tc_draft")!;
+  const getDraft = handlers.get("qa_draft_read")!;
 
   const base = mkdtempSync(join(tmpdir(), "tc-drafts-test-"));
   try {
@@ -153,10 +153,10 @@ test("get_tc_draft with APPROVED draft populates children with relationship='pus
   }
 });
 
-test("get_tc_draft with DRAFT status populates children with relationship='drafted' for TCs without adoWorkItemId", async () => {
+test("qa_draft_read with DRAFT status populates children with relationship='drafted' for TCs without adoWorkItemId", async () => {
   const { server, handlers } = captureHandlers();
   registerTcDraftTools(server, fakeAdoClient());
-  const getDraft = handlers.get("get_tc_draft")!;
+  const getDraft = handlers.get("qa_draft_read")!;
 
   const base = mkdtempSync(join(tmpdir(), "tc-drafts-test-"));
   try {
@@ -177,10 +177,10 @@ test("get_tc_draft with DRAFT status populates children with relationship='draft
   }
 });
 
-test("get_tc_draft appends ADO Links section in content text when draft has ADO IDs", async () => {
+test("qa_draft_read appends ADO Links section in content text when draft has ADO IDs", async () => {
   const { server, handlers } = captureHandlers();
   registerTcDraftTools(server, fakeAdoClient());
-  const getDraft = handlers.get("get_tc_draft")!;
+  const getDraft = handlers.get("qa_draft_read")!;
 
   const base = mkdtempSync(join(tmpdir(), "tc-drafts-test-"));
   try {
@@ -213,12 +213,12 @@ test("get_tc_draft appends ADO Links section in content text when draft has ADO 
   }
 });
 
-// ── list_tc_drafts tests ────────────────────────────────────────────────
+// ── qa_drafts_list tests ────────────────────────────────────────────────
 
-test("list_tc_drafts returns one child per draft file in the directory", async () => {
+test("qa_drafts_list returns one child per draft file in the directory", async () => {
   const { server, handlers } = captureHandlers();
   registerTcDraftTools(server, fakeAdoClient());
-  const listDrafts = handlers.get("list_tc_drafts")!;
+  const listDrafts = handlers.get("qa_drafts_list")!;
 
   const base = mkdtempSync(join(tmpdir(), "tc-drafts-test-"));
   try {
@@ -247,10 +247,10 @@ test("list_tc_drafts returns one child per draft file in the directory", async (
   }
 });
 
-test("list_tc_drafts on empty/non-existent directory returns empty children", async () => {
+test("qa_drafts_list on empty/non-existent directory returns empty children", async () => {
   const { server, handlers } = captureHandlers();
   registerTcDraftTools(server, fakeAdoClient());
-  const listDrafts = handlers.get("list_tc_drafts")!;
+  const listDrafts = handlers.get("qa_drafts_list")!;
 
   const base = mkdtempSync(join(tmpdir(), "tc-drafts-test-"));
   try {

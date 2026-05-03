@@ -9,7 +9,7 @@ import {
 
 export function registerTestPlanTools(server: McpServer, client: AdoClient) {
   server.registerTool(
-    "list_test_plans",
+    "ado_plans",
     {
       description: "List all test plans in the ADO project",
       inputSchema: {},
@@ -46,7 +46,7 @@ export function registerTestPlanTools(server: McpServer, client: AdoClient) {
   );
 
   server.registerTool(
-    "get_test_plan",
+    "ado_plan",
     {
       description: "Get a specific test plan by ID (includes area path, root suite, etc.)",
       inputSchema: { planId: z.number().int().positive().describe("The test plan ID") },
@@ -75,7 +75,7 @@ export function registerTestPlanTools(server: McpServer, client: AdoClient) {
   );
 
   server.tool(
-    "create_test_plan",
+    "ado_plan_create",
     "Create a new test plan (future use -- existing plans like GPT_D-HUB are typically used)",
     {
       name: z.string().describe("Name for the new test plan"),
@@ -111,7 +111,7 @@ export function registerTestPlanTools(server: McpServer, client: AdoClient) {
 // ── Canonical read-result builders ──
 
 /**
- * Shape of the flat plan summary list produced by `list_test_plans`.
+ * Shape of the flat plan summary list produced by `ado_plans`.
  * Kept local — this is the prose payload, not a domain type.
  */
 interface TestPlanSummary {
@@ -123,7 +123,7 @@ interface TestPlanSummary {
 }
 
 /**
- * Build the CanonicalReadResult for `list_test_plans`.
+ * Build the CanonicalReadResult for `ado_plans`.
  *
  * - `item.type` = "project" (the project is the implicit read target
  *   for a list of all plans).
@@ -153,7 +153,7 @@ export function buildTestPlansListCanonicalResult(
 }
 
 /**
- * Build the CanonicalReadResult for `get_test_plan`.
+ * Build the CanonicalReadResult for `ado_plan`.
  *
  * - `item.type` = "test-plan".
  * - `children`: single entry for `plan.rootSuite` when present,

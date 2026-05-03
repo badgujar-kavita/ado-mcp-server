@@ -34,11 +34,11 @@ const server = new McpServer({
 
 ---
 
-## Channel 2: Welcome Message via `check_setup_status` (Active on Demand)
+## Channel 2: Welcome Message via `ado_check` (Active on Demand)
 
 ### Current Implementation
 
-When users run `check_setup_status` or when credentials are verified:
+When users run `ado_check` or when credentials are verified:
 
 ```
 ADO TestForge MCP v1.1.0 | Status: ✓ Ready
@@ -56,7 +56,7 @@ TC Drafts: <path>
 - Returning users see brief status only
 - After version update, shows "What's New" summary
 
-**User Action:** Run `/ado-testforge/check_status` anytime
+**User Action:** Run `/ado-testforge/ado-check` anytime
 **Benefit:** User-initiated, non-intrusive
 
 ---
@@ -153,7 +153,7 @@ if [[ "$CURRENT_VERSION" != "$LAST_SEEN_VERSION" ]] && [[ "$CURRENT_VERSION" != 
   "user_message": "🎉 ADO TestForge MCP Updated to v${CURRENT_VERSION}
 
 📋 What's New:
-• Check the changelog: Run \`/ado-testforge/check_status\` or see docs/changelog.md
+• Check the changelog: Run \`/ado-testforge/ado-check\` or see docs/changelog.md
 • Full documentation: docs/README.md
 
 💡 Tip: All your existing drafts and configurations continue to work.",
@@ -184,7 +184,7 @@ chmod +x .cursor/hooks/version-check.sh
 🎉 ADO TestForge MCP Updated to v1.1.0
 
 📋 What's New:
-• Check the changelog: Run `/ado-testforge/check_status` or see docs/changelog.md
+• Check the changelog: Run `/ado-testforge/ado-check` or see docs/changelog.md
 • Full documentation: docs/README.md
 
 💡 Tip: All your existing drafts and configurations continue to work.
@@ -223,7 +223,7 @@ This runs the version check **before the first MCP tool use** in a session, ensu
 |------------|---------------|-----------------|------|------|
 | `sessionStart` | Every new Cursor session | First thing when opening workspace | Immediate, proactive | May feel intrusive if user isn't using MCP |
 | `preToolUse` with matcher | First MCP tool use in session | When user actively uses MCP | Contextual, relevant | Delayed if user doesn't use MCP immediately |
-| `check_setup_status` output | User runs status check | User-initiated | Non-intrusive, on-demand | Passive, requires user action |
+| `ado_check` output | User runs status check | User-initiated | Non-intrusive, on-demand | Passive, requires user action |
 
 **Recommendation:** Use **`sessionStart`** for maximum visibility, but only show notification **once per version**. The flag file ensures users don't see the same notification repeatedly.
 
@@ -268,7 +268,7 @@ Please check your credentials at ~/.ado-testforge-mcp/credentials.json
 Add version to command help:
 
 ```
-/ado-testforge/check_status
+/ado-testforge/ado-check
 
 ADO TestForge MCP v1.1.0
 Status: ✓ Ready
@@ -285,10 +285,10 @@ When a new version is deployed:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
    ```
-2. **Status Check Notification** — The next `/ado-testforge/check_status` run shows a one\-time "What's New" summary for the new version
+2. **Status Check Notification** — The next `/ado-testforge/ado-check` run shows a one\-time "What's New" summary for the new version
 3. **User Action** — User can:
    * Continue working (no action needed, backward\-compatible)
-   * Run `/ado-testforge/check_status` to see "What's New" details
+   * Run `/ado-testforge/ado-check` to see "What's New" details
    * Read `docs/changelog.md` for full changes
 4. **MCP Refresh** — Restart Cursor or refresh MCP in Settings → MCP
 
@@ -338,7 +338,7 @@ fi
 - [ ] Create `.cursor/hooks/version-check.sh` script
 - [ ] Make script executable (`chmod +x`)
 - [ ] Test hook by deploying new version
-- [x] Add version to `check_setup_status` output
+- [x] Add version to `ado_check` output
 - [ ] Add version to test case draft headers
 - [ ] Add version to error messages (optional)
 - [x] Document version check in user-setup-guide.md
@@ -418,9 +418,9 @@ If MCP SDK adds banner/notification support in the future, we could:
 | Method | Visibility | Timing | User Action | Status |
 |--------|-----------|--------|-------------|--------|
 | **Cursor Hook** | High | Automatic (session start) | None | **Recommended** ✅ |
-| **check_setup_status** | Medium | On-demand | Run command | Implemented |
+| **ado_check** | Medium | On-demand | Run command | Implemented |
 | **MCP Settings** | Low | Manual check | Open settings | Available now |
 | **Test Case Headers** | Medium | When drafting TCs | None | Can add |
 | **Changelog.md** | Low | Manual read | Open file | Available now |
 
-**Best Practice:** The implemented baseline is **check_setup_status + changelog + MCP metadata**. Hooks remain an optional future enhancement if more proactive notifications are needed.
+**Best Practice:** The implemented baseline is **ado_check + changelog + MCP metadata**. Hooks remain an optional future enhancement if more proactive notifications are needed.

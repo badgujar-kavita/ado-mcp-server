@@ -81,7 +81,7 @@ export const CONFIRM_BEFORE_ACT_CONTRACT = [
   "3. **On yes, call the NEXT action tool.** Do not re-call the same",
   "   tool with a 'confirm' flag — ado-mcp does not use resume tokens.",
   "   Move forward to the tool that actually performs the write (e.g.",
-  "   `push_tc_draft_to_ado` after a preview was saved).",
+  "   `qa_publish_push` after a preview was saved).",
   "4. **On no / cancel, stop.** Tell the user the operation was",
   "   cancelled. Do not retry, do not suggest a workaround, do not",
   "   reach for another tool.",

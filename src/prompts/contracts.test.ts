@@ -33,18 +33,18 @@ async function capturePromptTexts(): Promise<Map<string, string>> {
 }
 
 const READ_PROMPTS = [
-  "get_user_story",
-  "list_test_plans",
-  "get_test_plan",
-  "list_test_suites",
-  "get_test_suite",
-  "list_test_cases",
-  "get_test_case",
-  "list_work_item_fields",
-  "get_confluence_page",
+  "ado-story",
+  "ado-plans",
+  "ado-plan",
+  "ado-suites",
+  "ado-suite",
+  "ado-suite-tests",
+  "qa-tc-read",
+  "ado-fields",
+  "confluence-read",
 ];
 
-const CONFIRM_PROMPTS = ["create_test_cases", "clone_and_enhance_test_cases"];
+const CONFIRM_PROMPTS = ["qa-publish", "qa-clone"];
 
 test("every read prompt composes INTERACTIVE_READ_CONTRACT", async () => {
   const texts = await capturePromptTexts();
@@ -58,13 +58,13 @@ test("every read prompt composes INTERACTIVE_READ_CONTRACT", async () => {
   }
 });
 
-test("check_status prompt composes DIAGNOSTIC_CONTRACT", async () => {
+test("ado-check prompt composes DIAGNOSTIC_CONTRACT", async () => {
   const texts = await capturePromptTexts();
-  const text = texts.get("check_status");
-  assert.ok(text, "check_status prompt should be registered");
+  const text = texts.get("ado-check");
+  assert.ok(text, "ado-check prompt should be registered");
   assert.ok(
     text.includes(DIAGNOSTIC_CONTRACT),
-    "check_status must compose DIAGNOSTIC_CONTRACT",
+    "ado-check must compose DIAGNOSTIC_CONTRACT",
   );
 });
 
@@ -90,13 +90,13 @@ test("no prompt contains the anti-pattern phrase 'show the result verbatim'", as
   }
 });
 
-test("setup prompts (configure, setup_credentials) intentionally skip the read contract", async () => {
+test("setup prompt (ado-connect) intentionally skips the read contract", async () => {
   const texts = await capturePromptTexts();
-  const configure = texts.get("configure");
-  assert.ok(configure, "configure prompt should be registered");
+  const connect = texts.get("ado-connect");
+  assert.ok(connect, "ado-connect prompt should be registered");
   assert.ok(
-    !configure.includes(INTERACTIVE_READ_CONTRACT),
-    "configure prompt should not compose INTERACTIVE_READ_CONTRACT (setup category)",
+    !connect.includes(INTERACTIVE_READ_CONTRACT),
+    "ado-connect prompt should not compose INTERACTIVE_READ_CONTRACT (setup category)",
   );
 });
 

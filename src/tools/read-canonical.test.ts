@@ -1,14 +1,14 @@
 /**
  * Unit tests for the canonical read-result builders introduced in
- * Port-Commit 2 (Tier 1: get_user_story, get_test_case, list_test_cases,
- * get_confluence_page).
+ * Port-Commit 2 (Tier 1: ado_story, get_test_case, list_test_cases,
+ * confluence_read).
  *
  * We test the builder helpers directly rather than the full tool
  * registration plumbing. The builders are the entire read-to-structured
  * translation — if they produce the right CanonicalReadResult, the tool
  * handler (which just wraps them in `{ content, structuredContent }`)
  * passes through correctly. The existing work-items.test.ts already
- * covers the prose/content-array layer for get_user_story; the other
+ * covers the prose/content-array layer for ado_story; the other
  * three tools pass prose through unchanged, so the canonical shape is
  * the only new surface worth testing here.
  */
@@ -69,7 +69,7 @@ function makeTestCaseWorkItem(overrides: Partial<AdoWorkItem> = {}): AdoWorkItem
   };
 }
 
-// ── get_user_story canonical ───────────────────────────────────────────────
+// ── ado_story canonical ───────────────────────────────────────────────
 
 test("buildUserStoryCanonicalResult: basic shape for a US with no links/images", () => {
   const ctx = makeUserStoryContext();
@@ -206,7 +206,7 @@ test("buildListTestCasesCanonicalResult: empty suite still produces a valid cano
   assert.ok(canonical.item.summary!.includes("0 test cases"));
 });
 
-// ── get_confluence_page canonical ──────────────────────────────────────────
+// ── confluence_read canonical ──────────────────────────────────────────
 
 test("buildConfluencePageCanonicalResult: basic shape for a page", () => {
   const page: ConfluencePageResult = {

@@ -8,7 +8,7 @@ import {
 } from "./read-result.ts";
 
 /**
- * Build the CanonicalReadResult for `get_confluence_page`.
+ * Build the CanonicalReadResult for `confluence_read`.
  *
  * - `item.type` = "confluence-page".
  * - `item.summary` is a first-500-char excerpt of the page body
@@ -35,7 +35,7 @@ export function buildConfluencePageCanonicalResult(
 
 export function registerConfluenceTools(server: McpServer, confluenceClient: ConfluenceClient | null) {
   server.registerTool(
-    "get_confluence_page",
+    "confluence_read",
     {
       description:
         "Read a Confluence page by ID for Solution Design reference (requires CONFLUENCE_* env vars)",

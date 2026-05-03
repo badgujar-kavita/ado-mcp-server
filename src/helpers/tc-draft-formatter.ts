@@ -1,6 +1,6 @@
 /**
  * Formats structured test case draft data into reviewable markdown with tables.
- * Used by save_tc_draft to produce tc-drafts/US_<id>/US_<id>_test_cases.md
+ * Used by qa_draft_save to produce tc-drafts/US_<id>/US_<id>_test_cases.md
  * Includes Supporting Documents links to solution_design_summary and qa_cheat_sheet.
  */
 

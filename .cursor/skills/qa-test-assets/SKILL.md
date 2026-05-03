@@ -1,5 +1,5 @@
 ---
-name: test-case-asset-manager
+name: qa-test-assets
 description: Organize test case assets per user story with dedicated folders, separate files for test cases, solution design summary, and QA cheat sheet. Use when drafting test cases, creating test case folders, or organizing QA documentation for a User Story.
 ---
 
@@ -41,7 +41,7 @@ tc-drafts/
 
 ## Optional: `attachments/` subfolder
 
-When the `images.saveLocally: true` config flag is set in `conventions.config.json`, `get_user_story` will persist any fetched ADO / Confluence images to disk. The folder layout is:
+When the `images.saveLocally: true` config flag is set in `conventions.config.json`, `ado_story` will persist any fetched ADO / Confluence images to disk. The folder layout is:
 
 ```
 tc-drafts/
@@ -321,7 +321,7 @@ Rule Order 3: Case_Category__c = blank/other → Default Support Queue should be
 - "Record should be visible in list view"
 - "Save action should succeed"
 
-**Content Quality:** For test case content rules (coverage matrix, logic interpretation, step format), reference the [draft-test-cases-salesforce-tpm](../draft-test-cases-salesforce-tpm/SKILL.md) skill.
+**Content Quality:** For test case content rules (coverage matrix, logic interpretation, step format), reference the [qa-test-drafting](../qa-test-drafting/SKILL.md) skill.
 
 ---
 

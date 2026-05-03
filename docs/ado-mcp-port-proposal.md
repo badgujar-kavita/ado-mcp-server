@@ -50,35 +50,35 @@ in separate, small commits.
 
 | Tool name | File:line | Category |
 |---|---|---|
-| `configure` | `setup.ts:168` | setup |
-| `setup_credentials` | `setup.ts:207` | setup |
-| `check_setup_status` | `setup.ts:246` | diagnostic |
-| `get_user_story` | `work-items.ts:19` | read |
-| `list_test_cases_linked_to_user_story` | `work-items.ts:50` | read |
-| `list_work_item_fields` | `work-items.ts:89` | read |
-| `list_test_plans` | `test-plans.ts:7` | read |
-| `get_test_plan` | `test-plans.ts:38` | read |
-| `create_test_plan` | `test-plans.ts:61` | action |
-| `list_test_cases` | `test-cases.ts:34` | read |
-| `get_test_case` | `test-cases.ts:63` | read |
-| `update_test_case` | `test-cases.ts:86` | action |
-| `add_test_cases_to_suite` | `test-cases.ts:141` | action |
-| `delete_test_case` | `test-cases.ts:170` | action |
-| `ensure_suite_hierarchy_for_us` | `test-suites.ts:16` | action |
-| `ensure_suite_hierarchy` | `test-suites.ts:37` | action |
-| `find_or_create_test_suite` | `test-suites.ts:60` | action |
-| `list_test_suites` | `test-suites.ts:86` | read |
-| `get_test_suite` | `test-suites.ts:115` | read |
-| `create_test_suite` | `test-suites.ts:140` | action |
-| `update_test_suite` | `test-suites.ts:173` | action |
-| `delete_test_suite` | `test-suites.ts:213` | action |
-| `save_tc_draft` | `tc-drafts.ts:120` | action |
-| `get_tc_draft` | `tc-drafts.ts:175` | read |
-| `list_tc_drafts` | `tc-drafts.ts:207` | read |
-| `save_tc_clone_preview` | `tc-drafts.ts:332` | action (interactive) |
-| `push_tc_draft_to_ado` | `tc-drafts.ts:366` | action |
-| `save_tc_supporting_doc` | `tc-drafts.ts:496` | action |
-| `get_confluence_page` | `confluence.ts:6` | read |
+| `ado_connect` | `setup.ts:168` | setup |
+| `ado_connect_save` | `setup.ts:207` | setup |
+| `ado_check` | `setup.ts:246` | diagnostic |
+| `ado_story` | `work-items.ts:19` | read |
+| `qa_tests` | `work-items.ts:50` | read |
+| `ado_fields` | `work-items.ts:89` | read |
+| `ado_plans` | `test-plans.ts:7` | read |
+| `ado_plan` | `test-plans.ts:38` | read |
+| `ado_plan_create` | `test-plans.ts:61` | action |
+| `ado_suite_tests` | `test-cases.ts:34` | read |
+| `qa_tc_read` | `test-cases.ts:63` | read |
+| `qa_tc_update` | `test-cases.ts:86` | action |
+| `qa_suite_add_tests` | `test-cases.ts:141` | action |
+| `qa_tc_delete` | `test-cases.ts:170` | action |
+| `qa_suite_setup_auto` | `test-suites.ts:16` | action |
+| `qa_suite_setup_manual` | `test-suites.ts:37` | action |
+| `qa_suite_find_or_create` | `test-suites.ts:60` | action |
+| `ado_suites` | `test-suites.ts:86` | read |
+| `ado_suite` | `test-suites.ts:115` | read |
+| `qa_suite_create` | `test-suites.ts:140` | action |
+| `qa_suite_update` | `test-suites.ts:173` | action |
+| `qa_suite_delete` | `test-suites.ts:213` | action |
+| `qa_draft_save` | `tc-drafts.ts:120` | action |
+| `qa_draft_read` | `tc-drafts.ts:175` | read |
+| `qa_drafts_list` | `tc-drafts.ts:207` | read |
+| `qa_clone_preview_save` | `tc-drafts.ts:332` | action (interactive) |
+| `qa_publish_push` | `tc-drafts.ts:366` | action |
+| `qa_draft_doc_save` | `tc-drafts.ts:496` | action |
+| `confluence_read` | `confluence.ts:6` | read |
 
 **Read category (14 tools):** the most valuable targets for this
 refactor. They currently return `JSON.stringify(context, null, 2)`
@@ -87,8 +87,8 @@ jira-mcp ("show the result verbatim" anti-pattern). Port has high
 leverage here.
 
 **Action category (13 tools):** already single-turn, no resume
-tokens. Most don't need elicitation; a few (`save_tc_clone_preview`,
-`push_tc_draft_to_ado`) have informal approve/modify/cancel
+tokens. Most don't need elicitation; a few (`qa_clone_preview_save`,
+`qa_publish_push`) have informal approve/modify/cancel
 prompting that could be formalized.
 
 **Setup + diagnostic (3 tools):** small surface, similar enough
@@ -169,7 +169,7 @@ ado-mcp's action tools don't have this; they're single-turn.
 
 **Implication:** `ELICITATION_PROTOCOL` doesn't port directly. The
 two places ado-mcp has informal approve/cancel prompts
-(`save_tc_clone_preview`, `push_tc_draft_to_ado` with `repush`) can
+(`qa_clone_preview_save`, `qa_publish_push` with `repush`) can
 be formalized with a lighter contract — no resume token, just
 "agent asks, user answers, agent calls the next tool."
 
@@ -220,7 +220,7 @@ landed on jira-mcp, which adds 6 new AGENTS.md sections to port).
      Swap `testcase-drafts/**` → `tc-drafts/**`. Drop `.jira-mcp/**`;
      add `~/.ado-testforge-mcp/**` (credentials directory). Keep
      the tool-read-vs-host-IDE-read distinction load-bearing:
-     **ado-mcp has `get_tc_draft` and `list_tc_drafts` MCP tools
+     **ado-mcp has `qa_draft_read` and `qa_drafts_list` MCP tools
      that read these files** — the blacklist applies only to
      Cursor's built-in Read/Write/Edit tools, never to the MCP
      tools themselves.
@@ -253,21 +253,21 @@ landed on jira-mcp, which adds 6 new AGENTS.md sections to port).
 
 - Update `src/prompts/index.ts`:
   - Compose `INTERACTIVE_READ_CONTRACT` into every read prompt
-    (`get_user_story`, `list_test_plans`, `get_test_plan`,
-    `list_test_suites`, `get_test_suite`, `list_test_cases`,
-    `get_test_case`, `list_work_item_fields`,
-    `list_test_cases_linked_to_user_story`, `get_tc_draft`,
-    `list_tc_drafts`, `get_confluence_page`).
-  - Compose `DIAGNOSTIC_CONTRACT` into `check_setup_status`.
+    (`ado_story`, `ado_plans`, `ado_plan`,
+    `ado_suites`, `ado_suite`, `ado_suite_tests`,
+    `qa_tc_read`, `ado_fields`,
+    `qa_tests`, `qa_draft_read`,
+    `qa_drafts_list`, `confluence_read`).
+  - Compose `DIAGNOSTIC_CONTRACT` into `ado_check`.
   - Compose `CONFIRM_BEFORE_ACT_CONTRACT` into
-    `save_tc_clone_preview` and `push_tc_draft_to_ado`.
-  - Setup prompts (`configure`, `setup_credentials`) left as-is —
+    `qa_clone_preview_save` and `qa_publish_push`.
+  - Setup prompts (`ado_connect`, `ado_connect_save`) left as-is —
     their current text is already minimal.
 
 - Add contract-composition tests in
   `test/unit/prompts/contracts.test.ts`:
   - Every read prompt contains `INTERACTIVE_READ_CONTRACT` text.
-  - `check_setup_status` contains `DIAGNOSTIC_CONTRACT`.
+  - `ado_check` contains `DIAGNOSTIC_CONTRACT`.
   - No prompt contains the literal string "show the result
     verbatim" (anti-pattern eviction).
 
@@ -305,14 +305,14 @@ Rollback: revert the commit.
   - Return via `toReadToolResult(prose, canonical)`.
 
 - Specifics per tool (non-exhaustive):
-  - `get_user_story` — `item` = the US, `children` = parent +
+  - `ado_story` — `item` = the US, `children` = parent +
     linked test cases, `artifacts` = Solution Design sections,
     `completeness.isPartial=true` if Confluence fetch failed.
-  - `get_test_case` — `item` = TC, `children` = related work
+  - `qa_tc_read` — `item` = TC, `children` = related work
     items, `artifacts` = attachments.
-  - `list_test_cases` — `item` = the suite, `children` = test
+  - `ado_suite_tests` — `item` = the suite, `children` = test
     cases as nodes.
-  - `get_confluence_page` — `item` = the page, `artifacts` =
+  - `confluence_read` — `item` = the page, `artifacts` =
     images + section headers, `completeness.isPartial=false`
     (single-page fetch, no hierarchy yet — that arrives in
     Port-Commit 4 if scoped in).
@@ -334,10 +334,10 @@ test-suites, tc-drafts, confluence) if the diff gets unwieldy.
 
 ado-mcp's `tc-drafts.ts` already has a sophisticated markdown-
 saving workflow:
-- `save_tc_draft` → `tc-drafts/US_<id>/US_<id>_test_cases.md`
-- `save_tc_clone_preview` → same folder, different filename
-- `save_tc_supporting_doc` → same folder, third filename
-- Post-push, `push_tc_draft_to_ado` writes JSON co-located with the
+- `qa_draft_save` → `tc-drafts/US_<id>/US_<id>_test_cases.md`
+- `qa_clone_preview_save` → same folder, different filename
+- `qa_draft_doc_save` → same folder, third filename
+- Post-push, `qa_publish_push` writes JSON co-located with the
   .md
 
 This is already **more mature** than jira-mcp's snapshot system was
@@ -354,24 +354,24 @@ a walk).
 **Scope:** Rolled into Port-Commit 2 (the migration to
 `registerTool`). No separate commit needed.
 
-### Port-Commit 5 — `check_setup_status` anti-hallucination (jira-mcp's Commit 2.5 equivalent)
+### Port-Commit 5 — `ado_check` anti-hallucination (jira-mcp's Commit 2.5 equivalent)
 
 **Scope:** ~45 min.
 
-ado-mcp's `check_setup_status` currently returns prose. Port
+ado-mcp's `ado_check` currently returns prose. Port
 jira-mcp's pattern:
 
 - The tool computes an overall verdict (`healthy` / `degraded` /
   `broken`) based on credential + API-probe rows.
 - The tool pre-computes a Next Actions list — deterministic
   mapping from row status to remediation (e.g. "PAT missing → Run
-  `/configure` and paste an ADO PAT with Test Management read/
+  `/ado-connect` and paste an ADO PAT with Test Management read/
   write scope").
 - The prompt uses `DIAGNOSTIC_CONTRACT` (already landed in
   Port-Commit 1): show the table verbatim, surface Next Actions
   verbatim, do NOT invent causes, do NOT invoke other tools.
 
-- Tests in `test/unit/tools/check_setup_status.test.ts` —
+- Tests in `test/unit/tools/ado_check.test.ts` —
   deterministic Next Actions output when rows are mocked.
 
 **Risk:** low. Scoped to one tool.
@@ -406,7 +406,7 @@ transformation (from jira-mcp):
 
 Likely ado-mcp candidates based on existing inventory: any tool
 that has a `save`, `confirm`, `repush`, or similar flag whose
-purpose appears in user-facing prose. `push_tc_draft_to_ado` is a
+purpose appears in user-facing prose. `qa_publish_push` is a
 probable candidate (`repush: true` might leak). Confirm via audit
 before rewriting.
 
@@ -427,7 +427,7 @@ clean:
   offending site. The `ado-client.ts` and `confluence-client.ts`
   are the high-risk surfaces.
 - **Path-traversal audit:** every file-write in `tc-drafts.ts`,
-  `save_tc_supporting_doc`, etc. Check whether user-controllable
+  `qa_draft_doc_save`, etc. Check whether user-controllable
   path segments (`userStoryId`, `workspaceRoot`, `draftsPath`,
   `docType`) are validated. If not, add a resolve-and-verify
   check.
@@ -456,10 +456,10 @@ clean:
 - **Orphan-awareness preflight** (jira-mcp's `/qa_publish` Commit
   2.6, `e16747c`). **ado-mcp already shipped the equivalent** —
   see commit `0f33187` "Add duplicate test case guard to
-  push_tc_draft_to_ado", already in `src/tools/tc-drafts.ts`
+  qa_publish_push", already in `src/tools/tc-drafts.ts`
   around lines 457–500. ado-mcp's implementation is adapted for
   its ledger-less model: it compares the draft's inline
-  `adoWorkItemId` fields against `list_test_cases_linked_to_user_story`
+  `adoWorkItemId` fields against `qa_tests`
   (the equivalent of jira-mcp's `/issuelinks/{key}/testcases`)
   rather than against a ledger. Same A/B/C menu, same fetch-
   failed fallback, same "proceed / inspect / cancel" ergonomics.
@@ -499,7 +499,7 @@ decision log landed on jira-mcp):
 | 0 | Bootstrap Vitest | 15 min | ~0 |
 | 1 | AGENTS.md + shared contracts | 60 min | low |
 | 2 | Canonical read shape (split by tool file) | 3 h | medium |
-| 5 | `check_setup_status` anti-hallucination | 45 min | low |
+| 5 | `ado_check` anti-hallucination | 45 min | low |
 | 5.5 | Per-tool user-intent audit (audit-first; rewrite only violations) | 30–90 min | low |
 | 6 | Security audits | 1 h | low (audit-first) |
 
@@ -507,12 +507,12 @@ Port-Commits 3 and 4 skipped (see §4 and §3.4).
 
 **Stop-the-line checkpoints:**
 - After Commit 1: real-session test in Cursor with
-  `/get_user_story` — agent should now summarize + offer next
+  `/ado_story` — agent should now summarize + offer next
   actions instead of dumping the JSON blob. If not, prompt
   composition isn't reaching the agent; debug before continuing.
 - After Commit 2: same test, now the structured data should be
   visible to clients that consume `structuredContent`.
-- After Commit 5: run `/check_setup_status` in a degraded state
+- After Commit 5: run `/ado_check` in a degraded state
   (e.g. no PAT); verify overall + Next Actions show up.
 
 ---
@@ -525,8 +525,8 @@ Port-Commits 3 and 4 skipped (see §4 and §3.4).
    1–6 without tests and rely on manual verification.
 
 2. **Scope cut for Commit 2** — 14 read tools is a lot. Phase it?
-   Tier 1 (highest-value): `get_user_story`, `get_test_case`,
-   `list_test_cases`, `get_confluence_page`. Tier 2 (rest).
+   Tier 1 (highest-value): `ado_story`, `qa_tc_read`,
+   `ado_suite_tests`, `confluence_read`. Tier 2 (rest).
    Tier 1 alone captures ~80% of the user-facing benefit.
 
 3. **`CONFIRM_BEFORE_ACT_CONTRACT`** — does it need to be a named
@@ -559,7 +559,7 @@ For reference, the 12 jira-mcp commits this port captures:
 - `aa6bcbf` — Commit 2 (structuredContent)
 - `3999338` — Commit 3 (readSnapshot, skipped here)
 - `f39a478` — Commit 4 (outputSchema, rolled into Commit 2 here)
-- `9370e7a` — Commit 2.5 (jira_check → check_setup_status)
+- `9370e7a` — Commit 2.5 (jira_check → ado_check)
 - `8d270e9` — Pagination audit (skipped here)
 - `3eead15` — Security audits + upstream-content rule
 - `9c88861` — Host-IDE tool broadening + qa_draft scaffold

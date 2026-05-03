@@ -71,7 +71,7 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
 After restarting Cursor, run this in the AI chat:
 
 ```
-/ado-testforge/configure
+/ado-testforge/ado-connect
 ```
 
 This opens a web interface where you can enter credentials and **test connections before saving**.
@@ -119,11 +119,11 @@ This opens a web interface where you can enter credentials and **test connection
 
 ### Step 4: Verify Setup
 
-In Cursor's AI chat, type `/ado-testforge/check_status` and run it.
+In Cursor's AI chat, type `/ado-testforge/ado-check` and run it.
 
 - On the **first successful run** for the current version, you will see a full welcome message plus setup status.
 - On **later runs**, you will see a brief `ADO TestForge MCP v1.1.0 | Status: ✓ Ready` header plus component status.
-- After a future deploy, `check_status` will show a one-time **What's New** summary.
+- After a future deploy, `ado-check` will show a one-time **What's New** summary.
 
 If you see **READY**, setup is complete.
 
@@ -131,7 +131,7 @@ If you see **READY**, setup is complete.
 
 ## Advanced Configuration (Optional)
 
-The installer also creates `~/.ado-testforge-mcp/conventions.config.json` with default settings that control test-case naming, prerequisites, Solution Design usage, and (newer) how much work-item context `get_user_story` returns to the AI. Most teams don't need to touch it.
+The installer also creates `~/.ado-testforge-mcp/conventions.config.json` with default settings that control test-case naming, prerequisites, Solution Design usage, and (newer) how much work-item context `ado_story` returns to the AI. Most teams don't need to touch it.
 
 If you do want to customize (e.g. enable image vision so the AI can see screenshots in ADO rich-text fields, or register extra custom fields as primary context), see [`setup-guide.md` → Step 2c](setup-guide.md#step-2c-tune-context-richness-optional) for the full options.
 
@@ -166,12 +166,12 @@ Type `/ado-testforge` in the AI chat to see all commands. Common ones:
 
 | Command | Purpose |
 |---------|---------|
-| `/ado-testforge/check_status` | Verify setup |
-| `/ado-testforge/get_user_story` | Fetch a User Story with acceptance criteria |
-| `/ado-testforge/draft_test_cases` | Generate a test case draft for review |
-| `/ado-testforge/create_test_cases` | Push reviewed draft to ADO |
-| `/ado-testforge/list_test_plans` | List test plans in your project |
-| `/ado-testforge/update_test_case` | Update an existing test case |
+| `/ado-testforge/ado-check` | Verify setup |
+| `/ado-testforge/ado-story` | Fetch a User Story with acceptance criteria |
+| `/ado-testforge/qa-draft` | Generate a test case draft for review |
+| `/ado-testforge/qa-publish` | Push reviewed draft to ADO |
+| `/ado-testforge/ado-plans` | List test plans in your project |
+| `/ado-testforge/qa-tc-update` | Update an existing test case |
 
 You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or *"Draft test cases for user story 12345"*.
 
@@ -207,7 +207,7 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 1. Open `~/.ado-testforge-mcp/credentials.json`.
 2. Verify you replaced all placeholder values—`ado_pat`, `ado_org`, and `ado_project` must not be empty.
-3. Run `/ado-testforge/check_status` to see which field is missing.
+3. Run `/ado-testforge/ado-check` to see which field is missing.
 
 ---
 
@@ -241,7 +241,7 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ## Need Help?
 
-* **Setup issues:** Re\-run the installation command and then `/ado-testforge/check_status` to diagnose.
+* **Setup issues:** Re\-run the installation command and then `/ado-testforge/ado-check` to diagnose.
 * **Detailed technical guide:** See the full [Setup Guide](setup-guide.md).
 * **Team support:** Reach out to your QA lead or project administrator.
 

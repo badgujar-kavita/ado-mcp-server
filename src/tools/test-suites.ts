@@ -18,7 +18,7 @@ import {
 
 export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   server.tool(
-    "ensure_suite_hierarchy_for_us",
+    "qa_suite_setup_auto",
     "Build the full suite folder hierarchy for a User Story. Only needs User Story ID — derives plan and sprint from US AreaPath and Iteration. Creates if missing; updates naming if existing suite has wrong format.",
     {
       userStoryId: z.number().int().positive().describe("The User Story work item ID"),
@@ -39,7 +39,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   );
 
   server.tool(
-    "ensure_suite_hierarchy",
+    "qa_suite_setup_manual",
     "Build the full suite folder hierarchy (sprint > parent-us/non-epic > us-query) for a User Story. Checks for existing suites at each level before creating.",
     {
       planId: z.number().int().positive().describe("The test plan ID (e.g., GPT_D-HUB plan ID)"),
@@ -62,7 +62,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   );
 
   server.tool(
-    "find_or_create_test_suite",
+    "qa_suite_find_or_create",
     "Find a test suite by name under a parent suite, or create it if not found",
     {
       planId: z.number().int().positive().describe("The test plan ID"),
@@ -88,7 +88,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   );
 
   server.registerTool(
-    "list_test_suites",
+    "ado_suites",
     {
       description: "List all test suites in a test plan",
       inputSchema: {
@@ -125,7 +125,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   );
 
   server.registerTool(
-    "get_test_suite",
+    "ado_suite",
     {
       description: "Get details of a specific test suite",
       inputSchema: {
@@ -156,8 +156,8 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   );
 
   server.tool(
-    "create_test_suite",
-    "Create a new test suite under a parent suite. Use find_or_create_test_suite if you need to find-or-create.",
+    "qa_suite_create",
+    "Create a new test suite under a parent suite. Use qa_suite_find_or_create if you need to find-or-create.",
     {
       planId: z.number().int().positive().describe("The test plan ID"),
       parentSuiteId: z.number().int().positive().describe("Parent suite ID to create under"),
@@ -189,7 +189,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   );
 
   server.tool(
-    "update_test_suite",
+    "qa_suite_update",
     "Update an existing test suite (name, parent, query string). Only include fields you want to change.",
     {
       planId: z.number().int().positive().describe("The test plan ID"),
@@ -229,7 +229,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   );
 
   server.tool(
-    "delete_test_suite",
+    "qa_suite_delete",
     "Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.",
     {
       planId: z.number().int().positive().describe("The test plan ID"),
@@ -257,7 +257,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
 // ── Canonical read-result builders ──
 
 /**
- * Build the CanonicalReadResult for `list_test_suites`.
+ * Build the CanonicalReadResult for `ado_suites`.
  *
  * - `item` represents the test plan itself (the read target).
  * - `children[]` = every suite in the plan, `relationship: "child"` when
@@ -288,7 +288,7 @@ export function buildSuiteListCanonicalResult(
 }
 
 /**
- * Build the CanonicalReadResult for `get_test_suite`.
+ * Build the CanonicalReadResult for `ado_suite`.
  *
  * - `item` = the suite itself. `summary` carries the suite type if
  *   present.

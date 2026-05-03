@@ -1,5 +1,5 @@
 /**
- * Tier-2 migration tests for `list_test_plans` / `get_test_plan`
+ * Tier-2 migration tests for `ado_plans` / `ado_plan`
  * (src/tools/test-plans.ts).
  *
  * We test the canonical builders directly — same pattern as
@@ -31,9 +31,9 @@ function makeTestPlan(overrides: Partial<AdoTestPlan> = {}): AdoTestPlan {
   };
 }
 
-// ── list_test_plans canonical ──────────────────────────────────────────────
+// ── ado_plans canonical ──────────────────────────────────────────────
 
-test("list_test_plans returns structuredContent with children per plan", () => {
+test("ado_plans returns structuredContent with children per plan", () => {
   const plans = [
     { id: 1, name: "Plan A", areaPath: "X", state: "Active", rootSuiteId: 10 },
     { id: 2, name: "Plan B", areaPath: "Y", state: "Inactive", rootSuiteId: 20 },
@@ -59,7 +59,7 @@ test("list_test_plans returns structuredContent with children per plan", () => {
   assert.equal(canonical.completeness.isPartial, false);
 });
 
-test("list_test_plans with empty project returns empty children", () => {
+test("ado_plans with empty project returns empty children", () => {
   const canonical = buildTestPlansListCanonicalResult([]);
 
   assert.equal(canonical.item.id, "project-test-plans");
@@ -71,9 +71,9 @@ test("list_test_plans with empty project returns empty children", () => {
   assert.ok(canonical.item.summary!.includes("0 test plans"));
 });
 
-// ── get_test_plan canonical ────────────────────────────────────────────────
+// ── ado_plan canonical ────────────────────────────────────────────────
 
-test("get_test_plan populates root suite as child", () => {
+test("ado_plan populates root suite as child", () => {
   const plan = makeTestPlan({
     id: 42,
     name: "Sprint 5 Plan",
@@ -97,7 +97,7 @@ test("get_test_plan populates root suite as child", () => {
   assert.equal(canonical.completeness.isPartial, false);
 });
 
-test("get_test_plan without rootSuite works", () => {
+test("ado_plan without rootSuite works", () => {
   // Some ADO responses omit rootSuite. Our builder returns undefined children.
   const plan = makeTestPlan({ id: 99, name: "Empty Plan", areaPath: "" });
   // Simulate missing rootSuite on the wire. AdoTestPlan declares it as

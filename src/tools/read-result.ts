@@ -199,7 +199,7 @@ export const READ_OUTPUT_SCHEMA = {
  *
  * The prose parameter is emitted as a single `{ type: "text" }` part.
  * Callers that need additional content parts (e.g. image parts from
- * `get_user_story`) should use the 3-arg form.
+ * `ado_story`) should use the 3-arg form.
  */
 export function toReadToolResult(
   prose: string,
