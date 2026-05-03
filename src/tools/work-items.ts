@@ -19,6 +19,13 @@ import { loadConventionsConfig } from "../config.ts";
 import { stripHtml } from "../helpers/strip-html.ts";
 import { extractAndFetchAdoImages } from "../helpers/ado-attachments.ts";
 import { fetchCurrentVersionAttachments } from "../helpers/confluence-attachments.ts";
+import {
+  READ_OUTPUT_SCHEMA,
+  type CanonicalReadResult,
+  type CanonicalReadChild,
+  type CanonicalReadArtifact,
+  type CanonicalReadDiagnostic,
+} from "./read-result.ts";
 
 /**
  * ADO system/common fields that are rarely useful to an LLM producing test
@@ -74,10 +81,20 @@ export function registerWorkItemTools(
   client: AdoClient,
   confluenceClient: ConfluenceClient | null
 ) {
-  server.tool(
+  server.registerTool(
     "get_user_story",
-    "Fetch a User Story from ADO with description, acceptance criteria, parent info, Solution Design content from Confluence, and all relations",
-    { workItemId: z.number().int().positive().describe("The ADO work item ID of the User Story") },
+    {
+      description:
+        "Fetch a User Story from ADO with description, acceptance criteria, parent info, Solution Design content from Confluence, and all relations",
+      inputSchema: {
+        workItemId: z
+          .number()
+          .int()
+          .positive()
+          .describe("The ADO work item ID of the User Story"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
+    },
     async ({ workItemId }) => {
       try {
         const item = await client.get<AdoWorkItem>(
@@ -88,11 +105,16 @@ export function registerWorkItemTools(
 
         const context = await extractUserStoryContext(item, client, confluenceClient);
         const config = loadConventionsConfig();
-        return buildGetUserStoryResponse(context, {
+        const { content, withUrl } = buildGetUserStoryResponse(context, {
           webUrl: adoWorkItemUrl(client, context.id),
           returnMcpImageParts: config.images?.returnMcpImageParts === true,
           maxTotalBytesPerResponse: config.images?.maxTotalBytesPerResponse ?? 4194304,
         });
+        const canonical = buildUserStoryCanonicalResult(withUrl);
+        return {
+          content,
+          structuredContent: canonical as unknown as Record<string, unknown>,
+        };
       } catch (err) {
         return {
           content: [{ type: "text" as const, text: `Error fetching US#${workItemId}: ${err}` }],
@@ -566,6 +588,12 @@ export function buildGetUserStoryResponse(
     | { type: "text"; text: string }
     | { type: "image"; data: string; mimeType: string }
   >;
+  /**
+   * Post-strip UserStoryContext merged with `webUrl`. Exposed so the
+   * tool handler can synthesise a CanonicalReadResult from the same
+   * data that was serialised into the text part (no double-stripping).
+   */
+  withUrl: UserStoryContext & { webUrl: string };
 } {
   const { webUrl, returnMcpImageParts, maxTotalBytesPerResponse } = options;
 
@@ -609,5 +637,104 @@ export function buildGetUserStoryResponse(
       { type: "text" as const, text: JSON.stringify(withUrl, null, 2) },
       ...imageParts,
     ],
+    withUrl,
+  };
+}
+
+/**
+ * Synthesise the canonical read result for `get_user_story` from the
+ * same `UserStoryContext + webUrl` that was serialised into the prose.
+ *
+ * - `item.type` = "user-story"
+ * - `item.summary` is a 500-char stripped-HTML excerpt of description.
+ * - `children`: the parent (if any). Linked test cases require a
+ *   second API call (`list_test_cases_linked_to_user_story`) that this
+ *   tool deliberately doesn't make — documented skip.
+ * - `artifacts`: one entry per fetched Confluence page
+ *   (`kind: "solution-design"`) and one per successfully-attached
+ *   image (`kind: "image"`). Skipped images are reported as
+ *   diagnostics instead.
+ * - `completeness.isPartial = true` if any unfetched links are present
+ *   OR any image is marked `skipped: "fetch-failed"`.
+ */
+export function buildUserStoryCanonicalResult(
+  withUrl: UserStoryContext & { webUrl: string },
+): CanonicalReadResult {
+  const children: CanonicalReadChild[] = [];
+  if (withUrl.parentId != null) {
+    children.push({
+      id: withUrl.parentId,
+      type: "work-item",
+      title: withUrl.parentTitle ?? `#${withUrl.parentId}`,
+      relationship: "parent",
+    });
+  }
+
+  const artifacts: CanonicalReadArtifact[] = [];
+  for (const page of withUrl.fetchedConfluencePages ?? []) {
+    artifacts.push({
+      kind: "solution-design",
+      title: page.title,
+      url: page.url,
+    });
+  }
+  const allImages = [
+    ...(withUrl.embeddedImages ?? []),
+    ...(withUrl.fetchedConfluencePages ?? []).flatMap((p) => p.images),
+  ];
+  for (const img of allImages) {
+    if (img.skipped) continue;
+    artifacts.push({
+      kind: "image",
+      title: img.filename,
+      url: img.originalUrl,
+    });
+  }
+
+  const diagnostics: CanonicalReadDiagnostic[] = [];
+  for (const link of withUrl.unfetchedLinks ?? []) {
+    diagnostics.push({
+      severity: "warning",
+      message: `Unfetched link (${link.reason}): ${link.url}`,
+    });
+  }
+  const fetchFailedImages = allImages.filter(
+    (i) => i.skipped === "fetch-failed",
+  );
+  if (fetchFailedImages.length > 0) {
+    diagnostics.push({
+      severity: "warning",
+      message: `${fetchFailedImages.length} image${fetchFailedImages.length === 1 ? "" : "s"} failed to fetch`,
+    });
+  }
+
+  const unfetchedCount = withUrl.unfetchedLinks?.length ?? 0;
+  const isPartial = unfetchedCount > 0 || fetchFailedImages.length > 0;
+  let partialReason: string | undefined;
+  if (isPartial) {
+    const parts: string[] = [];
+    if (unfetchedCount > 0) {
+      parts.push(`${unfetchedCount} unfetched link${unfetchedCount === 1 ? "" : "s"}`);
+    }
+    if (fetchFailedImages.length > 0) {
+      parts.push(`${fetchFailedImages.length} image fetch failure${fetchFailedImages.length === 1 ? "" : "s"}`);
+    }
+    partialReason = parts.join(", ");
+  }
+
+  return {
+    item: {
+      id: withUrl.id,
+      type: "user-story",
+      title: withUrl.title,
+      summary: stripHtml(withUrl.description ?? "").slice(0, 500) || undefined,
+    },
+    ...(children.length > 0 ? { children } : {}),
+    ...(artifacts.length > 0 ? { artifacts } : {}),
+    completeness: {
+      isPartial,
+      ...(partialReason ? { reason: partialReason } : {}),
+    },
+    ...(diagnostics.length > 0 ? { diagnostics } : {}),
   };
 }

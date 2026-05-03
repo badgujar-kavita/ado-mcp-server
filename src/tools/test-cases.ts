@@ -8,6 +8,13 @@ import { buildTcTitle } from "../helpers/tc-title-builder.ts";
 import { buildPrerequisitesHtml } from "../helpers/prerequisites.ts";
 import { buildStepsXml } from "../helpers/steps-builder.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
+import { stripHtml } from "../helpers/strip-html.ts";
+import {
+  READ_OUTPUT_SCHEMA,
+  type CanonicalReadResult,
+  type CanonicalReadChild,
+  type CanonicalReadArtifact,
+} from "./read-result.ts";
 
 // Formatting (bold, lists, persona sub-bullets, TO BE TESTED FOR expansion) is applied
 // via buildPrerequisitesHtml and buildStepsXml for ALL paths: createTestCase (push_tc_draft_to_ado),
@@ -32,12 +39,15 @@ export function registerTestCaseTools(
   // Note: create_test_case tool removed. Test cases are inserted only via create_test_cases
   // command → push_tc_draft_to_ado (after draft review and user confirmation).
 
-  server.tool(
+  server.registerTool(
     "list_test_cases",
-    "List test cases within a specific test suite",
     {
-      planId: z.number().int().positive().describe("The test plan ID"),
-      suiteId: z.number().int().positive().describe("The test suite ID"),
+      description: "List test cases within a specific test suite",
+      inputSchema: {
+        planId: z.number().int().positive().describe("The test plan ID"),
+        suiteId: z.number().int().positive().describe("The test suite ID"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
     },
     async ({ planId, suiteId }) => {
       try {
@@ -49,8 +59,11 @@ export function registerTestCaseTools(
           id: tc.testCase.id,
           name: tc.testCase.name,
         }));
+        const prose = JSON.stringify(cases, null, 2);
+        const canonical = buildListTestCasesCanonicalResult(planId, suiteId, cases);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(cases, null, 2) }],
+          content: [{ type: "text" as const, text: prose }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         return {
@@ -61,10 +74,15 @@ export function registerTestCaseTools(
     }
   );
 
-  server.tool(
+  server.registerTool(
     "get_test_case",
-    "Get a test case work item by ID with all fields",
-    { workItemId: z.number().int().positive().describe("The test case work item ID") },
+    {
+      description: "Get a test case work item by ID with all fields",
+      inputSchema: {
+        workItemId: z.number().int().positive().describe("The test case work item ID"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
+    },
     async ({ workItemId }) => {
       try {
         const item = await client.get<AdoWorkItem>(
@@ -73,8 +91,11 @@ export function registerTestCaseTools(
           { "$expand": "relations" }
         );
         const withUrl = { ...item, webUrl: adoWorkItemUrl(client, item.id) };
+        const prose = JSON.stringify(withUrl, null, 2);
+        const canonical = buildTestCaseCanonicalResult(item);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(withUrl, null, 2) }],
+          content: [{ type: "text" as const, text: prose }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         return {
@@ -192,6 +213,99 @@ export function registerTestCaseTools(
       }
     }
   );
+}
+
+// ── Canonical read-result builders ──
+
+/**
+ * Build the CanonicalReadResult for `list_test_cases` from the flat
+ * list returned by the ADO test-plan API.
+ *
+ * - `item.type` = "test-suite" (the suite is the read target).
+ * - `children[]` = every test case in the suite, `relationship:
+ *   "contained"`.
+ * - `completeness.isPartial` = false; the ADO `/TestCase` endpoint
+ *   returns the full suite contents in one page.
+ */
+export function buildListTestCasesCanonicalResult(
+  planId: number,
+  suiteId: number,
+  cases: Array<{ id: number; name: string }>,
+): CanonicalReadResult {
+  return {
+    item: {
+      id: suiteId,
+      type: "test-suite",
+      title: `Test Suite ${suiteId}`,
+      summary: `${cases.length} test case${cases.length === 1 ? "" : "s"} in suite ${suiteId} (plan ${planId})`,
+    },
+    children: cases.map((tc) => ({
+      id: tc.id,
+      type: "test-case",
+      title: tc.name,
+      relationship: "contained",
+    })),
+    completeness: { isPartial: false },
+  };
+}
+
+/**
+ * Build the CanonicalReadResult for `get_test_case` from the raw
+ * AdoWorkItem returned by the ADO API.
+ *
+ * - `item.type` = "test-case".
+ * - `children`: derived from `item.relations` — one entry per work-item
+ *   relation (parent, tested-by, tested, related, …). Non work-item
+ *   relations (attachments, hyperlinks) are routed to `artifacts`.
+ * - `artifacts`: attachment relations if any.
+ * - `completeness.isPartial` = false (this tool returns the full item
+ *   shape in prose; no truncation is applied).
+ */
+export function buildTestCaseCanonicalResult(item: AdoWorkItem): CanonicalReadResult {
+  const relations = item.relations ?? [];
+  const children: CanonicalReadChild[] = [];
+  const artifacts: CanonicalReadArtifact[] = [];
+
+  for (const rel of relations) {
+    if (rel.rel === "AttachedFile") {
+      const name = (rel.attributes?.["name"] as string | undefined) ?? "attachment";
+      artifacts.push({ kind: "attachment", title: name, url: rel.url });
+      continue;
+    }
+    if (rel.rel === "Hyperlink") {
+      const comment = (rel.attributes?.["comment"] as string | undefined) ?? rel.url;
+      artifacts.push({ kind: "hyperlink", title: comment, url: rel.url });
+      continue;
+    }
+    // Otherwise treat as a related work item.
+    const parts = rel.url.split("/");
+    const idStr = parts[parts.length - 1] ?? "";
+    const idNum = parseInt(idStr, 10);
+    const id: string | number = Number.isNaN(idNum) ? rel.url : idNum;
+    const title = (rel.attributes?.["name"] as string | undefined) ?? rel.rel;
+    children.push({
+      id,
+      type: "work-item",
+      title,
+      relationship: rel.rel,
+    });
+  }
+
+  const title = (item.fields["System.Title"] as string) ?? `Test Case ${item.id}`;
+  const descriptionHtml = (item.fields["System.Description"] as string) ?? "";
+  const summary = stripHtml(descriptionHtml).slice(0, 500) || undefined;
+
+  return {
+    item: {
+      id: item.id,
+      type: "test-case",
+      title,
+      summary,
+    },
+    ...(children.length > 0 ? { children } : {}),
+    ...(artifacts.length > 0 ? { artifacts } : {}),
+    completeness: { isPartial: false },
+  };
 }
 
 // ── Core Logic (exported for push_tc_draft_to_ado) ──
