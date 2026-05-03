@@ -21,7 +21,8 @@ Removed the last set of TPM-customer-specific vocabulary (`GPT_D-HUB`, `SFTPM_24
 
 - Historical changelog entries are unchanged — they describe what shipped at a given date.
 - The user's `conventions.config.json` sprint prefix (`SFTPM_`) is an intentional per-team setting, not hardcoding.
-- TPM-specific reference docs (`test-case-pattern-analysis-gpt-dhub.md`, `test-case-writing-style-reference.md`, prerequisite formatting guides, tc-style guide) are labeled as illustrative examples for this project and are intentionally not genericized.
+- TPM-specific reference docs (`test-case-writing-style-reference.md`, prerequisite formatting guides, tc-style guide) are labeled as illustrative examples for this project and are intentionally not genericized.
+- `docs/test-case-pattern-analysis-gpt-dhub.md` was replaced by `docs/test-case-pattern-analysis.md` — a generic, illustrative-only version with fictional TC IDs and persona labels, plus an "Adapt to a real project" appendix.
 
 ### Backward Compatibility
 
