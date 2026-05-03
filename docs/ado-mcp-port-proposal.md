@@ -2,14 +2,14 @@
 
 **Status:** proposal (not implemented)
 **Author:** drafted 2026-05-03 from the shipped jira-mcp-server-v2 refactor
-**Last revised:** 2026-05-03 after jira-mcp's agentic enforcement layer landed (commit `e12fb5e`)
+**Last revised:** 2026-05-03 — after jira-mcp post-`e12fb5e` commits (per-tool rewrites + D-099 decision log + cross-reference) landed
 **Decision deadline:** none — implementation commits only after this is approved
 
 ---
 
 ## Why this document exists
 
-Between 2026-05-02 and 2026-05-03, jira-mcp-server-v2 shipped 8
+Between 2026-05-02 and 2026-05-03, jira-mcp-server-v2 shipped 11
 commits that transformed its MCP tool surface from "raw content
 dumper" to "interactive agent assistant":
 
@@ -25,6 +25,12 @@ dumper" to "interactive agent assistant":
    sections (response style, error discipline, path blacklist,
    capability declaration, observed-state principle, editorial-vs-
    mechanical) + INTERACTIVE_READ_CONTRACT user-intent clause
+9. Per-tool user-intent rewrites (agentic Phase 3) — scoped down
+   to 2 tools after parallel audit, not the 5 originally planned
+10. Documentation sync (internal hygiene, no port impact)
+11. Decision log D-099 + docs/04 §1.6 cross-reference — records
+    the enforcement layer's three-layer intervention (AGENTS.md /
+    shared contracts / per-tool tails) and the trim decisions
 
 You asked if the same pattern can ship to ado-mcp-server. This doc
 audits ado-mcp's actual surface, maps each commit to what it would
@@ -263,6 +269,17 @@ landed on jira-mcp, which adds 6 new AGENTS.md sections to port).
   - No prompt contains the literal string "show the result
     verbatim" (anti-pattern eviction).
 
+- **Optional sub-item: introduce a decision-log doc for ado-mcp.**
+  jira-mcp's `docs/99-decision-log.md` + its `docs/04-mcp-tool-
+  contracts.md` §1.6 cross-reference (commit `0a32fe2`) proved
+  valuable for recording the enforcement layer's three-layer
+  structure and the trim decisions. ado-mcp currently has no
+  decision-log doc. Creating one now (e.g.
+  `docs/decision-log.md`) with a `D-001` entry for the port gives
+  future contributors a place to record design choices as they
+  emerge. Not required for the port to land — just useful if
+  ado-mcp is expected to evolve.
+
 **Risk:** low. Prompt-text-only. Tests pin the composition.
 Rollback: revert the commit.
 
@@ -357,6 +374,42 @@ jira-mcp's pattern:
 
 **Risk:** low. Scoped to one tool.
 
+### Port-Commit 5.5 — Per-tool user-intent audit (Phase 3 equivalent)
+
+**Scope:** 30 min audit + 15–60 min of rewrites, depending on
+findings.
+
+jira-mcp's Phase 3 (commit `6b17193`) proposed rewriting next-
+action wording in 5 tools. Parallel audit found only **2** real
+violations — the other 3 already correctly distinguished agent
+instructions (e.g. "pass `confirm: yes`") from user-facing
+suggestions. Scope shrank by 60%.
+
+**Mandatory discipline for ado-mcp:** run the same audit before
+rewriting. For each of the 13 read + action + interactive tools
+in ado-mcp, grep the prompt render for:
+
+- "run `/<tool>` with `<flag>=<value>`" style text that targets
+  the **user** (violation).
+- "pass `<flag>: <value>`" style text that targets the **agent**
+  (acceptable — that's how the agent learns the syntax).
+
+Rewrite only the user-facing violations. Example target
+transformation (from jira-mcp):
+
+- NOT: "re-run with `save=yes` to save a snapshot"
+- INSTEAD: "Save a snapshot file (when the user asks, the agent
+  re-calls the tool with `save: \"yes\"` — that's agent syntax,
+  not user-facing)"
+
+Likely ado-mcp candidates based on existing inventory: any tool
+that has a `save`, `confirm`, `repush`, or similar flag whose
+purpose appears in user-facing prose. `push_tc_draft_to_ado` is a
+probable candidate (`repush: true` might leak). Confirm via audit
+before rewriting.
+
+**Risk:** low. Post-audit, the blast radius is already minimized.
+
 ### Port-Commit 6 — Security audits
 
 **Scope:** ~1 h.
@@ -418,10 +471,9 @@ evidence to regression-guard in tests.
 
 ## 6. Recommended sequencing
 
-Five commits over an estimated 6 hours (revised 2026-05-03 after
-the agentic enforcement layer landed on jira-mcp — AGENTS.md now
-carries 13 sections, not 7, raising Port-Commit 1 effort by ~30
-min):
+Six commits over an estimated 6.5–7 hours (revised 2026-05-03
+after the agentic enforcement layer + Phase 3 rewrites + D-099
+decision log landed on jira-mcp):
 
 | # | Commit | Effort | Risk |
 |---|---|---|---|
@@ -429,6 +481,7 @@ min):
 | 1 | AGENTS.md + shared contracts | 60 min | low |
 | 2 | Canonical read shape (split by tool file) | 3 h | medium |
 | 5 | `check_setup_status` anti-hallucination | 45 min | low |
+| 5.5 | Per-tool user-intent audit (audit-first; rewrite only violations) | 30–90 min | low |
 | 6 | Security audits | 1 h | low (audit-first) |
 
 Port-Commits 3 and 4 skipped (see §4 and §3.4).
@@ -481,7 +534,7 @@ Port-Commits 3 and 4 skipped (see §4 and §3.4).
 
 ## 8. Appendix — commits this proposal replaces
 
-For reference, the 8 jira-mcp commits this port captures:
+For reference, the 11 jira-mcp commits this port captures:
 
 - `3a1d1fd` — Commit 1 (AGENTS.md + shared contracts)
 - `aa6bcbf` — Commit 2 (structuredContent)
@@ -496,8 +549,17 @@ For reference, the 8 jira-mcp commits this port captures:
 - `e12fb5e` — Agentic enforcement layer (6 new AGENTS.md sections
   + INTERACTIVE_READ_CONTRACT user-intent clause). Ported into
   Port-Commit 1.
+- `6b17193` — Per-tool user-intent rewrites (Phase 3, trimmed to
+  2 tools after audit). Methodology ports into Port-Commit 5.5
+  (audit-first; rewrite only real user-facing violations).
+- `daf760e` — Documentation sync. Internal hygiene only; no port
+  impact.
+- `0a32fe2` — D-099 decision log entry + `docs/04-mcp-tool-
+  contracts.md` §1.6 cross-reference. Ported as the optional
+  sub-item in Port-Commit 1 (create `docs/decision-log.md` for
+  ado-mcp if desired).
 
-Combined: ~6 h of porting effort for ~80% of the benefit jira-mcp
-earned across its refactor. The remaining 20% is
+Combined: ~6.5–7 h of porting effort for ~80% of the benefit
+jira-mcp earned across its refactor. The remaining 20% is
 ado-mcp-specific features (tc-drafts workflow, setup UI) that
 already work well and don't need the lift.
