@@ -455,7 +455,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `conventions.config.json` validation error | Check JSON syntax; compare with the schema in `src/config.ts` |
 | Test case number always starts at 1 | The auto-increment queries existing TCs by title pattern; if no matches found, starts at 1 |
 | Prerequisites are empty | Persona always uses all three from config; pre-conditions must be generated per user story (never from config). Check `conventions.config.json` > `prerequisiteDefaults.personas` |
-| `US {id} already has N test case(s) linked in ADO` | The duplicate-TC guard blocked the push because the US already has linked TCs. Review the listing: to **update** those existing TCs, add their ADO IDs to the draft and call with `repush: true`; to **add new** TCs alongside the existing ones, confirm with the user and call with `insertAnyway: true`; to cancel, do nothing. |
+| `US {id} — existing test cases detected` (A/B/C prompt) | The duplicate-TC preflight blocked the push because the US already has linked TCs in ADO but the draft has no ADO IDs. **A.** Proceed with `insertAnyway: true` to create new TCs alongside the existing ones. **B.** Investigate first — the agent should call `list_test_cases_linked_to_user_story` for IDs, then `get_test_case` for each title/steps, then re-ask. **C.** Cancel. To instead **update** existing TCs, add their ADO IDs to the draft and call with `repush: true` (see `docs/repush-workflow.md`). |
 
 ---
 
@@ -481,7 +481,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `save_tc_clone_preview` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
 | `list_tc_drafts` | List saved drafts (subfolder + legacy layouts, shows supporting docs) | *(none)* |
 | `get_tc_draft` | Get draft by user story ID (subfolder + legacy) | `userStoryId` |
-| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). **Guards against duplicates:** returns error listing existing linked TCs when US already has them; override with `insertAnyway: true` after user confirms. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
+| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). **Duplicate preflight:** aborts with counts-based A/B/C risk message when US already has linked TCs and draft has no ADO IDs. Override with `insertAnyway: true` after user replies A; use existing `list_test_cases_linked_to_user_story` + `get_test_case` for investigation on B. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
 | `list_test_cases` | List TCs in a suite | `planId`, `suiteId` |
 | `get_test_case` | Get TC work item details | `workItemId` |
 | `update_test_case` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |

@@ -10,19 +10,13 @@ import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
 import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
 
-interface LinkedTestCase {
-  id: number;
-  title: string;
-  state: string;
-}
-
-async function fetchLinkedTestCases(adoClient: AdoClient, userStoryId: number): Promise<LinkedTestCase[]> {
+async function fetchLinkedTestCaseIds(adoClient: AdoClient, userStoryId: number): Promise<number[]> {
   const us = await adoClient.get<AdoWorkItem>(
     `/_apis/wit/workitems/${userStoryId}`,
     "7.0",
     { "$expand": "relations" }
   );
-  const ids = (us.relations ?? [])
+  return (us.relations ?? [])
     .filter((r) => r.rel === "Microsoft.VSTS.Common.TestedBy" || r.rel === "Microsoft.VSTS.Common.TestedBy-Forward")
     .map((r) => {
       const parts = r.url.split("/");
@@ -30,19 +24,6 @@ async function fetchLinkedTestCases(adoClient: AdoClient, userStoryId: number): 
       return isNaN(id) ? null : id;
     })
     .filter((id): id is number => id != null);
-
-  if (ids.length === 0) return [];
-
-  const batch = await adoClient.get<{ value: AdoWorkItem[] }>(
-    `/_apis/wit/workitems`,
-    "7.0",
-    { ids: ids.join(","), fields: "System.Id,System.Title,System.State" }
-  );
-  return (batch.value ?? []).map((item) => ({
-    id: item.id,
-    title: (item.fields["System.Title"] as string) ?? "",
-    state: (item.fields["System.State"] as string) ?? "",
-  }));
 }
 
 const NO_PATH_MSG =
@@ -448,24 +429,45 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
 
-        // Duplicate-TC guard: when creating new TCs (not a repush) and the draft has no ADO IDs,
-        // check whether the US already has linked TCs in ADO. If it does, block unless caller
-        // explicitly opts in via insertAnyway=true.
+        // Duplicate-TC preflight: when creating new TCs (not a repush) and the draft has no
+        // ADO IDs, check whether the US already has linked TCs in ADO. Only surface a prompt
+        // when there's real risk (orphans exist). If none, proceed silently.
         if (!isRepush && !allHaveAdoIds && !insertAnyway) {
-          const linked = await fetchLinkedTestCases(adoClient, userStoryId);
-          if (linked.length > 0) {
-            const listing = linked
-              .map((tc) => `  - ADO #${tc.id} [${tc.state}] ${tc.title}`)
-              .join("\n");
+          let linkedIds: number[];
+          try {
+            linkedIds = await fetchLinkedTestCaseIds(adoClient, userStoryId);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
             return {
               content: [{
                 type: "text" as const,
                 text:
-                  `US ${userStoryId} already has ${linked.length} test case(s) linked in ADO:\n\n${listing}\n\n` +
-                  `To proceed, choose one:\n` +
-                  `  - Update existing: fix the ADO IDs in the draft and call again with repush=true.\n` +
-                  `  - Add alongside existing: confirm with the user, then call again with insertAnyway=true.\n` +
-                  `  - Cancel: do nothing.`,
+                  `Could not check for existing linked test cases on US ${userStoryId}: ${msg}\n\n` +
+                  `If you're confident no test cases exist for this US, call again with insertAnyway=true. ` +
+                  `Otherwise cancel and retry when ADO is reachable.`,
+              }],
+              isError: true,
+            };
+          }
+
+          if (linkedIds.length > 0) {
+            const existingCount = linkedIds.length;
+            const newCount = data.testCases.length;
+            return {
+              content: [{
+                type: "text" as const,
+                text:
+                  `## US ${userStoryId} — existing test cases detected\n\n` +
+                  `ADO already has **${existingCount} test case(s)** linked to this User Story, ` +
+                  `but your local draft has no ADO IDs for them.\n\n` +
+                  `Publishing now will **CREATE ${newCount} new test case(s) alongside the existing ${existingCount}** — ` +
+                  `if they cover the same scenarios, you'll end up with duplicates.\n\n` +
+                  `Reply with a letter:\n` +
+                  `  **A.** Proceed — create ${newCount} new TCs alongside the existing ones ` +
+                  `(agent should call push_tc_draft_to_ado with insertAnyway: true).\n` +
+                  `  **B.** Inspect first — run list_test_cases_linked_to_user_story(userStoryId: ${userStoryId}) ` +
+                  `and get_test_case for each to see titles/steps before deciding.\n` +
+                  `  **C.** Cancel — do nothing.`,
               }],
               isError: true,
             };

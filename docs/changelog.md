@@ -4,18 +4,21 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
-## 2026-05-03 — Duplicate Test Case Guard on Push
+## 2026-05-03 — Duplicate Test Case Preflight on Push
 
 ### Feature
 
-- **`push_tc_draft_to_ado` now checks ADO for existing linked test cases before inserting.** When the User Story already has test cases linked via `Microsoft.VSTS.Common.TestedBy` and the draft has no ADO IDs, the tool returns a non-error listing (ID, state, title) for each existing TC and aborts the insert. Prevents accidental duplicate creation when a draft is regenerated after a previous push, when TCs were created manually/elsewhere, or when pushing from a different workspace.
-- **New `insertAnyway: boolean` parameter** — explicit override. Set `true` only after the user has seen the listing and explicitly confirmed they want new TCs added alongside the existing ones. Default `false`.
-- **`create_test_cases` prompt updated** — new step (6) instructs the agent to surface the existing-TC listing verbatim and ask the user to choose UPDATE (repush), ADD (insertAnyway), or CANCEL. Agent must never pass `insertAnyway: true` without explicit user approval.
+- **`push_tc_draft_to_ado` now runs a preflight check for existing linked test cases.** When the User Story already has test cases linked via `Microsoft.VSTS.Common.TestedBy` and the draft has no ADO IDs, the tool aborts the insert and returns a counts-based risk message (no listing dump) with three lettered options: **A.** proceed with `insertAnyway: true`, **B.** inspect existing TCs first via `list_test_cases_linked_to_user_story` + `get_test_case`, **C.** cancel. Prevents accidental duplicate creation when a draft is regenerated after a previous push, when TCs were created manually/elsewhere, or when pushing from a different workspace.
+- **Counts, not dumps.** The preflight message shows only the count of existing TCs + count of new ones that would be created + a duplicate-risk warning. Full titles/steps are available on demand via the existing investigative tools if the user picks option B. Clean separation: publish prompts are operational, `list_test_cases_linked_to_user_story` + `get_test_case` are investigative.
+- **Silent happy path.** If the US has zero linked TCs, the preflight is invisible — push proceeds as before.
+- **Network-failure honesty.** If the ADO relations call fails (timeout, 500, etc.), the tool surfaces the error and asks the user to either cancel or pass `insertAnyway: true` if they're confident. Never silently proceeds past a failed check.
+- **New `insertAnyway: boolean` parameter** — explicit override. Set `true` only after the user has seen the A/B/C prompt and replied **A**. Default `false`.
+- **`create_test_cases` prompt updated** — new step (6) instructs the agent to surface the preflight message verbatim (no re-formatting, no listing), wait for the user's A/B/C reply, and only pass `insertAnyway: true` on A.
 
 ### Files Updated
 
-- `src/tools/tc-drafts.ts` — Added `fetchLinkedTestCases()` helper (batch-fetches titles + states via `/_apis/wit/workitems?ids=...&fields=...`); added duplicate guard branch before the insert loop; added `insertAnyway` parameter.
-- `src/prompts/index.ts` — Updated `create_test_cases` prompt flow to handle the new pre-insert guard response.
+- `src/tools/tc-drafts.ts` — Added `fetchLinkedTestCaseIds()` helper (resolves TestedBy relations on the US); added preflight branch before the insert loop; added `insertAnyway` parameter.
+- `src/prompts/index.ts` — Updated `create_test_cases` prompt flow to handle the new preflight response (counts-based, lettered-options).
 
 ### Behavior Matrix
 
