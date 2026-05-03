@@ -57,7 +57,7 @@ isProject: true
 
 **Priority:** High
 **Estimated Effort:** Large — 12 files across 5 phases
-**Scope:** Data-gathering layer only (what the MCP reads and exposes). Does not cover Source Discovery Report UX or coverage-mode gates — those live in `enhanced_context_interactive_qa_v2.plan.md` and can be layered on top later.
+**Scope:** Data-gathering layer only (what the MCP reads and exposes). Does not cover Source Discovery Report UX or coverage-mode gates — those are not in any active plan and would need a new plan if pursued.
 
 ---
 
@@ -65,7 +65,7 @@ isProject: true
 
 `draft_test_cases` and `create_test_cases` currently operate on an incomplete view of the User Story because the MCP's data layer is too narrow:
 
-1. **Only 7 named fields are returned.** `extractUserStoryContext` in `src/tools/work-items.ts:160-173` discards the rest of `item.fields`. Teams with custom fields like `Custom.ImpactAssessment`, `Custom.ReferenceDocumentation`, `Custom.BusinessJustification`, etc. get none of them.
+1. **Only 7 named fields are returned.** `extractUserStoryContext` in `src/tools/work-items.ts:123-174` discards the rest of `item.fields`. Teams with custom fields like `Custom.ImpactAssessment`, `Custom.ReferenceDocumentation`, `Custom.BusinessJustification`, etc. get none of them.
 2. **Only the first Confluence link is fetched.** `extractConfluenceUrl` in `src/helpers/confluence-url.ts:54-69` returns `urls.find(isConfluenceUrl)`. If Solution Notes or Reference Documentation contains 3 links, 2 are silently dropped.
 3. **Images are invisible to the agent.**
    - ADO rich-text fields (Description, AC, Solution Notes, any custom HTML field) may contain `<img src="https://dev.azure.com/{org}/{project}/_apis/wit/attachments/{guid}…">` — these pass through as raw HTML and are never fetched. The agent has no way to see the wireframe / screenshot / diagram the BA attached.
@@ -90,8 +90,8 @@ So the data layer must deliver **both** a known primary group **and** a pass-thr
 | Aggregate response size | **`images.maxTotalBytesPerResponse: 4 MiB` default** | 20 images × 2 MiB raw = 40 MiB base64 can blow Claude's context window and silently break `draft_test_cases`. 4 MiB caps image payload at ~1M tokens, leaving room for text + other context. |
 | Confluence link cap | **`context.maxConfluencePagesPerUserStory: 10`** | Pathological cases (50 links in Solution Notes) would stall the call. Excess → `unfetchedLinks` with `reason: "link-budget"`. |
 | SVG handling | **Deliver as both image part and inline text** | SVG XML is parseable — the agent can read it textually for exact-value inspection (color codes, element IDs) while still seeing the rendered image. |
-| Scope vs existing plans | **Standalone plan, current scope only** | `enhanced_context_interactive_qa_v2.plan.md` covers Source Discovery Report + coverage gates and can layer on top later. This plan is only about the data layer. |
-| Cross-instance Confluence | **Do not fetch; record in `unfetchedLinks`** | Out of scope here; already covered by v2 plan. |
+| Scope vs existing plans | **Standalone plan, current scope only** | No active follow-up plan for Source Discovery Report / coverage gates; if needed later, they warrant a new plan. |
+| Cross-instance Confluence | **Do not fetch; record in `unfetchedLinks`** | Out of scope here; if needed later, it warrants a new plan. |
 | Non-Confluence link types (SharePoint, Figma, …) | **Do not fetch; record in `unfetchedLinks`** | Same reasoning — surface to user, don't auto-resolve. |
 | Field-name discovery (Impact Assessment, Reference Documentation) | **Runtime via REST, not a manual prerequisite** | The MCP already has `list_work_item_fields` and `get_user_story` returns `allFields` — the allowlist can be verified/auto-suggested at install time or on first use. |
 
@@ -141,7 +141,7 @@ So the data layer must deliver **both** a known primary group **and** a pass-thr
 
 ### Explicitly Out of Scope
 
-- Source Discovery Report, coverage-mode gates, interactive decision UX → `enhanced_context_interactive_qa_v2.plan.md`.
+- Source Discovery Report, coverage-mode gates, interactive decision UX → not in any active plan; would need a new plan if pursued.
 - Reading linked work items (parent Epic, child Tasks, linked Bugs) → out of scope for both plans.
 - Cross-instance Confluence fetching or SharePoint/Figma/etc. auto-resolution → surfaced as `unfetchedLinks`, user handles manually.
 - Historical versions of Confluence pages — current version only (as per user's request).
@@ -153,7 +153,7 @@ So the data layer must deliver **both** a known primary group **and** a pass-thr
 
 | Concern | Path | Lines |
 |---|---|---|
-| Narrow field extraction | `src/tools/work-items.ts` | 123–173 |
+| Narrow field extraction | `src/tools/work-items.ts` | 123–174 |
 | First-Confluence-URL-only logic | `src/helpers/confluence-url.ts` | 54–69 |
 | `<img>`-stripping Confluence client | `src/confluence-client.ts` | 107–124 |
 | `UserStoryContext` shape | `src/types.ts` | 17–30 |
@@ -195,7 +195,7 @@ export interface UnfetchedLink {
   url: string;
   type: ExternalLinkType;
   sourceField: string;
-  reason: "cross-instance" | "non-confluence" | "access-denied" | "not-found" | "auth-failure" | "link-budget";
+  reason: "cross-instance" | "non-confluence" | "access-denied" | "not-found" | "auth-failure" | "link-budget" | "time-budget";
   workaround: string;                 // e.g. "Export as PDF and paste content"
 }
 
@@ -213,7 +213,7 @@ export interface EmbeddedImage {
   svgInlineText?: string;             // raw SVG XML, only present when mimeType === "image/svg+xml" and inlineSvgAsText is enabled
   localPath?: string;                 // absolute path on disk — only present when images.saveLocally is true
   relativeToDraft?: string;           // path relative to the draft markdown file — only present when saveLocally is true
-  skipped?: "too-small" | "too-large" | "unsupported-mime" | "fetch-failed" | "response-budget";
+  skipped?: "too-small" | "too-large" | "unsupported-mime" | "fetch-failed" | "response-budget" | "time-budget";
 }
 
 export interface UserStoryContext {
@@ -250,6 +250,17 @@ export interface UserStoryContext {
 }
 ```
 
+**Empty-field rule:** `namedFields[key]` is omitted when the underlying ADO field is null/empty — reviewers should not see ghost entries with empty `html` / `plainText`. Same rule for `allFields` (the noise filter and the "populated" filter together).
+
+### 1a-prereq. Extract `src/helpers/strip-html.ts`
+
+`stripHtml` in `src/confluence-client.ts:107-124` is private. The plan's new `namedFields[].plainText` and Phase 2c marker-preserving variant both need it.
+
+- Extract the current `stripHtml` logic into `src/helpers/strip-html.ts` as `stripHtml(html: string, opts?: { preserveImageMarkers?: boolean }): string`.
+- Default behavior matches current (image tags removed).
+- With `preserveImageMarkers: true`: replace `<img>` / `<ac:image>` with `[image: filename]` (when filename resolvable from attrs) or `[image]` — per Phase 2c.
+- Update `ConfluenceClient` to use the helper.
+
 ### 1b. Extend `conventions.config.json` + `src/config.ts`
 
 Add two optional blocks (absence = current behavior, no breaking change):
@@ -273,17 +284,20 @@ Add two optional blocks (absence = current behavior, no breaking change):
     "minBytesToKeep": 4096,
     "downscaleLongSidePx": 1600,
     "downscaleQuality": 85,
-    "mimeAllowlist": ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"],
+    "mimeAllowlist": ["image/png", "image/jpeg", "image/gif", "image/svg+xml"],
     "inlineSvgAsText": true,
     "returnMcpImageParts": true,
     "saveLocally": false,
     "savePathTemplate": "tc-drafts/US_{usId}/attachments"
   },
   "context": {
-    "maxConfluencePagesPerUserStory": 10
+    "maxConfluencePagesPerUserStory": 10,
+    "maxTotalFetchSeconds": 45
   }
 }
 ```
+
+> **Webp note:** `image/webp` is intentionally excluded from the default allowlist because `jimp` (the chosen downscale library, per R1) does not natively decode webp. Adding `image/webp` to `mimeAllowlist` will cause webp downscale to throw and the image to be dropped as `skipped: "fetch-failed"`. Teams that want webp pass-through (no downscale) can add it to the allowlist AND accept that webp files exceeding `maxBytesPerImage` will be skipped rather than shrunk. For reliable webp support, route through `sharp` (native dep, breaks install on some platforms) — not recommended for the default path.
 
 **`allFields.omitSystemNoise`** (default `true`) filters the following obvious-noise fields from the `allFields` pass-through map to keep the payload focused. The LLM still gets them from the actual ADO API if any become relevant later, but they're not shipped in the default context:
 
@@ -302,9 +316,13 @@ Microsoft.VSTS.Common.ClosedBy
 
 Teams can **extend** the omit list (e.g. extra project-specific audit fields) via `allFields.omitExtraRefs: ["Custom.InternalTrackingId", ...]`, or **disable** the filter entirely with `allFields.omitSystemNoise: false` to ship everything raw.
 
+Match semantics: `omitExtraRefs` uses **exact match on `referenceName`**. No globs, no prefix matching — keeps it predictable and documentable. Teams omitting a family of fields list each ref explicitly.
+
 **`images.saveLocally`** (default `false`) — see "Why not save locally by default?" below. Set to `true` per-team to also persist images to disk next to the draft.
 
 Matching Zod schema additions in `src/config.ts`. All fields optional with sensible defaults defined inline.
+
+**Failure mode:** the existing Zod schema uses strict `.parse()` (`src/config.ts:82`). Parse each of the **new** optional blocks (`additionalContextFields`, `allFields`, `images`, `context`) with `.safeParse()` per-block and fall back to defaults on validation error, logging a single `console.warn`. A malformed new block must not crash the MCP server. Existing required blocks keep strict `.parse()`.
 
 #### Why not save locally by default?
 
@@ -347,6 +365,16 @@ Categorization rules:
 
 ## Phase 2 — Attachment Fetchers
 
+### 2a-prereq. Refactor `AdoClient` for binary responses
+
+Before `ado-attachments.ts` can download bytes, extend `src/ado-client.ts:32-72` (`request<T>`) to accept `responseType: "json" | "binary"` (default `"json"`).
+
+- When `"binary"`: return `{ buffer: ArrayBuffer; mimeType: string | null }` using `response.arrayBuffer()` + `response.headers.get("content-type")`.
+- **MIME caveat:** ADO attachment endpoints return `Content-Type: application/octet-stream` (or `application/zip`) per Microsoft's REST spec — NOT `image/*`. Callers MUST derive the true MIME from the filename extension (e.g. `.png` → `image/png`) and/or a magic-byte sniff. Do not trust the response header for allowlist checks.
+- When `"json"`: existing behaviour, no regressions.
+- `mapError`, `buildUrl`, and auth stay shared — no duplication.
+- Add `getBinary(path, apiVersion, queryParams)` as a thin wrapper over `request` with `responseType: "binary"`.
+
 ### 2a. New `src/helpers/ado-attachments.ts`
 
 ```typescript
@@ -361,10 +389,10 @@ export async function extractAndFetchAdoImages(params: {
 
 Responsibilities:
 1. For each populated field value that looks like HTML, parse `<img>` tags (regex or lightweight HTML scanner).
-2. Filter `src` URLs to those pointing at the configured ADO organization — URL pattern:
-   `https://dev.azure.com/{org}/{project?}/_apis/wit/attachments/{guid}?fileName=...`
+2. Filter `src` URLs to those pointing at the configured ADO instance. Use **path-based detection** — an `<img>` is an ADO attachment if its URL pathname contains `/_apis/wit/attachments/`. Combine with a hostname check against the configured ADO `baseUrl.host` (dev.azure.com, `*.visualstudio.com` legacy, or self-hosted ADO Server) to prevent cross-tenant leakage. Rejected hosts record `skipped: "unsupported-mime"` — we have no auth for them.
 3. For each URL:
-   - Call `GET /_apis/wit/attachments/{guid}?download=true&fileName=...` via a new `AdoClient.getBinary(path, apiVersion, queryParams)` method (returns `ArrayBuffer` + content-type).
+   - **Data URI handling:** if `<img src="data:...">`, decode base64 → bytes, parse mime from the URI prefix, and run through the same guardrails as a fetched attachment. No HTTP fetch. Skip if mime is not in the allowlist or bytes fall outside `minBytesToKeep`..`maxBytesPerImage` (downscale raster if applicable).
+   - Call `GET /_apis/wit/attachments/{guid}?download=true&fileName=...` via the new `AdoClient.getBinary(path, apiVersion, queryParams)` method (returns `ArrayBuffer` + content-type). **Derive MIME from filename extension** (and/or magic-byte sniff) — the response `Content-Type` is `application/octet-stream` and cannot be trusted for the allowlist check.
    - Skip below `minBytesToKeep`, skip MIME not in allowlist.
    - If bytes > `maxBytesPerImage` and MIME is raster: downscale via a lightweight image library (e.g. `sharp` if available, else a pure-JS fallback) to long-side `downscaleLongSidePx`. Set `downscaled: true` and `originalBytes`.
    - If MIME is `image/svg+xml` and `inlineSvgAsText` is enabled: decode bytes as UTF-8 and attach as `svgInlineText`.
@@ -386,7 +414,7 @@ export async function fetchCurrentVersionAttachments(params: {
 ```
 
 Responsibilities:
-1. Parse storage HTML for image references using **`node-html-parser`** (~15 KB, zero deps — used only in this helper; regex is too fragile for nested `<ac:image><ri:attachment>` with variant attribute orders and optional `<ri:page>`/`<ri:url>` children):
+1. Parse storage HTML for image references using **`node-html-parser`** (zero deps — used only in this helper; regex is too fragile for nested `<ac:image><ri:attachment>` with variant attribute orders and optional `<ri:page>`/`<ri:url>` children). **Colon-in-tag caveat:** CSS selectors for namespaced tags must escape the colon (`root.querySelectorAll("ac\\:image")`, `node.getAttribute("ri:filename")`). Covered by a fixture test in Phase 4.5.
    - `<ac:image …><ri:attachment ri:filename="…" /></ac:image>` → filename lookup
    - Direct `<img src="…">` → URL-based lookup (relative `/download/attachments/…` or absolute)
 2. Call `ConfluenceClient.listAttachments(pageId)` which wraps `GET /rest/api/content/{pageId}/child/attachment?expand=version,metadata` — returns array of `{ id, title, mediaType, version: { number }, _links: { download } }`.
@@ -394,14 +422,14 @@ Responsibilities:
 4. **Dedupe** resolved attachments by `(pageId, filename)` before fetching — the same image can be referenced multiple times in storage HTML; fetch once.
 5. For each matched attachment:
    - Download via `ConfluenceClient.fetchAttachmentBinary(downloadUrl)` — new method using the existing Basic auth, resolves relative URLs against `baseUrl`.
-   - Apply same guardrails as ADO images (min bytes, MIME allowlist, downscale if oversized, SVG inline-as-text).
+   - Apply same guardrails as ADO images (min bytes, MIME allowlist, downscale if oversized, SVG inline-as-text). Per-image failures use the same `skipped` mechanism as top-level `embeddedImages` (`fetch-failed`, `too-large`, etc.) — recorded on `FetchedConfluencePage.images[].skipped`. Reviewers debugging "why is this image missing?" see a clear reason in the JSON payload.
    - If `saveLocally` is true: save to `{saveRoot}/{pageId}/{sanitizedFilename}`; populate `localPath` + `relativeToDraft`. If the save root is not writable, log a warning and fall back to MCP-parts-only — never fail the overall call on disk errors.
 6. Return `EmbeddedImage[]` in source-document order (the order filenames appear in the storage HTML).
 
 ### 2c. Update `src/confluence-client.ts`
 
 - Add `listAttachments(pageId: string): Promise<ConfluenceAttachment[]>`.
-- Add `fetchAttachmentBinary(urlOrPath: string): Promise<{ buffer: ArrayBuffer; mimeType: string }>`.
+- Add `fetchAttachmentBinary(urlOrPath: string): Promise<{ buffer: ArrayBuffer; mimeType: string }>`. On 401, attempt the same `api.atlassian.com/ex/confluence/{cloudId}/...` fallback that `getPageContent` already uses (`src/confluence-client.ts:58-74, 78-105`) — otherwise tenants on scoped tokens will get page bodies but every image returns `skipped: "auth-failure"`. Short-circuit after the first 401 per call to avoid 10×30s retry storms.
 - Update `stripHtml` to replace image tags with a placeholder marker (`[image: filename.png]` when resolvable, else `[image]`) instead of deleting them — preserves spatial context in the page body.
 - Expose `getPageContent` return shape to optionally include the raw `body.storage.value` so attachment helper can parse it without a second fetch.
 - Preserve existing 401 fallback logic.
@@ -438,11 +466,15 @@ fetch work item with $expand=relations                       // unchanged REST c
 → return new UserStoryContext
 ```
 
+**Dedupe rule:** if an `additionalContextFields` entry's `adoFieldRef` collides with a primary (Title, Description, AC, Solution Notes, Impact Assessment, Reference Documentation already seeded), skip the duplicate and log once — primary wins.
+
 Concurrency: `Promise.all` across Confluence pages and ADO images with a small concurrency cap (say 5) to avoid hammering either API. Per-request timeout 30s.
 
 Failure policy: any individual fetch failure is caught, the item is added to `unfetchedLinks` or `embeddedImages` with `skipped: "fetch-failed"`, and the overall call never fails hard — the agent must still get a usable `UserStoryContext`.
 
 ### 3b. Update `get_user_story` tool response
+
+**Tool signature change:** accept two new optional params, `workspaceRoot` and `draftsPath`. **Only consulted when `images.saveLocally === true`.** Reuse `resolveTcDraftsDir` from `src/tools/tc-drafts.ts:26-36` — which already handles the precedence `draftsPath > workspaceRoot > TC_DRAFTS_PATH env > credentials.tc_drafts_path` (env lookup is inside `getTcDraftsDir()` in `src/credentials.ts:30-38`, not in `resolveTcDraftsDir` directly). If `saveLocally` is true and the chain resolves to nothing, log a warning and fall back to MCP-parts-only (image bytes still returned inline; `localPath` / `relativeToDraft` omitted). Do not re-invent path precedence.
 
 Currently returns a single `text` content part. Change to return a content array:
 
@@ -466,12 +498,16 @@ content: [
 
 Respect `maxPerUserStory` before `maxTotalBytesPerResponse`. The JSON text part is always included. Clients without image support (or with `returnMcpImageParts: false`) still get every metadata field including `originalUrl` and, if `saveLocally` is enabled, `localPath` / `relativeToDraft`.
 
+**Tool description update:** `src/tools/work-items.ts:21` — replace the current `"Fetch a User Story from ADO with description, acceptance criteria, parent info, Solution Design content from Confluence, and all relations"` with something like: `"Fetch a User Story from ADO. Returns every populated field (named primaries + allFields pass-through), all linked Confluence pages with their current-version images, and embedded images from ADO rich-text fields. When images are present, the response contains [text, image, image, ...] content parts. Optional workspaceRoot/draftsPath for saveLocally mode."` LLMs route by description; leaving it stale under-represents the new payload.
+
 ### 3c. Preserve deprecated keys
 
 - `solutionDesignUrl` = first Confluence link found in Solution Notes (existing behavior).
 - `solutionDesignContent` = body of first fetched Confluence page from Solution Notes.
 
 Existing consumers (e.g. current `draft_test_cases` prompt) keep working while we roll out the new keys.
+
+**Format note:** `solutionDesignContent` was previously `# ${title}\n\n${body}`. `fetchedConfluencePages[].body` is stripped HTML without a title heading — the title is on `.title` instead. New consumers reading `body` directly see no title prefix; existing consumers keep reading `solutionDesignContent` unchanged.
 
 ---
 
@@ -547,6 +583,9 @@ The repo has no existing test suite. This refactor adds net-new parsing and bina
 | Link-budget cap | 12 Confluence links with `maxConfluencePagesPerUserStory: 10` → first 10 fetched, last 2 in `unfetchedLinks` with `reason: "link-budget"` |
 | Failure isolation | A single 404 on one attachment doesn't sink the overall call; `skipped: "fetch-failed"` recorded |
 | `saveLocally` fallback | Read-only save root → warning logged, `localPath` absent, MCP parts still returned |
+| `basicAuthHeader` parity | After extracting `src/helpers/basic-auth.ts`, assert the header produced for each of the 4 existing call sites (`src/ado-client.ts:18`, `src/confluence-client.ts:4`, `src/tools/configure-ui.ts:41`, `src/tools/configure-ui.ts:102`) is byte-identical to pre-refactor output. Trivial assertion, high safety value |
+| `node-html-parser` fixture | Parse `<ac:image ac:align="center"><ri:attachment ri:filename="diagram.png"/></ac:image>` and confirm selector `ac\\:image` + attribute read `ri:filename` both work. Guards against future parser swap silently breaking `<ac:image>` detection |
+| `maxTotalFetchSeconds` timeout | Simulate 12 slow fetches × 10 s/fetch with budget 45 s → remaining fetches cancelled, affected entries marked `skipped: "time-budget"` / `reason: "time-budget"`, call returns with partial result |
 
 **What's NOT tested here:** end-to-end against real ADO / Confluence (manual verification in Phase 5). Tests use in-memory mocks for HTTP clients.
 
@@ -562,6 +601,22 @@ The repo has no existing test suite. This refactor adds net-new parsing and bina
 - **`docs/changelog.md`** — single entry covering all-fields pass-through, multi-link fetching, ADO image support, and Confluence current-version image support. Include a **"Breaking changes"** heading: `get_user_story` now returns multiple content parts (text + images) when images are present. MCP clients that assert `content.length === 1` or only read `content[0]` must either upgrade to iterate the content array OR set `images.returnMcpImageParts: false` in `conventions.config.json` to retain the single-text-part response shape.
 
 ### 5b. Deploy
+
+**Prerequisite — `build-dist.mjs` update (BLOCKER, not just a spot-check):**
+
+`build-dist.mjs` uses esbuild with `bundle: true`, no `external` markers, and emits a synthesized `package.json` with `dependencies: {}`. Adding `jimp` (~3-6 MB bundled, includes codec data + potentially wasm/native sub-deps) and `node-html-parser` (~100-200 KB) means one of the following MUST be true, or the deployed MCP crashes at runtime:
+
+1. **Option A — bundle inline (simpler, bigger):** leave esbuild's `bundle: true` and no externals. Verify the output `dist-package/dist/index.js` actually builds without errors (jimp's codec sub-deps sometimes resist bundling). Bundle size jumps from ~KBs to ~4-6 MB. Document the size jump in the changelog.
+2. **Option B — mark external + propagate:** add `external: ["jimp", "node-html-parser"]` to esbuild config AND update the synthesized `distPkg.dependencies` to include both packages at their installed versions. Deployment target must `npm install` on first run, OR the packages must be shipped alongside.
+
+**Verification before `npm run deploy`:**
+```bash
+npm run build:dist
+node dist-package/dist/index.js --help   # smoke test: server starts, no missing-module errors
+```
+If the smoke test fails with `Cannot find module 'jimp'` or a jimp codec error, the bundling choice above is wrong — fix before deploying.
+
+**Then:**
 
 ```bash
 npm run deploy
@@ -582,7 +637,8 @@ Per `.cursor/rules/deploy-after-changes.mdc` — mandatory after touching any MC
 | Downscale target | `images.downscaleLongSidePx` (default 1600 px long side) at `images.downscaleQuality` (default 85) |
 | Min bytes to keep | `images.minBytesToKeep` (default 4 KiB) — drops icons/spacers |
 | Allowed MIME | `images.mimeAllowlist` — others recorded as `skipped: "unsupported-mime"` |
-| SVG text inline | `images.inlineSvgAsText` (default `true`) — raw XML attached to `EmbeddedImage.svgInlineText` |
+| SVG text inline | `images.inlineSvgAsText` (default `true`) — raw XML attached to `EmbeddedImage.svgInlineText`. When `saveLocally` is `true`, SVGs written to disk have `<script>` tags and `on*=""` event-handler attributes stripped before write to prevent XSS when a reviewer opens them in a browser. `svgInlineText` shown to the agent is unfiltered (agents don't execute SVG). |
+| **Total fetch budget per call** | `context.maxTotalFetchSeconds` (default 45) — wall-clock cap across all Confluence page + attachment fetches in a single `get_user_story`. When exceeded, cancel pending fetches, mark affected items `skipped: "time-budget"` / `reason: "time-budget"`, and return what's fetched so far. Prevents MCP-client timeouts on pathological USs. |
 | Per-fetch timeout | 30 s hard timeout on every ADO and Confluence HTTP call |
 | Concurrency | Max 5 parallel attachment fetches |
 | Idempotence | When `saveLocally` is true, images saved by `{guid}_{filename}` (ADO) or `{pageId}/{filename}` (Confluence) — overwrite on re-run for same US |
@@ -665,7 +721,7 @@ All three previously-manual "prerequisites" are resolved via REST at runtime —
 
 ## Relationship to Other Plans
 
-This plan is **independent**. `tc_asset_folder_structure.plan.md` already established `tc-drafts/US_<id>/` — this plan's optional `attachments/` subfolder is fully additive. Older context/QA plans (`enhanced_context_interactive_qa_v2.plan.md`, `enhanced_context_interactive_qa_ca5f696d.plan.md`) are outdated and not referenced by this plan.
+This plan is **independent**. `tc_asset_folder_structure.plan.md` already established `tc-drafts/US_<id>/` — this plan's optional `attachments/` subfolder is fully additive. Older context/QA plans (`enhanced_context_interactive_qa_v2.plan.md`, `enhanced_context_interactive_qa_ca5f696d.plan.md`) are outdated, not referenced by this plan, and not active commitments.
 
 ---
 
