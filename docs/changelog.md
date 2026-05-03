@@ -4,6 +4,35 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-03 — Generic persona role label + example-text cleanup
+
+### Change
+
+Removed customer-specific hardcoding from two places so non-TPM teams can use the MCP out of the box without seeing TPM vocabulary in their generated test cases.
+
+- **`PersonaConfig.tpmRoles` → `PersonaConfig.roles`** — the field on persona entries in `conventions.config.json` is now generic. Old configs using `tpmRoles` continue to load unchanged: Zod preprocesses the object and maps `tpmRoles` → `roles` transparently.
+- **New optional `prerequisiteDefaults.personaRolesLabel`** — controls the display label rendered in generated test cases (HTML prerequisite block and draft markdown column header). Defaults to `"Roles"`. Teams with project-specific terminology set it explicitly (e.g. `"TPM Roles"`, `"Okta Groups"`).
+- **The shipped `conventions.config.json` now sets `personaRolesLabel: "TPM Roles"`** so the project's existing test case output is unchanged byte-for-byte.
+- **Example text swaps:** tool description and error message in `resolveSprintFromIteration` / `ensure_suite_hierarchy` now show `Sprint_12` instead of `SFTPM_24` as the iteration-path example. Real logic still reads the sprint prefix from `suiteStructure.sprintPrefix`; only the human-readable text changed.
+
+### Files Updated
+
+- `src/types.ts` — `PersonaConfig.roles` (renamed); `ConventionsConfig.prerequisiteDefaults.personaRolesLabel?`.
+- `src/config.ts` — Zod schema with backward-compat preprocess for the old `tpmRoles` key.
+- `src/helpers/prerequisites.ts` — reads label from config; accesses renamed `.roles` field.
+- `src/helpers/tc-draft-formatter.ts` — same.
+- `src/helpers/suite-structure.ts` — example in error message.
+- `src/tools/test-suites.ts` — example in sprint-number tool description.
+- `conventions.config.json` — field rename in 3 personas; `personaRolesLabel: "TPM Roles"` added.
+
+### Backward Compatibility
+
+- **Configs using `tpmRoles`**: keep working. Zod's `preprocess` step converts to `roles` at load time; the user never sees a change.
+- **Generated test case output**: byte-identical for this project (label kept as "TPM Roles" via explicit config). Teams that don't set `personaRolesLabel` now see "Roles" instead of a hardcoded "TPM Roles" — the only breaking case is if a team previously relied on the hardcoded label despite not being a TPM project (unlikely).
+- **Doc examples** in `docs/implementation.md`, `docs/test-case-writing-style-reference.md`, etc. still reference "TPM Roles" in illustrative blocks — those describe the existing project and are intentionally unchanged.
+
+---
+
 ## vX.Y.0 — Hybrid Naming Convention Overhaul
 
 All 23 slash commands and 32 MCP tools have been renamed to a new hybrid

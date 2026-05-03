@@ -62,23 +62,24 @@
       "SystemAdministrator": {
         "label": "System Administrator",
         "profile": "System Admin",
-        "tpmRoles": "—",
+        "roles": "—",
         "psg": "—"
       },
       "AdminUser": {
         "label": "\"ADMIN User\" User",
         "profile": "TPM_User_Profile",
         "user": "\"ADMIN User\" User",
-        "tpmRoles": "ADMIN",
+        "roles": "ADMIN",
         "psg": "TPM Global ADMIN Users"
       },
       "KAM": {
         "label": "Key Account Manager (KAM) User",
         "profile": "TPM_User_Profile",
-        "tpmRoles": "KAM",
+        "roles": "KAM",
         "psg": "TPM Global KAM Users PSG"
       }
     },
+    "personaRolesLabel": "TPM Roles",
     "commonPreConditions": [],
     "toBeTested": null,
     "testData": "N/A"

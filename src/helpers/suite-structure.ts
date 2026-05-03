@@ -68,7 +68,7 @@ export function resolveSprintFromIteration(iterationPath: string): number {
   const match = iterationPath.match(new RegExp(`${escaped}(\\d+)`, "i"));
   if (!match) {
     throw new Error(
-      `Could not extract sprint from Iteration "${iterationPath}". Expected pattern like SFTPM_24.`
+      `Could not extract sprint from Iteration "${iterationPath}". Expected pattern like Sprint_12.`
     );
   }
   return parseInt(match[1], 10);

@@ -43,7 +43,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
     "Build the full suite folder hierarchy (sprint > parent-us/non-epic > us-query) for a User Story. Checks for existing suites at each level before creating.",
     {
       planId: z.number().int().positive().describe("The test plan ID (e.g., GPT_D-HUB plan ID)"),
-      sprintNumber: z.number().int().positive().describe("Sprint number (e.g., 24 for SFTPM_24)"),
+      sprintNumber: z.number().int().positive().describe("Sprint number (e.g., 12 for Sprint_12)"),
       userStoryId: z.number().int().positive().describe("The User Story work item ID"),
     },
     async ({ planId, sprintNumber, userStoryId }) => {

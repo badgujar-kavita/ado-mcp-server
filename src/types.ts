@@ -130,7 +130,12 @@ export interface PersonaConfig {
   label: string;
   profile: string;
   user?: string;
-  tpmRoles: string;
+  /**
+   * Project-specific role identifier for the persona (e.g. "KAM", "ADMIN",
+   * "Manager"). Rendered under the persona's `personaRolesLabel` (default
+   * "Roles", configurable in `prerequisiteDefaults.personaRolesLabel`).
+   */
+  roles: string;
   psg: string;
 }
 
@@ -160,6 +165,13 @@ export interface ConventionsConfig {
   };
   prerequisiteDefaults: {
     personas: Record<string, PersonaConfig>;
+    /**
+     * Label displayed next to `PersonaConfig.roles` in generated test cases
+     * and draft markdown. Defaults to "Roles" when omitted. Teams using
+     * project-specific terminology (e.g. "TPM Roles", "Okta Groups") set this
+     * to whatever reads naturally for their domain.
+     */
+    personaRolesLabel?: string;
     commonPreConditions: string[];
     toBeTested: null | string[];
     testData: string;

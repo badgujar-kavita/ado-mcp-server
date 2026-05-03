@@ -12,8 +12,10 @@ export function buildPrerequisitesHtml(input?: Prerequisites): string {
 
   const lines: string[] = [];
 
+  const rolesLabel = defaults.personaRolesLabel ?? "Roles";
+
   for (const section of prereqConfig.sections) {
-    const content = renderSection(section.key, section.label, section.required, input, defaults);
+    const content = renderSection(section.key, section.label, section.required, input, defaults, rolesLabel);
     if (content !== null) {
       lines.push(content);
     }
@@ -30,13 +32,15 @@ function renderSection(
   input: Prerequisites | undefined,
   defaults: {
     personas: Record<string, PersonaConfig>;
+    personaRolesLabel?: string;
     commonPreConditions: string[];
     testData: string;
-  }
+  },
+  rolesLabel: string
 ): string | null {
   switch (key) {
     case "personas":
-      return renderPersonas(label, input?.personas, defaults.personas);
+      return renderPersonas(label, input?.personas, defaults.personas, rolesLabel);
     case "preConditions":
       // Pre-requisite is ALWAYS unique per user story; never use config baseline.
       return renderPreConditions(label, input?.preConditions, []);
@@ -50,7 +54,8 @@ function renderSection(
 function renderPersonas(
   label: string,
   _override: string | string[] | null | undefined,
-  defaultPersonas: Record<string, PersonaConfig>
+  defaultPersonas: Record<string, PersonaConfig>,
+  rolesLabel: string
 ): string {
   let html = `<div><strong>${label}:</strong> </div><ul>`;
   const personaKeys = Object.keys(defaultPersonas);
@@ -60,7 +65,7 @@ function renderPersonas(
     html += `<li>${formatContentForHtml(persona.label)}`;
     html += `<ul>`;
     if (persona.user) html += `<li>${formatContentForHtml(persona.user)}</li>`;
-    html += `<li>TPM Roles = ${formatContentForHtml(persona.tpmRoles)}</li>`;
+    html += `<li>${rolesLabel} = ${formatContentForHtml(persona.roles)}</li>`;
     html += `<li>Profile = ${formatContentForHtml(persona.profile)}</li>`;
     html += `<li>PSG = ${formatContentForHtml(persona.psg)}</li>`;
     html += `</ul></li>`;

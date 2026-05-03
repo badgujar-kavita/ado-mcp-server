@@ -4,13 +4,25 @@ import { fileURLToPath } from "url";
 import { z } from "zod";
 import type { ConventionsConfig } from "./types.ts";
 
-const PersonaConfigSchema = z.object({
-  label: z.string(),
-  profile: z.string(),
-  user: z.string().optional(),
-  tpmRoles: z.string(),
-  psg: z.string(),
-});
+const PersonaConfigSchema = z.preprocess(
+  (v) => {
+    if (v && typeof v === "object" && v !== null) {
+      const obj = v as Record<string, unknown>;
+      // Backward compat: accept old `tpmRoles` field name and map to `roles`.
+      if (!("roles" in obj) && "tpmRoles" in obj) {
+        return { ...obj, roles: obj.tpmRoles };
+      }
+    }
+    return v;
+  },
+  z.object({
+    label: z.string(),
+    profile: z.string(),
+    user: z.string().optional(),
+    roles: z.string(),
+    psg: z.string(),
+  }),
+);
 
 const AdditionalContextFieldSchema = z.object({
   adoFieldRef: z.string(),
@@ -71,6 +83,7 @@ const ConventionsConfigSchema = z.object({
   }),
   prerequisiteDefaults: z.object({
     personas: z.record(PersonaConfigSchema),
+    personaRolesLabel: z.string().optional(),
     commonPreConditions: z.array(z.string()),
     toBeTested: z.union([z.null(), z.array(z.string())]),
     testData: z.string(),

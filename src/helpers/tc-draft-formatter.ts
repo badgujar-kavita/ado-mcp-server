@@ -163,10 +163,11 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
   lines.push("");
   // Persona: always all three defaults; no override
   const personaRows = buildPersonaTableRows(undefined, defaults.personas);
-  lines.push("| Role | Profile | TPM Roles | PSG |");
+  const rolesLabel = defaults.personaRolesLabel ?? "Roles";
+  lines.push(`| Role | Profile | ${rolesLabel} | PSG |`);
   lines.push("|---|---|---|---|");
   for (const row of personaRows) {
-    lines.push(`| ${row.role} | ${row.profile} | ${row.tpmRoles} | ${row.psg} |`);
+    lines.push(`| ${row.role} | ${row.profile} | ${row.roles} | ${row.psg} |`);
   }
   lines.push("");
 
@@ -258,7 +259,7 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
 function buildPersonaTableRows(
   override: string | string[] | null | undefined,
   defaultPersonas: Record<string, PersonaConfig>
-): Array<{ role: string; profile: string; tpmRoles: string; psg: string }> {
+): Array<{ role: string; profile: string; roles: string; psg: string }> {
   const keys =
     Array.isArray(override) && override.length > 0
       ? override
@@ -271,11 +272,11 @@ function buildPersonaTableRows(
       return {
         role: escape(p.label),
         profile: escape(p.profile),
-        tpmRoles: escape(p.tpmRoles),
+        roles: escape(p.roles),
         psg: escape(p.psg),
       };
     })
-    .filter((r): r is { role: string; profile: string; tpmRoles: string; psg: string } => r !== null);
+    .filter((r): r is { role: string; profile: string; roles: string; psg: string } => r !== null);
 }
 
 function escape(s: string): string {
