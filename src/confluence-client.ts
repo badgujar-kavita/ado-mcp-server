@@ -1,4 +1,9 @@
-import type { ConfluencePageResult } from "./types.ts";
+import type {
+  ConfluencePageResult,
+  ConfluencePageResultRaw,
+  ConfluenceAttachmentListItem,
+  ConfluenceBinaryResponse,
+} from "./types.ts";
 import { basicAuthHeader } from "./helpers/basic-auth.ts";
 import { stripHtml } from "./helpers/strip-html.ts";
 
@@ -25,8 +30,8 @@ async function fetchCloudId(siteHost: string): Promise<string | null> {
 }
 
 export class ConfluenceClient {
-  private baseUrl: string;
-  private authHeader: string;
+  private readonly baseUrl: string;
+  private readonly authHeader: string;
 
   constructor(baseUrl: string, email: string, apiToken: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
@@ -34,6 +39,19 @@ export class ConfluenceClient {
   }
 
   async getPageContent(pageId: string): Promise<ConfluencePageResult> {
+    const { title, rawStorageHtml } = await this._fetchPage(pageId);
+    return { title, body: stripHtml(rawStorageHtml) };
+  }
+
+  async getPageContentRaw(pageId: string): Promise<ConfluencePageResultRaw> {
+    const { title, rawStorageHtml } = await this._fetchPage(pageId);
+    return { title, body: stripHtml(rawStorageHtml), rawStorageHtml };
+  }
+
+  /** Shared fetch logic that returns both the title and the raw storage HTML. */
+  private async _fetchPage(
+    pageId: string
+  ): Promise<{ title: string; rawStorageHtml: string }> {
     const siteUrl = `${this.baseUrl}/rest/api/content/${pageId}?expand=body.storage`;
     const response = await fetch(siteUrl, {
       headers: {
@@ -47,14 +65,11 @@ export class ConfluenceClient {
         title: string;
         body: { storage: { value: string } };
       };
-      return {
-        title: data.title,
-        body: stripHtml(data.body.storage.value),
-      };
+      return { title: data.title, rawStorageHtml: data.body.storage.value };
     }
 
     if (response.status === 401) {
-      const fallback = await this.tryApiAtlassianFallback(pageId);
+      const fallback = await this._tryApiAtlassianFallbackRaw(pageId);
       if (fallback) return fallback;
     }
 
@@ -72,10 +87,10 @@ export class ConfluenceClient {
     );
   }
 
-  /** Fallback for scoped API tokens that require api.atlassian.com endpoint */
-  private async tryApiAtlassianFallback(
+  /** Fallback for scoped API tokens that require api.atlassian.com endpoint. Returns raw storage HTML. */
+  private async _tryApiAtlassianFallbackRaw(
     pageId: string
-  ): Promise<ConfluencePageResult | null> {
+  ): Promise<{ title: string; rawStorageHtml: string } | null> {
     const siteHost = extractSiteHost(this.baseUrl);
     if (!siteHost || !siteHost.includes("atlassian.net")) return null;
 
@@ -96,10 +111,96 @@ export class ConfluenceClient {
       title: string;
       body: { storage: { value: string } };
     };
-    return {
-      title: data.title,
-      body: stripHtml(data.body.storage.value),
+    return { title: data.title, rawStorageHtml: data.body.storage.value };
+  }
+
+  /**
+   * List current attachments on a Confluence page.
+   *
+   * Returns an array of `{ id, title, mediaType, fileSize?, version, downloadUrl }`.
+   * `downloadUrl` may be relative (e.g. `/wiki/download/attachments/{pageId}/{filename}?...`) —
+   * `fetchAttachmentBinary` handles joining against `baseUrl`.
+   *
+   * Returns `[]` on 404 (page missing or no attachments endpoint); throws on other errors.
+   */
+  async listAttachments(
+    pageId: string
+  ): Promise<ConfluenceAttachmentListItem[]> {
+    const url = `${this.baseUrl}/rest/api/content/${pageId}/child/attachment?expand=version,metadata&limit=200`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: this.authHeader,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) return [];
+      throw new Error(
+        `Confluence listAttachments failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = (await response.json()) as {
+      results?: Array<{
+        id: string;
+        title: string;
+        metadata?: { mediaType?: string };
+        extensions?: { fileSize?: number; mediaType?: string };
+        version?: { number?: number };
+        _links?: { download?: string };
+      }>;
     };
+
+    return (data.results ?? [])
+      .map((item): ConfluenceAttachmentListItem | null => {
+        const downloadUrl = item._links?.download;
+        if (!downloadUrl) return null;
+        return {
+          id: item.id,
+          title: item.title,
+          mediaType:
+            item.metadata?.mediaType ??
+            item.extensions?.mediaType ??
+            "application/octet-stream",
+          fileSize: item.extensions?.fileSize,
+          version: { number: item.version?.number ?? 1 },
+          downloadUrl,
+        };
+      })
+      .filter((x): x is ConfluenceAttachmentListItem => x !== null);
+  }
+
+  /**
+   * Download an attachment's raw bytes.
+   *
+   * Accepts either an absolute URL or a relative path (e.g. `/wiki/download/...`
+   * or `download/...`). Relative paths are resolved against `baseUrl`.
+   */
+  async fetchAttachmentBinary(
+    urlOrPath: string
+  ): Promise<ConfluenceBinaryResponse> {
+    const fullUrl = urlOrPath.startsWith("http")
+      ? urlOrPath
+      : `${this.baseUrl}${urlOrPath.startsWith("/") ? "" : "/"}${urlOrPath}`;
+
+    const response = await fetch(fullUrl, {
+      headers: {
+        Authorization: this.authHeader,
+        // No Accept header — let server send whatever content type matches the file.
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Confluence attachment fetch failed (${response.status}): ${fullUrl}`
+      );
+    }
+
+    const buffer = await response.arrayBuffer();
+    const mimeType =
+      response.headers.get("content-type")?.split(";")[0].trim() ?? null;
+    return { buffer, mimeType };
   }
 }
 

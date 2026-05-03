@@ -228,6 +228,24 @@ export interface ConfluencePageResult {
   body: string;
 }
 
+export interface ConfluencePageResultRaw extends ConfluencePageResult {
+  rawStorageHtml: string;
+}
+
+export interface ConfluenceAttachmentListItem {
+  id: string;
+  title: string;
+  mediaType: string;
+  fileSize?: number;
+  version: { number: number };
+  downloadUrl: string;  // may be relative (/wiki/download/...) — caller joins against baseUrl
+}
+
+export interface ConfluenceBinaryResponse {
+  buffer: ArrayBuffer;
+  mimeType: string | null;
+}
+
 // ── All-Fields / Embedded Images / External Links Types ──
 
 export type ExternalLinkType =
