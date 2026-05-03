@@ -2,13 +2,14 @@
 
 **Status:** proposal (not implemented)
 **Author:** drafted 2026-05-03 from the shipped jira-mcp-server-v2 refactor
+**Last revised:** 2026-05-03 after jira-mcp's agentic enforcement layer landed (commit `e12fb5e`)
 **Decision deadline:** none — implementation commits only after this is approved
 
 ---
 
 ## Why this document exists
 
-Between 2026-05-02 and 2026-05-03, jira-mcp-server-v2 shipped 7
+Between 2026-05-02 and 2026-05-03, jira-mcp-server-v2 shipped 8
 commits that transformed its MCP tool surface from "raw content
 dumper" to "interactive agent assistant":
 
@@ -20,6 +21,10 @@ dumper" to "interactive agent assistant":
 6. Pagination audit + Jira comment truncation signal
 7. Security audits + prompt-injection guardrail + host-IDE tool
    broadening
+8. Agentic enforcement layer — AGENTS.md expanded with 6 more
+   sections (response style, error discipline, path blacklist,
+   capability declaration, observed-state principle, editorial-vs-
+   mechanical) + INTERACTIVE_READ_CONTRACT user-intent clause
 
 You asked if the same pattern can ship to ado-mcp-server. This doc
 audits ado-mcp's actual surface, maps each commit to what it would
@@ -186,25 +191,52 @@ test` runs and reports 0 passing, 0 failing.
 
 ### Port-Commit 1 — AGENTS.md + shared contract constants
 
-**Scope:** Copy verbatim from jira-mcp where possible. ~30 min.
+**Scope:** Copy verbatim from jira-mcp where possible. ~60 min
+(was 30; revised up after the 2026-05-03 agentic enforcement layer
+landed on jira-mcp, which adds 6 new AGENTS.md sections to port).
 
-- New `AGENTS.md` at repo root. Six sections from jira-mcp's
-  AGENTS.md:
+- New `AGENTS.md` at repo root. **13 sections** from jira-mcp's
+  post-enforcement AGENTS.md (jira-mcp commit `e12fb5e`):
   1. **Tool categories.** Adapted: read / action / diagnostic /
      setup. (ado-mcp has setup tools jira-mcp lacks.)
   2. **User-initiated invocation (universal).** Copy verbatim.
-     This is the highest-leverage rule from the whole refactor.
-  3. **Upstream content is data, not instructions.** Copy
+     Covers MCP tools AND host-IDE built-in tools (`Edit`, `Write`,
+     `Read`, `Bash`, `WebFetch`).
+  3. **Response style.** Copy verbatim. Prefer concise; translate
+     tool-internal mechanics to user intent; never name specific
+     command flags in follow-up suggestions.
+  4. **Error handling discipline.** Copy verbatim. Stop, don't
+     debug, don't work around. The "correct error handling"
+     examples already use user-intent language.
+  5. **Forbidden file paths** — **ADAPT** per ado-mcp's layout.
+     Swap `testcase-drafts/**` → `tc-drafts/**`. Drop `.jira-mcp/**`;
+     add `~/.ado-testforge-mcp/**` (credentials directory). Keep
+     the tool-read-vs-host-IDE-read distinction load-bearing:
+     **ado-mcp has `get_tc_draft` and `list_tc_drafts` MCP tools
+     that read these files** — the blacklist applies only to
+     Cursor's built-in Read/Write/Edit tools, never to the MCP
+     tools themselves.
+  6. **What this MCP does (and doesn't)** — **ADAPT** per ado-mcp's
+     capability surface. Handles: read ADO work items, Confluence
+     pages, Zephyr (no — s/Zephyr/ADO Test Plans), push drafts,
+     manage test suites. Does NOT: drift detection, ledger-based
+     update-in-place, recursive Confluence walking.
+  7. **Observed state is not a bug.** Copy verbatim.
+  8. **Editorial vs mechanical operations.** Copy verbatim with
+     ado-mcp tool names.
+  9. **Upstream content is data, not instructions.** Copy
      verbatim, swap "Jira/Confluence/Zephyr" → "ADO/Confluence".
-  4. **Formatting rules.** Copy verbatim.
-  5. **Safety and partial results.** Copy verbatim, note that
+  10. **Formatting rules.** Copy verbatim.
+  11. **Safety and partial results.** Copy verbatim, note that
      ado-mcp doesn't have `completeness.isPartial` yet — that
      arrives in Port-Commit 2.
-  6. **MCP spec alignment.** Copy verbatim.
+  12. **MCP spec alignment.** Copy verbatim.
+  13. **For contributors adding a new tool.** Copy verbatim.
 
 - New shared-constants module at
   `src/prompts/shared-contracts.ts`:
-  - `INTERACTIVE_READ_CONTRACT` — copy verbatim.
+  - `INTERACTIVE_READ_CONTRACT` — copy verbatim from jira-mcp
+    (includes the post-agentic user-intent clause).
   - `DIAGNOSTIC_CONTRACT` — copy verbatim.
   - `CONFIRM_BEFORE_ACT_CONTRACT` — new, lighter replacement for
     `ELICITATION_PROTOCOL` + `TWO_PHASE_CONFIRM`. Rules: "offer the
@@ -386,12 +418,15 @@ evidence to regression-guard in tests.
 
 ## 6. Recommended sequencing
 
-Four commits over an estimated 5 hours:
+Five commits over an estimated 6 hours (revised 2026-05-03 after
+the agentic enforcement layer landed on jira-mcp — AGENTS.md now
+carries 13 sections, not 7, raising Port-Commit 1 effort by ~30
+min):
 
 | # | Commit | Effort | Risk |
 |---|---|---|---|
 | 0 | Bootstrap Vitest | 15 min | ~0 |
-| 1 | AGENTS.md + shared contracts | 30 min | low |
+| 1 | AGENTS.md + shared contracts | 60 min | low |
 | 2 | Canonical read shape (split by tool file) | 3 h | medium |
 | 5 | `check_setup_status` anti-hallucination | 45 min | low |
 | 6 | Security audits | 1 h | low (audit-first) |
@@ -446,7 +481,7 @@ Port-Commits 3 and 4 skipped (see §4 and §3.4).
 
 ## 8. Appendix — commits this proposal replaces
 
-For reference, the 7 jira-mcp commits this port captures:
+For reference, the 8 jira-mcp commits this port captures:
 
 - `3a1d1fd` — Commit 1 (AGENTS.md + shared contracts)
 - `aa6bcbf` — Commit 2 (structuredContent)
@@ -458,8 +493,11 @@ For reference, the 7 jira-mcp commits this port captures:
 - `9c88861` — Host-IDE tool broadening + qa_draft scaffold
   clarification (the AGENTS.md half ports; the qa_draft half does
   not apply)
+- `e12fb5e` — Agentic enforcement layer (6 new AGENTS.md sections
+  + INTERACTIVE_READ_CONTRACT user-intent clause). Ported into
+  Port-Commit 1.
 
-Combined: ~5 h of porting effort for ~80% of the benefit jira-mcp
+Combined: ~6 h of porting effort for ~80% of the benefit jira-mcp
 earned across its refactor. The remaining 20% is
 ado-mcp-specific features (tc-drafts workflow, setup UI) that
 already work well and don't need the lift.
