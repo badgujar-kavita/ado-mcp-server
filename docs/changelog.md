@@ -4,6 +4,41 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-03 — Clickable ADO Work Item Links in Tool Responses
+
+### Feature
+
+Tool responses now include browsable ADO URLs (`https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`) so the agent can render clickable links in chat instead of bare `ADO #1234` text.
+
+- **New `src/helpers/ado-urls.ts`** — `adoWorkItemUrl(adoClient, id)` helper. Reuses the `AdoClient.baseUrl` already constructed in the constructor; no duplication.
+- **`push_tc_draft_to_ado` success message** — TC→ADO mappings now render as markdown links: `TC_1363736_01 → [ADO #1386085](https://dev.azure.com/.../_workitems/edit/1386085)`.
+- **`get_tc_draft`** — when the draft has ADO IDs, appends a new **"## ADO Links (agent display — not persisted)"** section to the returned text with clickable links for the User Story and each TC. The file on disk is **untouched** — this is a response-level convenience so the agent has URLs to build tables/summaries from.
+- **`list_test_cases_linked_to_user_story`** — response now includes `testCases: [{id, webUrl}]` and `userStoryWebUrl` **alongside** the existing `testCaseIds` field (kept for backward compatibility with the clone-and-enhance flow and any other consumers).
+- **`get_test_case`** — adds `webUrl` field to the response (distinct from ADO's native `url` field which is the API endpoint).
+- **`get_user_story`** — adds `webUrl` field to the response.
+- **`create_test_cases` prompt** — new step (9) instructs the agent to use `webUrl` fields when rendering ADO IDs in chat, and to surface `get_tc_draft`'s "ADO Links" section in draft summaries.
+
+### Why This Shape
+
+The draft markdown on disk is a **round-trip format** — the formatter writes it, the parser reads it back on push/repush. Embedding markdown-link syntax in the persisted draft (e.g. `(ADO #1234)` → `([ADO #1234](url))`) would break the parser's `/\(ADO #(\d+)\)/` regex and cause `repush: true` to fail on every revised draft. Instead, URLs are added only at **response time**: tool output gets URLs, disk content stays in the shape the parser expects. No migration, no backward-compat regex work, no risk to existing drafts.
+
+### Files Updated
+
+- **New:** `src/helpers/ado-urls.ts`
+- `src/tools/tc-drafts.ts` — push summary uses markdown links; `get_tc_draft` appends ADO Links section.
+- `src/tools/work-items.ts` — `get_user_story` + `list_test_cases_linked_to_user_story` responses include `webUrl`.
+- `src/tools/test-cases.ts` — `get_test_case` response includes `webUrl`.
+- `src/prompts/index.ts` — agent instruction to use `webUrl` when rendering ADO IDs.
+
+### Backward Compatibility
+
+- `list_test_cases_linked_to_user_story` response keeps `testCaseIds: number[]` alongside the new `testCases` and `userStoryWebUrl` fields. Clone-and-enhance flow unaffected.
+- `AdoWorkItem.url` (the native ADO API URL) is preserved in `get_test_case`; the new browsable URL is on a separate `webUrl` field to avoid clobbering.
+- Draft markdown format unchanged. Parser unchanged. Old drafts still work.
+- `get_tc_draft` output contains all previous content verbatim; new section is **appended** at the end, not injected.
+
+---
+
 ## 2026-05-03 — Duplicate Test Case Preflight on Push
 
 ### Feature

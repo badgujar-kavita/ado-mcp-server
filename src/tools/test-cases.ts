@@ -7,6 +7,7 @@ import { loadConventionsConfig } from "../config.ts";
 import { buildTcTitle } from "../helpers/tc-title-builder.ts";
 import { buildPrerequisitesHtml } from "../helpers/prerequisites.ts";
 import { buildStepsXml } from "../helpers/steps-builder.ts";
+import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 
 // Formatting (bold, lists, persona sub-bullets, TO BE TESTED FOR expansion) is applied
 // via buildPrerequisitesHtml and buildStepsXml for ALL paths: createTestCase (push_tc_draft_to_ado),
@@ -71,8 +72,9 @@ export function registerTestCaseTools(
           "7.0",
           { "$expand": "relations" }
         );
+        const withUrl = { ...item, webUrl: adoWorkItemUrl(client, item.id) };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(item, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(withUrl, null, 2) }],
         };
       } catch (err) {
         return {

@@ -259,6 +259,7 @@ export function registerAllPrompts(server: McpServer) {
           "6. If push_tc_draft_to_ado returns 'US {id} — existing test cases detected' with A/B/C options: show the message verbatim (do NOT list the existing TCs yourself; counts are deliberate). Wait for my reply. On A, call push_tc_draft_to_ado again with insertAnyway: true. On B, call list_test_cases_linked_to_user_story and then get_test_case for each linked ID to show me titles/steps, then ask me again. On C, stop. Never set insertAnyway: true without my A/C-style reply.",
           "7. If I provide feedback or edits: Update draft via save_tc_draft, then ask for confirmation again.",
           "8. NEVER call push_tc_draft_to_ado without explicit user confirmation (YES, approved, push, etc.). NEVER pass insertAnyway=true without showing me the A/B/C prompt first and receiving an explicit 'A' reply.",
+          "9. When showing ADO work item IDs in chat (push summaries, linked TC lists, test case details, etc.), format them as markdown links using the webUrl field from the tool response, e.g. `[ADO #1234](https://dev.azure.com/.../_workitems/edit/1234)`. get_tc_draft also appends an 'ADO Links' section when the draft has IDs — surface those links in tables/summaries for the user. Never show bare `ADO #1234` when a URL is available.",
         ].join("\n"),
       },
     }],

@@ -467,7 +467,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `get_test_plan` | Get test plan details | `planId` |
 | `create_test_plan` | Create a new test plan (future use) | `name` |
 | `get_user_story` | Fetch US with context + Solution Design from Confluence | `workItemId` |
-| `list_test_cases_linked_to_user_story` | Get TC IDs linked to a US via Tests/Tested By | `userStoryId` |
+| `list_test_cases_linked_to_user_story` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept) | `userStoryId` |
 | `list_work_item_fields` | List work item field definitions (reference names, types) | `expand` (optional) |
 | `ensure_suite_hierarchy` | Build sprint > parent > US suite tree | `planId`, `sprintNumber`, `userStoryId` |
 | `find_or_create_test_suite` | Find or create a single suite | `planId`, `parentSuiteId`, `suiteName` |

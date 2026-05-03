@@ -7,6 +7,7 @@ import type { AdoWorkItem } from "../types.ts";
 import { getTcDraftsDir } from "../credentials.ts";
 import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from "../helpers/tc-draft-formatter.ts";
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
+import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
 import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
 
@@ -208,8 +209,32 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
         const content = readFileSync(mdPath, "utf-8");
+        // Append an ADO Links section when the draft has ADO IDs. The file on disk
+        // stays unchanged — this is an agent-display convenience so clickable links
+        // surface in chat without round-tripping URLs through the markdown format
+        // (the parser regex for `(ADO #\d+)` requires `)` right after the digits).
+        const parsed = parseTcDraftFromMarkdown(content);
+        const tcsWithIds = parsed?.testCases.filter((tc) => tc.adoWorkItemId != null) ?? [];
+        let display = content;
+        if (tcsWithIds.length > 0 && parsed) {
+          const usUrl = adoWorkItemUrl(adoClient, parsed.userStoryId);
+          const lines = [
+            "",
+            "---",
+            "",
+            "## ADO Links (agent display — not persisted)",
+            "",
+            `- User Story: [US #${parsed.userStoryId}](${usUrl})`,
+            ...tcsWithIds.map((tc) => {
+              const label = `TC_${parsed.userStoryId}_${String(tc.tcNumber).padStart(2, "0")}`;
+              return `- ${label} → [ADO #${tc.adoWorkItemId}](${adoWorkItemUrl(adoClient, tc.adoWorkItemId!)})`;
+            }),
+            "",
+          ];
+          display = content + lines.join("\n");
+        }
         return {
-          content: [{ type: "text" as const, text: content }],
+          content: [{ type: "text" as const, text: display }],
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -535,7 +560,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         );
 
         const summary = results
-          .map((r) => `  TC_${userStoryId}_${String(r.tcNumber).padStart(2, "0")} → ADO #${r.id}`)
+          .map((r) => `  TC_${userStoryId}_${String(r.tcNumber).padStart(2, "0")} → [ADO #${r.id}](${adoWorkItemUrl(adoClient, r.id)})`)
           .join("\n");
 
         const mdFileName = `US_${userStoryId}_test_cases.md`;

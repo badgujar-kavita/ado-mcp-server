@@ -4,6 +4,7 @@ import type { AdoClient } from "../ado-client.ts";
 import type { ConfluenceClient } from "../confluence-client.ts";
 import type { AdoWorkItem, UserStoryContext } from "../types.ts";
 import { extractConfluencePageId, extractConfluenceUrl } from "../helpers/confluence-url.ts";
+import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { loadConventionsConfig } from "../config.ts";
 
 function getSolutionDesignFieldRef(): string {
@@ -29,12 +30,13 @@ export function registerWorkItemTools(
         );
 
         const context = await extractUserStoryContext(item, confluenceClient);
+        const withUrl = { ...context, webUrl: adoWorkItemUrl(client, context.id) };
 
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(context, null, 2),
+              text: JSON.stringify(withUrl, null, 2),
             },
           ],
         };
@@ -71,10 +73,17 @@ export function registerWorkItemTools(
             return isNaN(id) ? null : id;
           })
           .filter((id): id is number => id != null);
+        const testCases = ids.map((id) => ({ id, webUrl: adoWorkItemUrl(client, id) }));
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ userStoryId, testCaseIds: ids, count: ids.length }, null, 2),
+            text: JSON.stringify({
+              userStoryId,
+              userStoryWebUrl: adoWorkItemUrl(client, userStoryId),
+              testCases,
+              testCaseIds: ids,
+              count: ids.length,
+            }, null, 2),
           }],
         };
       } catch (err) {
