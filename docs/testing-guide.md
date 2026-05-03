@@ -466,7 +466,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `list_test_plans` | List all test plans | *(none)* |
 | `get_test_plan` | Get test plan details | `planId` |
 | `create_test_plan` | Create a new test plan (future use) | `name` |
-| `get_user_story` | Fetch US with context + Solution Design from Confluence | `workItemId` |
+| `get_user_story` | Fetch US with context + Solution Design from Confluence; response includes `webUrl` for clickable linking | `workItemId` |
 | `list_test_cases_linked_to_user_story` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept) | `userStoryId` |
 | `list_work_item_fields` | List work item field definitions (reference names, types) | `expand` (optional) |
 | `ensure_suite_hierarchy` | Build sprint > parent > US suite tree | `planId`, `sprintNumber`, `userStoryId` |
@@ -480,10 +480,10 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `save_tc_supporting_doc` | Save supporting doc (solution_summary, qa_cheat_sheet, regression_tests) | `userStoryId`, `docType`, `markdown` |
 | `save_tc_clone_preview` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
 | `list_tc_drafts` | List saved drafts (subfolder + legacy layouts, shows supporting docs) | *(none)* |
-| `get_tc_draft` | Get draft by user story ID (subfolder + legacy) | `userStoryId` |
-| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). **Duplicate preflight:** aborts with counts-based A/B/C risk message when US already has linked TCs and draft has no ADO IDs. Override with `insertAnyway: true` after user replies A; use existing `list_test_cases_linked_to_user_story` + `get_test_case` for investigation on B. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
+| `get_tc_draft` | Get draft by user story ID (subfolder + legacy). **Appends an "ADO Links" section** to the returned text when the draft has ADO IDs (clickable `webUrl`s for US + each TC; file on disk unchanged). | `userStoryId` |
+| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). Success message renders TC→ADO mappings as markdown links. **Duplicate preflight:** aborts with counts-based A/B/C risk message when US already has linked TCs and draft has no ADO IDs. Override with `insertAnyway: true` after user replies A; use existing `list_test_cases_linked_to_user_story` + `get_test_case` for investigation on B. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
 | `list_test_cases` | List TCs in a suite | `planId`, `suiteId` |
-| `get_test_case` | Get TC work item details | `workItemId` |
+| `get_test_case` | Get TC work item details; response includes `webUrl` for clickable linking | `workItemId` |
 | `update_test_case` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |
 | `delete_test_case` | Delete a test case (Recycle Bin by default) | `workItemId`, `destroy` (optional) |
 | `delete_test_cases` | (Command only — calls delete_test_case per ID) | N/A — use slash command |

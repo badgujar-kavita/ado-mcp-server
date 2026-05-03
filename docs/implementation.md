@@ -610,13 +610,13 @@ ADO TestForge MCP/
 
 - **`get_user_story`** -- Fetch a User Story by ID with all QA-relevant fields + Solution Design from Confluence
   - API: `GET /wit/workitems/{id}?$expand=relations` (fetches all fields including `Custom.TechnicalSolution`)
-  - Returns: title, description (HTML), acceptance criteria (HTML), area path, iteration path, state, **parent work item ID + title** (EPIC or Parent US), all relations, **solutionDesignUrl**, **solutionDesignContent**
+  - Returns: title, description (HTML), acceptance criteria (HTML), area path, iteration path, state, **parent work item ID + title** (EPIC or Parent US), all relations, **solutionDesignUrl**, **solutionDesignContent**, **`webUrl`** (browsable `https://dev.azure.com/.../_workitems/edit/{id}` — distinct from ADO's native `url` API endpoint).
   - Auto-enrichment: If the "Technical Solution" field (UI label: "Solution Notes") contains a Confluence URL and Confluence credentials are configured, the tool automatically extracts the page ID and attempts to fetch the page content. If the fetch fails, it is silently skipped and `solutionDesignContent` remains `null`.
   - Purpose: Provides full context for test case generation (including Solution Design) AND determines suite folder placement (parent vs non-epic)
 - **`list_test_cases_linked_to_user_story`** -- Get test case work item IDs linked to a User Story via Tests/Tested By relation
   - API: `GET /wit/workitems/{userStoryId}?$expand=relations`
-  - Returns: `{ userStoryId, testCaseIds: number[], count }`
-  - Purpose: Use before cloning test cases from one US to another
+  - Returns: `{ userStoryId, userStoryWebUrl, testCases: [{id, webUrl}], testCaseIds: number[], count }`. `testCaseIds` and the `testCases` array are both populated; `testCaseIds` is kept for backward compatibility with existing consumers (e.g. clone-and-enhance).
+  - Purpose: Use before cloning test cases from one US to another, and for building clickable TC lists in chat (via `webUrl`).
 - **`list_work_item_fields`** -- List all work item field definitions in the ADO project
   - API: `GET /_apis/wit/fields`
   - Returns: reference names (e.g. Custom.PrerequisiteforTest, System.Title), type, readOnly
@@ -677,6 +677,7 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
   - API: `GET /_apis/testplan/Plans/{planId}/Suites/{suiteId}/TestCase`
 - **`get_test_case`** -- Get a test case work item by ID
   - API: `GET /_apis/wit/workitems/{id}`
+  - Returns: the full `AdoWorkItem` plus a top-level `webUrl` (`https://dev.azure.com/.../_workitems/edit/{id}`) for clickable rendering. The existing `url` field (ADO's native API endpoint) is preserved unchanged.
 - **`update_test_case`** -- Update one or more fields (partial or full). Pass only fields to change for partial update; pass all fields for full replace. Fields: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath.
   - API: `PATCH /_apis/wit/workitems/{id}` (JSON Patch format)
 - **`add_test_cases_to_suite`** -- Add existing test case IDs to a static suite (not needed for query-based suites where auto-linking handles it; kept for edge cases)
@@ -692,7 +693,7 @@ Test plans already exist (e.g., `GPT_D-HUB`). The `planId` is provided as input 
 - **`save_tc_clone_preview`** -- Save a clone-and-enhance preview to `tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md`. Pass `sourceUserStoryId`, `targetUserStoryId`, `markdown`, and `workspaceRoot` or `draftsPath`. Use after analyzing source TCs and target US + Solution Design. User reviews and responds APPROVED / MODIFY / CANCEL.
 - **`list_tc_drafts`** -- List saved drafts with US ID, title, status, version, and supporting docs. Supports both new subfolder layout (`tc-drafts/US_<id>/`) and legacy flat layout (`tc-drafts/US_<id>_test_cases.md`). Pass `workspaceRoot` or `draftsPath`.
 - **`get_tc_draft`** -- Get a draft by user story ID (markdown only). Supports both subfolder and legacy flat layout. Pass `workspaceRoot` or `draftsPath`. **When the draft has ADO IDs**, appends an **"ADO Links (agent display — not persisted)"** section to the returned text with clickable `webUrl` links for the US and each TC. The file on disk is untouched — URLs are synthesized per-call from `AdoClient.baseUrl` so the agent can render proper markdown links in chat. Draft markdown format is intentionally kept link-free to preserve the parser's round-trip on repush (`(ADO #1234)` → regex `/\(ADO #(\d+)\)/`).
-- **`push_tc_draft_to_ado`** -- Push an approved draft to ADO. Supports both subfolder and legacy flat layout. If draft has no `planId`, it automatically calls `ensureSuiteHierarchyForUs` to derive the plan ID from the User Story's AreaPath (via `testPlanMapping` in config), creates the suite hierarchy, then creates test cases. Parses markdown, creates test cases, links to US, then generates JSON co-located with the markdown. Pass `workspaceRoot` or `draftsPath`. Set `repush: true` when draft was revised after initial push to **update** existing test cases (formatting re-applied). JSON is created only at push time to avoid drift during revisions. **Duplicate-TC preflight:** before creating new TCs (i.e. draft has no ADO IDs and `repush` is not set), the tool calls `/_apis/wit/workitems/{usId}?$expand=relations`, extracts `TestedBy` linked IDs, and — if any exist — returns `isError: true` with a **counts-based** risk message (existing count + new count + duplicate warning) offering three lettered options: **A.** proceed with `insertAnyway: true`, **B.** inspect via `list_test_cases_linked_to_user_story` + `get_test_case`, **C.** cancel. No title/step dump in the preflight response — that's the investigative tools' job. If zero linked TCs, the preflight is silent and push proceeds. If the relations call itself fails, the tool surfaces the error honestly (cancel or `insertAnyway: true` if confident).
+- **`push_tc_draft_to_ado`** -- Push an approved draft to ADO. Supports both subfolder and legacy flat layout. If draft has no `planId`, it automatically calls `ensureSuiteHierarchyForUs` to derive the plan ID from the User Story's AreaPath (via `testPlanMapping` in config), creates the suite hierarchy, then creates test cases. Parses markdown, creates test cases, links to US, then generates JSON co-located with the markdown. Pass `workspaceRoot` or `draftsPath`. Set `repush: true` when draft was revised after initial push to **update** existing test cases (formatting re-applied). JSON is created only at push time to avoid drift during revisions. **Success summary renders TC→ADO mappings as markdown links** (e.g. `TC_12345_01 → [ADO #67890](https://dev.azure.com/.../edit/67890)`) using the `adoWorkItemUrl` helper. **Duplicate-TC preflight:** before creating new TCs (i.e. draft has no ADO IDs and `repush` is not set), the tool calls `/_apis/wit/workitems/{usId}?$expand=relations`, extracts `TestedBy` linked IDs, and — if any exist — returns `isError: true` with a **counts-based** risk message (existing count + new count + duplicate warning) offering three lettered options: **A.** proceed with `insertAnyway: true`, **B.** inspect via `list_test_cases_linked_to_user_story` + `get_test_case`, **C.** cancel. No title/step dump in the preflight response — that's the investigative tools' job. If zero linked TCs, the preflight is silent and push proceeds. If the relations call itself fails, the tool surfaces the error honestly (cancel or `insertAnyway: true` if confident).
 
 Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-salesforce-tpm/SKILL.md` (QA architect methodology) → AI calls `save_tc_draft` (creates US folder + test_cases.md) → AI calls `save_tc_supporting_doc` for solution_summary and qa_cheat_sheet → user reviews (revisions) → `create_test_cases` prompt → user confirms → `push_tc_draft_to_ado` (runs duplicate-TC guard: aborts if US already has linked TCs unless `repush` or `insertAnyway` is set) → inserts/updates TCs, or `create_test_cases` calls `create_test_case` directly.
 
@@ -720,7 +721,7 @@ Flow: `draft_test_cases` prompt → AI applies `.cursor/skills/draft-test-cases-
 
 ```typescript
 class AdoClient {
-  private baseUrl: string;
+  readonly baseUrl: string;
   private authHeader: string;
 
   constructor(org: string, project: string, pat: string) {
@@ -741,6 +742,7 @@ Key responsibilities:
 - API version parameter (defaults: `7.1` for testplan, `7.0` for wit)
 - `application/json-patch+json` content type for work item create/update
 - Error mapping: 401 -> "Invalid PAT", 403 -> "Insufficient PAT scope", 404 -> "Resource not found"
+- `baseUrl` is exposed as `readonly` so helpers like `src/helpers/ado-urls.ts` (`adoWorkItemUrl(adoClient, id)`) can build browsable `${baseUrl}/_workitems/edit/{id}` links without duplicating org/project state. Tool responses emit these as `webUrl` fields (distinct from `AdoWorkItem.url`, which is the raw ADO REST API endpoint).
 
 ## Confluence Client Design (`src/confluence-client.ts`) -- Optional
 
