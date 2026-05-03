@@ -18,6 +18,7 @@ Documentation for the ADO TestForge MCP server — Azure DevOps test case automa
 | [prerequisite-field-table-compatibility.md](prerequisite-field-table-compatibility.md) | Field table compatibility, tc_draft format for future tables |
 | [prerequisite-formatting-ado.md](prerequisite-formatting-ado.md) | Prerequisite formatting — user summary and troubleshooting |
 | [test-case-writing-style-reference.md](test-case-writing-style-reference.md) | Title format, "should" form, steps, admin validation |
+| [test-case-pattern-analysis.md](test-case-pattern-analysis.md) | **Test case pattern analysis (generic)** — Observed title / prereq / step / persona patterns with illustrative fictional examples; use as a structural reference when drafting |
 | [automation-friendly-test-patterns.md](automation-friendly-test-patterns.md) | **Automation-friendly expected result patterns** — Quick reference with mapping examples |
 | [version-management.md](version-management.md) | **Version management strategy** — SemVer rules, bump workflow, changelog format |
 | [distribution-guide.md](distribution-guide.md) | Distribution via GitHub \+ curl installer |
