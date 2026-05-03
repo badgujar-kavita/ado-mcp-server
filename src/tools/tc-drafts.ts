@@ -489,9 +489,9 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
                   `if they cover the same scenarios, you'll end up with duplicates.\n\n` +
                   `Reply with a letter:\n` +
                   `  **A.** Proceed — create ${newCount} new TCs alongside the existing ones ` +
-                  `(agent should call push_tc_draft_to_ado with insertAnyway: true).\n` +
-                  `  **B.** Inspect first — run list_test_cases_linked_to_user_story(userStoryId: ${userStoryId}) ` +
-                  `and get_test_case for each to see titles/steps before deciding.\n` +
+                  `(agent then calls push_tc_draft_to_ado with insertAnyway: true).\n` +
+                  `  **B.** Inspect first — see titles/steps of the existing test cases before deciding ` +
+                  `(agent then calls list_test_cases_linked_to_user_story and get_test_case for each).\n` +
                   `  **C.** Cancel — do nothing.`,
               }],
               isError: true,
