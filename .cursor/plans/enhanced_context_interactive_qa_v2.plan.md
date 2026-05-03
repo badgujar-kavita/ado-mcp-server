@@ -415,7 +415,7 @@ Can be changed per-team by setting `traceabilityOutput` in `conventions.config.j
 - **[docs/implementation.md](docs/implementation.md)** — update "Solution Design Usage" section with multi-field, multi-link, optional signals documentation
 - **[docs/testing-guide.md](docs/testing-guide.md)** — update tool reference table and add Source Discovery Report section
 - **[docs/changelog.md](docs/changelog.md)** — add changelog entry
-- Run `npm run deploy` to Google Drive after all changes
+- Rebuild distribution bundle via `npm run build:dist` after all changes (Vercel tarball distribution handles delivery; see docs/distribution-guide.md)
 
 ---
 

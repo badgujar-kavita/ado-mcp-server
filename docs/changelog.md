@@ -4,6 +4,17 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-03 — Removed Google Drive distribution path
+
+### Change
+
+- Distribution is now exclusively via Vercel tarball (see `docs/distribution-guide.md`). The Google Drive deploy path has been retired.
+- `deploy.mjs` and `.deploy-path` files removed; `GDRIVE_DEPLOY_PATH` is no longer read anywhere.
+- `bin/bootstrap.mjs`'s `checkGoogleDrive()` check removed — no more warnings about a missing Google Drive desktop app.
+- All plan and rule references to Google Drive as a distribution target have been cleaned up. (Google Drive remains a supported **external-link type** for links pasted into work items — that is unrelated to distribution.)
+
+---
+
 ## 2026-05-03 — Clickable ADO Work Item Links in Tool Responses
 
 ### Feature

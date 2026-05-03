@@ -48,7 +48,7 @@ todos:
     content: "Phase 5: Update docs/implementation.md, docs/setup-guide.md, docs/testing-guide.md, docs/changelog.md with the new capabilities and saveLocally rationale"
     status: pending
   - id: phase5-deploy
-    content: "Phase 5: Run npm run deploy to push the updated distribution to Google Drive (per workspace deploy rule)"
+    content: "Phase 5: Rebuild distribution bundle via npm run build:dist (Vercel tarball distribution handles delivery)"
     status: pending
 isProject: true
 ---
@@ -609,20 +609,14 @@ The repo has no existing test suite. This refactor adds net-new parsing and bina
 1. **Option A — bundle inline (simpler, bigger):** leave esbuild's `bundle: true` and no externals. Verify the output `dist-package/dist/index.js` actually builds without errors (jimp's codec sub-deps sometimes resist bundling). Bundle size jumps from ~KBs to ~4-6 MB. Document the size jump in the changelog.
 2. **Option B — mark external + propagate:** add `external: ["jimp", "node-html-parser"]` to esbuild config AND update the synthesized `distPkg.dependencies` to include both packages at their installed versions. Deployment target must `npm install` on first run, OR the packages must be shipped alongside.
 
-**Verification before `npm run deploy`:**
+**Verification before shipping the distribution bundle:**
 ```bash
 npm run build:dist
 node dist-package/dist/index.js --help   # smoke test: server starts, no missing-module errors
 ```
-If the smoke test fails with `Cannot find module 'jimp'` or a jimp codec error, the bundling choice above is wrong — fix before deploying.
+If the smoke test fails with `Cannot find module 'jimp'` or a jimp codec error, the bundling choice above is wrong — fix before rebuilding.
 
-**Then:**
-
-```bash
-npm run deploy
-```
-
-Per `.cursor/rules/deploy-after-changes.mdc` — mandatory after touching any MCP tool, prompt, skill, or conventions/documentation change.
+**Then:** rebuild the distribution bundle via `npm run build:dist`; distribution happens via Vercel (see docs/distribution-guide.md). Mandatory after touching any MCP tool, prompt, skill, or conventions/documentation change.
 
 ---
 
@@ -715,7 +709,7 @@ All three previously-manual "prerequisites" are resolved via REST at runtime —
 | `docs/setup-guide.md` | Document `additionalContextFields` and `images` blocks; correct attachment statement |
 | `docs/testing-guide.md` | Update `get_user_story` reference + troubleshooting |
 | `docs/changelog.md` | Single changelog entry |
-| `npm run deploy` | Push to Google Drive (workspace rule) |
+| `npm run build:dist` | Rebuild distribution bundle (Vercel tarball distribution handles delivery; see docs/distribution-guide.md) |
 
 ---
 

@@ -108,7 +108,7 @@ After setup, ADO TestForge MCP is available globally in all workspaces.
 | [Testing Guide](docs/testing-guide.md) | Step-by-step testing, tool quick reference |
 | [Test Case Writing Style](docs/test-case-writing-style-reference.md) | Title format, steps, admin validation |
 | [Prerequisite Formatting](docs/prerequisite-formatting-instruction.md) | Prerequisite HTML structure |
-| [Distribution Guide](docs/distribution-guide.md) | Build and deploy to shared folder |
+| [Distribution Guide](docs/distribution-guide.md) | Build the dist-package bundle and the Vercel-hosted install flow |
 | [Changelog](docs/changelog.md) | Release history |
 
 ---
@@ -131,15 +131,9 @@ After setup, ADO TestForge MCP is available globally in all workspaces.
 
 ---
 
-## Deployment
+## Distribution
 
-For team distribution, the project can be built and deployed to a shared folder (e.g., Google Drive):
-
-```bash
-npm run deploy
-```
-
-Configure the deploy path via `.deploy-path` or `GDRIVE_DEPLOY_PATH` environment variable. See [docs/distribution-guide.md](docs/distribution-guide.md).
+End users install ADO TestForge MCP via a one-line `curl` command from the Vercel-hosted install site, which fetches the latest tarball. See [docs/distribution-guide.md](docs/distribution-guide.md) for the full install flow and publishing workflow.
 
 ---
 

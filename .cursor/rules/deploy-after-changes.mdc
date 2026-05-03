@@ -1,13 +1,11 @@
 ---
-description: Deploy to Google Drive after any MCP changes (one-way: Main → Deployment)
+description: Rebuild dist-package after any MCP changes so the distribution stays in sync
 alwaysApply: true
 ---
 
-# Deploy to Google Drive After Changes
+# Rebuild Distribution After Changes
 
-**One-way flow only:** Changes flow Main Project (ADO TestForge MCP) → Deployment (Center of Excellence (CoE)/MCP Servers). Never the reverse.
-
-**REQUIRED:** After making any changes to MCP commands, tools, prompts, bootstrap, or enhancements, you MUST deploy the updated files to the Google Drive folder.
+**REQUIRED:** After making any changes to MCP commands, tools, prompts, bootstrap, skills, or docs, you MUST rebuild `dist-package/` so the distribution reflects the latest code.
 
 ## Keep Documentation Up to Date
 
@@ -18,21 +16,17 @@ alwaysApply: true
 - **docs/testing-guide.md** — Tool quick reference, slash commands, troubleshooting
 - **docs/tc-style-guide-and-consistency-strategy.md** — TC style and consistency rules
 
-## Deploy Command
+## Rebuild Command
 
 ```bash
-npm run deploy
+npm run build:dist
 ```
 
-This builds the distribution and copies it to the configured Google Drive folder (Center of Excellence (CoE)/MCP Servers).
+This rebuilds `dist-package/` from the current source. No manual deploy step is needed — end users pull the latest install via the Vercel-hosted tarball, which is published through a separate Vercel workflow.
 
-## When to Deploy
+## When to Rebuild
 
 - After adding or modifying MCP tools
 - After changing the installer or bootstrap
 - After updating setup-guide.md or conventions.config.json
 - After any enhancement that affects the user-facing MCP
-
-## Setup
-
-Create `.deploy-path` (or set `GDRIVE_DEPLOY_PATH` env var) with the target folder path. See `.deploy-path.example`.

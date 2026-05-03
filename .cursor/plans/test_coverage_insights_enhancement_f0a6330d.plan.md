@@ -21,7 +21,7 @@ todos:
     content: Update implementation.md, testing-guide.md, changelog.md, plan-enhanced-context-and-interactive-workflow.md
     status: completed
   - id: deploy
-    content: Run npm run deploy to build and copy to Google Drive
+    content: Rebuild distribution bundle via npm run build:dist (Vercel tarball distribution handles delivery)
     status: completed
 isProject: false
 ---
@@ -129,7 +129,7 @@ All documentation references need updating from "Coverage Validation Checklist" 
 
 ## Deploy
 
-After all changes, run `npm run deploy` to build and copy to Google Drive.
+After all changes, run `npm run build:dist` to rebuild the distribution bundle (Vercel tarball distribution handles delivery; see docs/distribution-guide.md).
 
 ## Example Output (what the markdown will look like)
 

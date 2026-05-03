@@ -48,7 +48,7 @@ todos:
     content: "Phase F.1: Update docs/implementation.md (KB section + tool tables), docs/setup-guide.md (first-run workflow), docs/testing-guide.md (new commands + troubleshooting), docs/tc-style-guide-and-consistency-strategy.md (regression TC style). Create docs/project-knowledge-guide.md (deep dive + gitignore guidance + limitations)."
     status: pending
   - id: deploy
-    content: "Phase F.2: Run npm run deploy to push dist-package to the configured Google Drive folder per deploy-after-changes workspace rule."
+    content: "Phase F.2: Rebuild distribution bundle via npm run build:dist (Vercel tarball distribution handles delivery; see docs/distribution-guide.md)."
     status: pending
 isProject: false
 ---
@@ -586,7 +586,7 @@ New doc: [docs/project-knowledge-guide.md](docs/project-knowledge-guide.md) — 
 
 - [build-dist.mjs](build-dist.mjs) already copies `.cursor/skills/`, `.cursor/rules/`, `docs/`, `conventions.config.json` — **no change needed**.
 - Verify new `src/tools/project-knowledge.ts` compiles into `dist/` via existing `tsc` pipeline.
-- After all code + doc updates: run `npm run deploy` (per `deploy-after-changes` rule) to copy `dist-package/` to the configured Google Drive folder.
+- After all code + doc updates: run `npm run build:dist` to rebuild the distribution bundle (Vercel tarball distribution handles delivery; see docs/distribution-guide.md).
 - No bootstrap changes required — server comes up the same way; KB is purely per-workspace.
 
 ---
@@ -639,6 +639,6 @@ The plan is deliberately ordered so each phase is independently testable.
 - **Phase C (KB read path for draft)**: `get_project_knowledge` + `query_impacted_features` + enhanced `draft_test_cases` prompt. Drafts become impact-aware.
 - **Phase D (regression)**: `/draft_regression_tests` prompt + `regression-test-drafting` skill (writes use existing `save_tc_supporting_doc`).
 - **Phase E (regression push)**: `push_regression_tests_to_ado` tool + `/push_regression_tests` prompt. Closes the loop to ADO.
-- **Phase F (docs, skill updates, deploy)**: update the four required docs + new `project-knowledge-guide.md`, run `npm run deploy`.
+- **Phase F (docs, skill updates, rebuild distribution bundle)**: update the four required docs + new `project-knowledge-guide.md`, run `npm run build:dist` (Vercel tarball distribution handles delivery).
 
 Each phase is shippable on its own.

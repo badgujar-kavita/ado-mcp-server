@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Build a distribution package for Google Drive share.
- * Output: dist-package/ with compiled JS (no src/) so code is hidden.
+ * Build a distribution package for the Vercel-hosted tarball.
+ * Output: dist-package/ with compiled JS (no src/) — this is the folder
+ * that `scripts/build-website.sh` tarballs and publishes as
+ * https://ado-mcp.vercel.app/ado-testforge.tar.gz.
  */
 
 import { build } from "esbuild";
@@ -48,22 +50,23 @@ async function main() {
   copyFileSync(join(ROOT, ".cursor", "mcp.json"), join(OUT, ".cursor", "mcp.json"));
   copyDirContents(join(ROOT, "docs"), join(OUT, "docs"), ".md");
   copyDirContents(join(ROOT, ".cursor", "rules"), join(OUT, ".cursor", "rules"), ".mdc");
-  // Deployment-only rule: block edits in deployed folder (one-way flow, no tracking)
+  // Deployment-only rule: warn users not to edit the installed copy (it's
+  // overwritten on every tarball update).
   writeFileSync(
     join(OUT, ".cursor", "rules", "make-changes-in-main-project.mdc"),
     `---
-description: Do not edit this folder. Changes are pushed from main project; restart MCP to pick up updates.
+description: Do not edit this folder. It is overwritten on every tarball update; restart MCP to pick up updates.
 globs: "**/*"
 alwaysApply: true
 ---
 
-# Read-Only Deployment — Do Not Edit
+# Read-Only Installation — Do Not Edit
 
 **Do not modify tools, rules, skills, or docs in this folder.**
 
-- **Why:** Edits here are untracked, undocumented, and overwrite each other. No way to know who changed what.
-- **How updates work:** Changes are pushed from the main project (ADO TestForge MCP). When you receive updates (e.g. via Google Drive sync), **restart the MCP server** to pick them up.
-- **Need a change?** Ask the main project owner. Do not edit here.
+- **Why:** This folder is populated by the Vercel-hosted tarball installer. Any edits here are untracked and will be overwritten the next time you run the install command.
+- **How updates work:** Re-run the install command from the Vercel site to pull the latest tarball, then restart the MCP server to load the new code.
+- **Need a change?** Open an issue / PR on the main ADO TestForge MCP project. Do not edit here.
 `
   );
   // Copy skills (entire directory structure)
@@ -83,10 +86,6 @@ alwaysApply: true
     copyFileSync(join(ROOT, "conventions.config.json"), join(OUT, "conventions.config.json"));
   }
 
-  // Deploy blocking script: prevents back-deploy from deployment folder to main project
-  mkdirSync(join(OUT, "scripts"), { recursive: true });
-  copyFileSync(join(ROOT, "scripts", "deploy-block.mjs"), join(OUT, "scripts", "deploy.mjs"));
-
   const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
   const distPkg = {
     name: pkg.name,
@@ -99,7 +98,7 @@ alwaysApply: true
 
 
   console.log("Done. Distribution package at: dist-package/");
-  console.log("Share the dist-package/ folder on Google Drive.");
+  console.log("Publish via scripts/build-website.sh (runs automatically on Vercel deploy).");
 }
 
 main().catch((err) => {

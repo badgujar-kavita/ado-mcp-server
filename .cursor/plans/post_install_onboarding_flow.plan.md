@@ -24,7 +24,7 @@ todos:
     content: Ensure Confluence missing config or errors are silently skipped — no exceptions thrown, no warnings shown to user, core ADO flow unaffected
     status: completed
   - id: deploy
-    content: Run npm run deploy after changes with rollback note
+    content: Rebuild distribution bundle via npm run build:dist after changes with rollback note (Vercel tarball distribution handles delivery)
     status: completed
 isProject: true
 ---
@@ -215,8 +215,8 @@ Keep update summaries to 3-5 bullet points max.
 
 ### Maintainability
 
-- Updates are deployed to Google Drive automatically via `npm run deploy` — users just refresh the MCP server in Cursor Settings to get the latest changes, no manual syncing required
-- **Rollback:** Keep previous build artifact in Google Drive (e.g., `dist-package-v1.0.0-backup/`) before overwriting for safety
+- Updates are shipped by rebuilding the distribution bundle via `npm run build:dist`; distribution happens via Vercel (see docs/distribution-guide.md). Users refresh the MCP server in Cursor Settings to pick up the latest changes.
+- **Rollback:** Retain the previous tarball artifact (e.g., `dist-package-v1.0.0-backup.tgz`) before publishing a new bundle for safety
 - Version number in welcome header allows users to confirm they have the latest build
 
 ---

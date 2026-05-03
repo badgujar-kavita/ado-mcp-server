@@ -91,18 +91,6 @@ function checkNodeVersion() {
   return { ok: major >= 18, version: process.version, major };
 }
 
-function checkGoogleDrive() {
-  const pathLower = PROJECT_ROOT.toLowerCase();
-  const hasGoogleDrive =
-    pathLower.includes("cloudstorage/googledrive") ||
-    pathLower.includes("google drive") ||
-    pathLower.includes("googledrive");
-  return {
-    ok: hasGoogleDrive,
-    path: PROJECT_ROOT,
-  };
-}
-
 function checkFolderStructure() {
   const hasBootstrap = existsSync(join(PROJECT_ROOT, "bin", "bootstrap.mjs"));
   const hasDistOrSrc = hasDist() || existsSync(join(PROJECT_ROOT, "src", "index.ts"));
@@ -252,7 +240,7 @@ function runInstallerServer() {
   const installTool = {
     name: "install",
     description:
-      "Check prerequisites (Google Drive, Node.js, folder structure), create credentials template, " +
+      "Check prerequisites (Node.js, folder structure), create credentials template, " +
       "and register ADO TestForge MCP globally. Run this for first-time setup.",
     inputSchema: { type: "object", properties: {} },
   };
@@ -332,19 +320,7 @@ function runInstallerServer() {
         steps.push("Checking prerequisites...");
         steps.push("");
 
-        // 1. Google Drive check
-        const gdriveCheck = checkGoogleDrive();
-        if (gdriveCheck.ok) {
-          steps.push("[PASS] Google Drive desktop app detected");
-        } else {
-          steps.push("[WARN] Google Drive path not detected");
-          steps.push("       Path: " + gdriveCheck.path);
-          steps.push("       If using Google Drive, ensure the desktop app is installed.");
-          steps.push("       Download: https://www.google.com/drive/download/");
-          steps.push("       (Continuing anyway - this is a warning, not an error)");
-        }
-
-        // 2. Node.js check
+        // 1. Node.js check
         const nodeCheck = checkNodeVersion();
         if (nodeCheck.ok) {
           steps.push(`[PASS] Node.js ${nodeCheck.version} (v18+ required)`);
@@ -354,7 +330,7 @@ function runInstallerServer() {
           hasErr = true;
         }
 
-        // 3. Folder structure check
+        // 2. Folder structure check
         const folderCheck = checkFolderStructure();
         if (folderCheck.ok) {
           if (folderCheck.hasDist) {
@@ -366,7 +342,7 @@ function runInstallerServer() {
           steps.push("[FAIL] Invalid folder structure");
           steps.push("       Missing: " + (!folderCheck.hasBootstrap ? "bin/bootstrap.mjs " : "") +
             (!folderCheck.hasDist && !folderCheck.hasSrc ? "dist/index.js or src/index.ts" : ""));
-          steps.push("       Ensure you're using the CoE/MCP Servers folder.");
+          steps.push("       Ensure the installation directory is complete.");
           hasErr = true;
         }
 

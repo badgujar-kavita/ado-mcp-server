@@ -12,7 +12,7 @@ todos:
     content: Update test-case-draft-formatting.mdc to reference new folder convention
     status: completed
   - id: deploy
-    content: Run npm run deploy to push to Google Drive
+    content: Rebuild distribution bundle via npm run build:dist (Vercel tarball distribution handles delivery)
     status: completed
 isProject: false
 ---
@@ -1182,7 +1182,7 @@ mkdir -p .cursor/skills/test-case-asset-manager/templates
 
 4. **Update rule:** Add folder structure section to test-case-draft-formatting.mdc
 
-5. **Deploy:** Run `npm run deploy` to push to Google Drive
+5. **Rebuild distribution bundle:** Run `npm run build:dist` (Vercel tarball distribution handles delivery; see docs/distribution-guide.md)
 
 **Note:** No example files are created. Examples in this plan document serve as learning patterns for the AI.
 
@@ -1208,5 +1208,5 @@ mkdir -p .cursor/skills/test-case-asset-manager/templates
 - Test creating a new US folder manually using templates
 - Verify enhanced templates have all required sections
 - Verify relative links work in markdown preview
-- Run `npm run deploy` and confirm Google Drive sync
+- Run `npm run build:dist` and confirm the distribution bundle rebuilds cleanly (Vercel tarball distribution handles delivery)
 

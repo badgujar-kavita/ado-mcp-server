@@ -91,23 +91,3 @@ Credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` — ne
 * Each user creates their own ADO PAT with their account
 * The repository contains no secrets; credentials are local to each machine
 * Re\-installation preserves existing credentials
-
----
-
-## Legacy: Google Drive Distribution
-
-> **Note:** The Google Drive distribution method is deprecated. Use the GitHub \+ curl installer instead.
-
-If you previously used Google Drive distribution:
-
-1. Users can migrate by running the curl installer — it will detect the old installation and migrate automatically
-2. Existing credentials are preserved during migration
-3. The old Google Drive folder can be removed after migration
-
-For reference, the old method involved:
-
-* Running `npm run build:dist` to create `dist-package/`
-* Uploading `dist-package/` to Google Drive
-* Users adding the folder to Cursor workspace and running `/ado-testforge/install`
-
-This method is no longer maintained.

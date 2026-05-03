@@ -24,7 +24,7 @@ todos:
     content: Update implementation.md and testing-guide.md with archiving tools
     status: pending
   - id: deploy
-    content: Run npm run deploy to push to Google Drive
+    content: Rebuild distribution bundle via npm run build:dist (Vercel tarball distribution handles delivery)
     status: pending
 isProject: false
 ---
@@ -707,7 +707,7 @@ Each archived folder contains `.archive_meta.json` with:
 5. **Update docs** (implementation.md, testing-guide.md)
 6. **Add prompt** for archive_drafts
 7. **Test** all four tools manually
-8. **Deploy** to Google Drive
+8. **Rebuild distribution bundle** via `npm run build:dist` (Vercel tarball distribution handles delivery; see docs/distribution-guide.md)
 
 ---
 

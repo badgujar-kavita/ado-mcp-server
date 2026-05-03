@@ -187,7 +187,7 @@ Matrix format per row: Test Case ID, Feature/Requirement, Source Document, Confi
 - **[docs/implementation.md](docs/implementation.md)** -- update "Solution Design Usage" with multi-field, multi-link docs
 - **[docs/testing-guide.md](docs/testing-guide.md)** -- update tool reference table
 - **[docs/changelog.md](docs/changelog.md)** -- add changelog entry
-- `npm run deploy` to Google Drive
+- `npm run build:dist` to rebuild the distribution bundle (Vercel tarball distribution handles delivery; see docs/distribution-guide.md)
 
 ---
 

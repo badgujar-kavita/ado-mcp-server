@@ -48,7 +48,7 @@ todos:
     content: Update setup-guide.md, implementation.md, testing-guide.md with profiles and project config documentation
     status: pending
   - id: deploy
-    content: Build and deploy to Google Drive after all changes
+    content: Rebuild distribution bundle via npm run build:dist after all changes (Vercel tarball distribution handles delivery)
     status: pending
 isProject: false
 ---
