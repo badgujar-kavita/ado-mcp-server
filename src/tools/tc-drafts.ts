@@ -10,6 +10,7 @@ import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
 import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
+import { READ_OUTPUT_SCHEMA, type CanonicalReadResult } from "./read-result.ts";
 
 async function fetchLinkedTestCaseIds(adoClient: AdoClient, userStoryId: number): Promise<number[]> {
   const us = await adoClient.get<AdoWorkItem>(
@@ -190,13 +191,16 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "get_tc_draft",
-    "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout.",
     {
-      userStoryId: z.number().int().positive(),
-      workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
-      draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      description: "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout.",
+      inputSchema: {
+        userStoryId: z.number().int().positive(),
+        workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
+        draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
     },
     async ({ userStoryId, workspaceRoot, draftsPath }) => {
       try {
@@ -233,8 +237,10 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           ];
           display = content + lines.join("\n");
         }
+        const canonical = buildTcDraftCanonicalResult(userStoryId, parsed, mdPath);
         return {
           content: [{ type: "text" as const, text: display }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -246,19 +252,24 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_tc_drafts",
-    "List all test case drafts in tc-drafts/ with US ID, title, status, version, and supporting docs. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout. Pass workspaceRoot or draftsPath.",
     {
-      workspaceRoot: z.string().optional().describe("Project folder path; lists from workspaceRoot/tc-drafts"),
-      draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      description: "List all test case drafts in tc-drafts/ with US ID, title, status, version, and supporting docs. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout. Pass workspaceRoot or draftsPath.",
+      inputSchema: {
+        workspaceRoot: z.string().optional().describe("Project folder path; lists from workspaceRoot/tc-drafts"),
+        draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
     },
     async ({ workspaceRoot, draftsPath }) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
         if (!existsSync(tcDraftsDir)) {
+          const canonical = buildTcDraftIndexCanonicalResult(tcDraftsDir, []);
           return {
             content: [{ type: "text" as const, text: `No drafts yet. tc-drafts/ is empty. (Path: ${tcDraftsDir})` }],
+            structuredContent: canonical as unknown as Record<string, unknown>,
           };
         }
 
@@ -340,8 +351,10 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         }
 
         if (entries.length === 0) {
+          const canonical = buildTcDraftIndexCanonicalResult(tcDraftsDir, []);
           return {
             content: [{ type: "text" as const, text: "No drafts found." }],
+            structuredContent: canonical as unknown as Record<string, unknown>,
           };
         }
 
@@ -358,8 +371,17 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           })
           .join("\n");
 
+        const canonical = buildTcDraftIndexCanonicalResult(
+          tcDraftsDir,
+          entries.map((e) => ({
+            userStoryId: e.userStoryId,
+            storyTitle: e.title,
+            status: e.status,
+          })),
+        );
         return {
           content: [{ type: "text" as const, text }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -632,6 +654,86 @@ function mergePrerequisites(
     personas: undefined, // Always use config defaults (all three); no override
     preConditions: [...(common?.preConditions ?? []), ...(tc?.preConditions ?? [])],
     testData: tc?.testData ?? common?.testData,
+  };
+}
+
+// ── Canonical read-result builders ──
+
+/**
+ * Build the CanonicalReadResult for `get_tc_draft`.
+ *
+ * - `item.type` = "tc-draft" (the draft is the read target; the markdown
+ *   file on disk is the artifact).
+ * - When parsing succeeded, `item.title` includes the story title,
+ *   `item.summary` reports status + TC count, and each test case becomes
+ *   a child with `relationship: "pushed"` (has ADO ID) or `"drafted"`
+ *   (no ADO ID yet).
+ * - When parsing failed, children + summary are skipped; we still emit
+ *   the item shell and the markdown-draft artifact so callers have a
+ *   canonical record of *which* US and *where* the file is.
+ * - `completeness.isPartial` = false; this tool reads a single draft
+ *   file in one go.
+ */
+export function buildTcDraftCanonicalResult(
+  userStoryId: number,
+  parsed: TcDraftData | null,
+  mdPath: string,
+): CanonicalReadResult {
+  return {
+    item: {
+      id: userStoryId,
+      type: "tc-draft",
+      title: parsed?.storyTitle
+        ? `Draft for US #${userStoryId}: ${parsed.storyTitle}`
+        : `Draft for US #${userStoryId}`,
+      summary: parsed
+        ? `Status: ${parsed.status}; ${parsed.testCases.length} test case${parsed.testCases.length === 1 ? "" : "s"}`
+        : undefined,
+    },
+    children: (parsed?.testCases ?? []).map((tc) => ({
+      id: tc.adoWorkItemId ?? `TC_${userStoryId}_${String(tc.tcNumber).padStart(2, "0")}`,
+      type: "test-case",
+      title: `TC_${userStoryId}_${String(tc.tcNumber).padStart(2, "0")}: ${tc.useCaseSummary}`,
+      relationship: tc.adoWorkItemId ? "pushed" : "drafted",
+    })),
+    artifacts: [
+      {
+        kind: "markdown-draft",
+        title: `US_${userStoryId}_test_cases.md`,
+        url: toFileUri(mdPath),
+      },
+    ],
+    completeness: { isPartial: false },
+  };
+}
+
+/**
+ * Build the CanonicalReadResult for `list_tc_drafts`.
+ *
+ * - `item.type` = "tc-draft-index" (the index itself is the read target).
+ * - `children[]` = one entry per draft file found, each tagged with
+ *   `relationship: "approved"` (status=APPROVED) or `"draft"`.
+ * - `completeness.isPartial` = false; the directory scan returns every
+ *   draft it can see in one pass.
+ */
+export function buildTcDraftIndexCanonicalResult(
+  tcDraftsDir: string,
+  drafts: Array<{ userStoryId: number; storyTitle?: string; status: string }>,
+): CanonicalReadResult {
+  return {
+    item: {
+      id: "tc-drafts-index",
+      type: "tc-draft-index",
+      title: "Test Case Drafts",
+      summary: `${drafts.length} draft${drafts.length === 1 ? "" : "s"} in ${tcDraftsDir}`,
+    },
+    children: drafts.map((d) => ({
+      id: d.userStoryId,
+      type: "tc-draft",
+      title: d.storyTitle ? `US #${d.userStoryId}: ${d.storyTitle}` : `US #${d.userStoryId}`,
+      relationship: d.status === "APPROVED" ? "approved" : "draft",
+    })),
+    completeness: { isPartial: false },
   };
 }
 

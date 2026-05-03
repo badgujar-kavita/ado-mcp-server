@@ -1,8 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AdoClient } from "../ado-client.ts";
 import { ConfluenceClient } from "../confluence-client.ts";
-import { extractUserStoryContext, buildGetUserStoryResponse } from "./work-items.ts";
+import {
+  extractUserStoryContext,
+  buildGetUserStoryResponse,
+  registerWorkItemTools,
+} from "./work-items.ts";
 import type { AdoWorkItem, EmbeddedImage, UserStoryContext } from "../types.ts";
 
 // ── Fetch mock helper ───────────────────────────────────────────────────────
@@ -575,4 +580,196 @@ test("buildGetUserStoryResponse: skipped images don't consume budget and aren't 
   // The failed image stays fetch-failed, NOT changed to response-budget
   assert.equal(payload.embeddedImages![0]!.skipped, "fetch-failed");
   assert.equal(payload.embeddedImages![1]!.skipped, undefined);
+});
+
+// ── Tier 2: registered-tool structuredContent tests ────────────────────────
+
+type ToolHandler = (args: Record<string, unknown>) => Promise<{
+  content: Array<{ type: string; text?: string }>;
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+}>;
+
+type CanonicalItem = { id: string | number; type: string; title: string; summary?: string };
+type CanonicalChild = { id: string | number; type: string; title: string; relationship?: string };
+type CanonicalCompleteness = { isPartial: boolean; reason?: string };
+type Canonical = {
+  item: CanonicalItem;
+  children?: CanonicalChild[];
+  completeness: CanonicalCompleteness;
+};
+
+/**
+ * Build a fake McpServer that captures `registerTool` handlers by name.
+ * Returns the handler map so tests can invoke a specific tool directly.
+ */
+function captureToolHandlers(
+  adoClient: AdoClient,
+  confluenceClient: ConfluenceClient | null,
+): Map<string, ToolHandler> {
+  const handlers = new Map<string, ToolHandler>();
+  const fakeServer = {
+    registerTool: (name: string, _config: unknown, cb: ToolHandler) => {
+      handlers.set(name, cb);
+      return {} as unknown;
+    },
+    tool: (name: string, _desc: unknown, _schema: unknown, cb: ToolHandler) => {
+      handlers.set(name, cb);
+      return {} as unknown;
+    },
+  } as unknown as McpServer;
+  registerWorkItemTools(fakeServer, adoClient, confluenceClient);
+  return handlers;
+}
+
+test("list_test_cases_linked_to_user_story returns structuredContent with children", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const userStoryId = 500;
+  const restore = mockFetch((url) => {
+    if (url.includes(`/_apis/wit/workitems/${userStoryId}`)) {
+      return new Response(
+        JSON.stringify({
+          id: userStoryId,
+          rev: 1,
+          url: `https://dev.azure.com/${ADO_ORG}/${ADO_PROJ}/_apis/wit/workitems/${userStoryId}`,
+          fields: { "System.Title": "US" },
+          relations: [
+            {
+              rel: "Microsoft.VSTS.Common.TestedBy-Forward",
+              url: `https://dev.azure.com/${ADO_ORG}/${ADO_PROJ}/_apis/wit/workitems/701`,
+              attributes: { name: "TC 1" },
+            },
+            {
+              rel: "Microsoft.VSTS.Common.TestedBy-Forward",
+              url: `https://dev.azure.com/${ADO_ORG}/${ADO_PROJ}/_apis/wit/workitems/702`,
+              attributes: { name: "TC 2" },
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const handlers = captureToolHandlers(adoClient, null);
+    const handler = handlers.get("list_test_cases_linked_to_user_story");
+    assert.ok(handler, "handler should be registered");
+    const result = await handler!({ userStoryId });
+    assert.ok(result.structuredContent, "structuredContent should be present");
+    const canonical = result.structuredContent as unknown as Canonical;
+    assert.equal(canonical.item.type, "user-story");
+    assert.equal(canonical.item.id, userStoryId);
+    assert.ok(canonical.children);
+    assert.equal(canonical.children!.length, 2);
+    for (const child of canonical.children!) {
+      assert.equal(child.type, "test-case");
+      assert.equal(child.relationship, "tested-by");
+    }
+    assert.equal(canonical.completeness.isPartial, false);
+  } finally {
+    restore();
+  }
+});
+
+test("list_test_cases_linked_to_user_story with zero links returns empty children", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const userStoryId = 600;
+  const restore = mockFetch((url) => {
+    if (url.includes(`/_apis/wit/workitems/${userStoryId}`)) {
+      return new Response(
+        JSON.stringify({
+          id: userStoryId,
+          rev: 1,
+          url: `https://dev.azure.com/${ADO_ORG}/${ADO_PROJ}/_apis/wit/workitems/${userStoryId}`,
+          fields: { "System.Title": "US" },
+          relations: [],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const handlers = captureToolHandlers(adoClient, null);
+    const handler = handlers.get("list_test_cases_linked_to_user_story");
+    assert.ok(handler, "handler should be registered");
+    const result = await handler!({ userStoryId });
+    assert.ok(result.structuredContent);
+    const canonical = result.structuredContent as unknown as Canonical;
+    assert.deepEqual(canonical.children, []);
+    assert.equal(canonical.completeness.isPartial, false);
+  } finally {
+    restore();
+  }
+});
+
+test("list_work_item_fields with <=50 fields returns complete inventory", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const fields = Array.from({ length: 10 }, (_, i) => ({
+    referenceName: `Custom.Field${i}`,
+    name: `Field ${i}`,
+    type: "string",
+    readOnly: false,
+  }));
+  const restore = mockFetch((url) => {
+    if (url.includes("/_apis/wit/fields")) {
+      return new Response(JSON.stringify({ value: fields }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const handlers = captureToolHandlers(adoClient, null);
+    const handler = handlers.get("list_work_item_fields");
+    assert.ok(handler, "handler should be registered");
+    const result = await handler!({});
+    assert.ok(result.structuredContent);
+    const canonical = result.structuredContent as unknown as Canonical;
+    assert.equal(canonical.item.type, "field-inventory");
+    assert.equal(canonical.item.id, "ado-wit-fields");
+    assert.equal(canonical.completeness.isPartial, false);
+    assert.ok(canonical.children);
+    assert.equal(canonical.children!.length, 10);
+    assert.equal(canonical.children![0]!.type, "field-definition");
+    assert.equal(canonical.children![0]!.relationship, "defined");
+  } finally {
+    restore();
+  }
+});
+
+test("list_work_item_fields with >50 fields marks partial", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const fields = Array.from({ length: 75 }, (_, i) => ({
+    referenceName: `Custom.Field${i}`,
+    name: `Field ${i}`,
+    type: "string",
+    readOnly: false,
+  }));
+  const restore = mockFetch((url) => {
+    if (url.includes("/_apis/wit/fields")) {
+      return new Response(JSON.stringify({ value: fields }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const handlers = captureToolHandlers(adoClient, null);
+    const handler = handlers.get("list_work_item_fields");
+    assert.ok(handler, "handler should be registered");
+    const result = await handler!({});
+    assert.ok(result.structuredContent);
+    const canonical = result.structuredContent as unknown as Canonical;
+    assert.equal(canonical.completeness.isPartial, true);
+    assert.ok(canonical.completeness.reason);
+    assert.ok(canonical.completeness.reason!.includes("50"));
+    assert.ok(canonical.children);
+    assert.equal(canonical.children!.length, 50);
+  } finally {
+    restore();
+  }
 });

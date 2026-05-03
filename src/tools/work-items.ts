@@ -124,10 +124,16 @@ export function registerWorkItemTools(
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_test_cases_linked_to_user_story",
-    "Get test case work item IDs linked to a User Story via Tests/Tested By relation. Use before cloning test cases from one US to another.",
-    { userStoryId: z.number().int().positive().describe("The User Story work item ID") },
+    {
+      description:
+        "Get test case work item IDs linked to a User Story via Tests/Tested By relation. Use before cloning test cases from one US to another.",
+      inputSchema: {
+        userStoryId: z.number().int().positive().describe("The User Story work item ID"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
+    },
     async ({ userStoryId }) => {
       try {
         const item = await client.get<AdoWorkItem>(
@@ -149,17 +155,17 @@ export function registerWorkItemTools(
           })
           .filter((id): id is number => id != null);
         const testCases = ids.map((id) => ({ id, webUrl: adoWorkItemUrl(client, id) }));
+        const prose = JSON.stringify({
+          userStoryId,
+          userStoryWebUrl: adoWorkItemUrl(client, userStoryId),
+          testCases,
+          testCaseIds: ids,
+          count: ids.length,
+        }, null, 2);
+        const canonical = buildLinkedTestCasesCanonicalResult(userStoryId, testCases);
         return {
-          content: [{
-            type: "text" as const,
-            text: JSON.stringify({
-              userStoryId,
-              userStoryWebUrl: adoWorkItemUrl(client, userStoryId),
-              testCases,
-              testCaseIds: ids,
-              count: ids.length,
-            }, null, 2),
-          }],
+          content: [{ type: "text" as const, text: prose }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         return {
@@ -170,11 +176,15 @@ export function registerWorkItemTools(
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_work_item_fields",
-    "List all work item field definitions in the ADO project. Returns reference names (e.g. Custom.PrerequisiteforTest, System.Title) and metadata. Use to verify field names before updating work items.",
     {
-      expand: z.string().optional().describe("Optional. Use 'ExtensionFields' to include extension fields."),
+      description:
+        "List all work item field definitions in the ADO project. Returns reference names (e.g. Custom.PrerequisiteforTest, System.Title) and metadata. Use to verify field names before updating work items.",
+      inputSchema: {
+        expand: z.string().optional().describe("Optional. Use 'ExtensionFields' to include extension fields."),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
     },
     async ({ expand }) => {
       try {
@@ -191,8 +201,11 @@ export function registerWorkItemTools(
           type: f.type,
           readOnly: f.readOnly ?? false,
         }));
+        const prose = JSON.stringify({ count: fields.length, value: fields }, null, 2);
+        const canonical = buildFieldInventoryCanonicalResult(fields);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: fields.length, value: fields }, null, 2) }],
+          content: [{ type: "text" as const, text: prose }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         return {
@@ -736,5 +749,75 @@ export function buildUserStoryCanonicalResult(
       ...(partialReason ? { reason: partialReason } : {}),
     },
     ...(diagnostics.length > 0 ? { diagnostics } : {}),
+  };
+}
+
+/**
+ * Build the CanonicalReadResult for `list_test_cases_linked_to_user_story`.
+ *
+ * - `item.type` = "user-story" (the US is the read target; the tool
+ *   reports the set of test cases linked to it).
+ * - `children[]` = one entry per test case linked via a TestedBy
+ *   relation, `relationship: "tested-by"`.
+ * - `completeness.isPartial` = false; the TestedBy relation set is
+ *   fully returned by the single ADO call.
+ */
+export function buildLinkedTestCasesCanonicalResult(
+  userStoryId: number,
+  testCases: Array<{ id: number }>,
+): CanonicalReadResult {
+  const ids = testCases.map((tc) => tc.id);
+  return {
+    item: {
+      id: userStoryId,
+      type: "user-story",
+      title: `Test cases linked to US #${userStoryId}`,
+      summary: `${ids.length} test case${ids.length === 1 ? "" : "s"} linked via TestedBy relation`,
+    },
+    children: testCases.map((tc) => ({
+      id: tc.id,
+      type: "test-case",
+      title: `Test Case #${tc.id}`,
+      relationship: "tested-by",
+    })),
+    completeness: { isPartial: false },
+  };
+}
+
+/**
+ * Build the CanonicalReadResult for `list_work_item_fields`.
+ *
+ * - `item.type` = "field-inventory"; the read target is the whole
+ *   project field catalogue.
+ * - `children[]` is capped at 50 entries (ADO projects typically have
+ *   200+ fields; the full list stays in the prose text part). The
+ *   cap keeps `structuredContent` navigable without losing honest
+ *   completeness reporting.
+ * - `completeness.isPartial` = true iff the cap truncates the list,
+ *   with a reason describing the truncation.
+ */
+export function buildFieldInventoryCanonicalResult(
+  fields: Array<{ referenceName: string; name: string }>,
+): CanonicalReadResult {
+  const CAP = 50;
+  return {
+    item: {
+      id: "ado-wit-fields",
+      type: "field-inventory",
+      title: "ADO Work Item Field Definitions",
+      summary: `${fields.length} field${fields.length === 1 ? "" : "s"} defined in the project`,
+    },
+    children: fields.slice(0, CAP).map((f) => ({
+      id: f.referenceName,
+      type: "field-definition",
+      title: f.name,
+      relationship: "defined",
+    })),
+    completeness: {
+      isPartial: fields.length > CAP,
+      ...(fields.length > CAP
+        ? { reason: `Showing ${CAP} of ${fields.length} fields; full list in the text content.` }
+        : {}),
+    },
   };
 }

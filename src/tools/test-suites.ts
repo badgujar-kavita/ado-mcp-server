@@ -11,6 +11,10 @@ import {
   resolvePlanIdFromAreaPath,
   resolveSprintFromIteration,
 } from "../helpers/suite-structure.ts";
+import {
+  READ_OUTPUT_SCHEMA,
+  type CanonicalReadResult,
+} from "./read-result.ts";
 
 export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   server.tool(
@@ -83,10 +87,15 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "list_test_suites",
-    "List all test suites in a test plan",
-    { planId: z.number().int().positive().describe("The test plan ID") },
+    {
+      description: "List all test suites in a test plan",
+      inputSchema: {
+        planId: z.number().int().positive().describe("The test plan ID"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
+    },
     async ({ planId }) => {
       try {
         const result = await client.get<AdoTestSuiteListResponse>(
@@ -100,8 +109,11 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
           parentSuiteId: s.parentSuite?.id,
           hasChildren: s.hasChildren,
         }));
+        const prose = JSON.stringify(suites, null, 2);
+        const canonical = buildSuiteListCanonicalResult(planId, result.value);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(suites, null, 2) }],
+          content: [{ type: "text" as const, text: prose }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         return {
@@ -112,12 +124,15 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "get_test_suite",
-    "Get details of a specific test suite",
     {
-      planId: z.number().int().positive().describe("The test plan ID"),
-      suiteId: z.number().int().positive().describe("The test suite ID"),
+      description: "Get details of a specific test suite",
+      inputSchema: {
+        planId: z.number().int().positive().describe("The test plan ID"),
+        suiteId: z.number().int().positive().describe("The test suite ID"),
+      },
+      outputSchema: READ_OUTPUT_SCHEMA,
     },
     async ({ planId, suiteId }) => {
       try {
@@ -125,8 +140,11 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
           `/_apis/testplan/Plans/${planId}/suites/${suiteId}`,
           "7.1"
         );
+        const prose = JSON.stringify(suite, null, 2);
+        const canonical = buildSuiteCanonicalResult(suite);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(suite, null, 2) }],
+          content: [{ type: "text" as const, text: prose }],
+          structuredContent: canonical as unknown as Record<string, unknown>,
         };
       } catch (err) {
         return {
@@ -234,6 +252,83 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
       }
     }
   );
+}
+
+// ── Canonical read-result builders ──
+
+/**
+ * Build the CanonicalReadResult for `list_test_suites`.
+ *
+ * - `item` represents the test plan itself (the read target).
+ * - `children[]` = every suite in the plan, `relationship: "child"` when
+ *   it has a parent suite, `relationship: "root"` for the plan's root
+ *   suite (no `parentSuite`).
+ * - `completeness.isPartial` = false; the ADO `/suites` endpoint returns
+ *   the full plan tree in one response.
+ */
+export function buildSuiteListCanonicalResult(
+  planId: number,
+  suites: AdoTestSuite[],
+): CanonicalReadResult {
+  return {
+    item: {
+      id: planId,
+      type: "test-plan",
+      title: `Test Plan #${planId}`,
+      summary: `${suites.length} suite${suites.length === 1 ? "" : "s"} in plan ${planId}`,
+    },
+    children: suites.map((suite) => ({
+      id: suite.id,
+      type: "test-suite",
+      title: suite.name,
+      relationship: suite.parentSuite ? "child" : "root",
+    })),
+    completeness: { isPartial: false },
+  };
+}
+
+/**
+ * Build the CanonicalReadResult for `get_test_suite`.
+ *
+ * - `item` = the suite itself. `summary` carries the suite type if
+ *   present.
+ * - `children[]` surfaces the parent suite as a single entry with
+ *   `relationship: "parent"` when one exists.
+ * - `artifacts[]` exposes the WIQL `queryString` of a query-based suite
+ *   as an artifact — test-design-relevant because it tells the agent
+ *   which test cases auto-populate this suite.
+ * - `completeness.isPartial` = false.
+ */
+export function buildSuiteCanonicalResult(suite: AdoTestSuite): CanonicalReadResult {
+  const result: CanonicalReadResult = {
+    item: {
+      id: suite.id,
+      type: "test-suite",
+      title: suite.name,
+      ...(suite.suiteType ? { summary: `Type: ${suite.suiteType}` } : {}),
+    },
+    completeness: { isPartial: false },
+  };
+  if (suite.parentSuite) {
+    result.children = [
+      {
+        id: suite.parentSuite.id,
+        type: "test-suite",
+        title: suite.parentSuite.name ?? `Parent Suite ${suite.parentSuite.id}`,
+        relationship: "parent",
+      },
+    ];
+  }
+  if (suite.queryString) {
+    result.artifacts = [
+      {
+        kind: "query",
+        title: "Query-based suite WIQL",
+        summary: suite.queryString.slice(0, 200),
+      },
+    ];
+  }
+  return result;
 }
 
 // ── Core Logic ──
