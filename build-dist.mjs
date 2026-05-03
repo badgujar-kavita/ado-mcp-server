@@ -44,6 +44,14 @@ async function main() {
     format: "esm",
     outfile: join(OUT, "dist", "index.js"),
     target: "node18",
+    // Runtime deps must stay external because:
+    //   - `jimp` pulls in CommonJS packages (gifwrap) that use `require("fs")`
+    //     at module load, which esbuild can't inline into an ESM bundle.
+    //   - `node-html-parser` behaves cleanly when bundled, but we keep it
+    //     external for symmetry and so npm handles version resolution.
+    // The installer runs `npm install` inside ~/.ado-testforge-mcp/ so these
+    // resolve from the installed node_modules at runtime.
+    external: ["jimp", "node-html-parser"],
   });
 
   copyFileSync(join(ROOT, "bin", "bootstrap.mjs"), join(OUT, "bin", "bootstrap.mjs"));
@@ -87,12 +95,22 @@ alwaysApply: true
   }
 
   const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
+  // Only the runtime deps marked `external:` in the esbuild call above need to
+  // be in the dist-package package.json. `@modelcontextprotocol/sdk`, `dotenv`,
+  // and `zod` are inlined into dist/index.js.
+  const EXTERNAL_RUNTIME_DEPS = ["jimp", "node-html-parser"];
+  const distDeps = {};
+  for (const name of EXTERNAL_RUNTIME_DEPS) {
+    const version = pkg.dependencies?.[name];
+    if (!version) throw new Error(`build-dist: external runtime dep "${name}" is missing from root package.json`);
+    distDeps[name] = version;
+  }
   const distPkg = {
     name: pkg.name,
     version: pkg.version,
     description: pkg.description,
     type: "module",
-    dependencies: {},
+    dependencies: distDeps,
   };
   writeFileSync(join(OUT, "package.json"), JSON.stringify(distPkg, null, 2) + "\n");
 
