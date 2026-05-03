@@ -27,3 +27,23 @@ Use when test cases were created in the wrong suite, or you need structural chan
 3. **Set draft status to DRAFT** in the markdown header.
 4. **Remove ADO IDs** from TC titles (e.g. remove `(ADO #12345)`).
 5. Run **`/ado-testforge/create_test_cases`** and confirm with **YES**.
+
+## Duplicate-TC guard (since 2026-05-03)
+
+`push_tc_draft_to_ado` now checks ADO before creating new test cases. If the User Story already has test cases linked via `TestedBy`, and the draft has no ADO IDs, the push is aborted with a listing of the existing TCs and you'll see a message like:
+
+```
+US 12345 already has 4 test case(s) linked in ADO:
+
+  - ADO #67890 [Design] TC_12345_01 — Verify user can log in with valid credentials
+  - ADO #67891 [Design] TC_12345_02 — Verify lockout after 3 failed attempts
+  ...
+```
+
+Three ways forward:
+
+| You want to… | Use | Notes |
+|---|---|---|
+| **Update** those existing TCs with revised content | Option A (Repush) above | Requires ADO IDs in draft + `repush: true`. Preferred. |
+| **Delete and re-create** | Option B above | Use when you need structural changes or the existing TCs were wrong. |
+| **Add new TCs alongside existing** (rare) | Call with `insertAnyway: true` | Only after the user sees the listing and explicitly confirms. Creates duplicates in ADO if the existing TCs cover the same scenarios — use with caution. |

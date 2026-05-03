@@ -3,11 +3,47 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 
 import { join, resolve } from "path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdoClient } from "../ado-client.ts";
+import type { AdoWorkItem } from "../types.ts";
 import { getTcDraftsDir } from "../credentials.ts";
 import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from "../helpers/tc-draft-formatter.ts";
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
 import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
+
+interface LinkedTestCase {
+  id: number;
+  title: string;
+  state: string;
+}
+
+async function fetchLinkedTestCases(adoClient: AdoClient, userStoryId: number): Promise<LinkedTestCase[]> {
+  const us = await adoClient.get<AdoWorkItem>(
+    `/_apis/wit/workitems/${userStoryId}`,
+    "7.0",
+    { "$expand": "relations" }
+  );
+  const ids = (us.relations ?? [])
+    .filter((r) => r.rel === "Microsoft.VSTS.Common.TestedBy" || r.rel === "Microsoft.VSTS.Common.TestedBy-Forward")
+    .map((r) => {
+      const parts = r.url.split("/");
+      const id = parseInt(parts[parts.length - 1], 10);
+      return isNaN(id) ? null : id;
+    })
+    .filter((id): id is number => id != null);
+
+  if (ids.length === 0) return [];
+
+  const batch = await adoClient.get<{ value: AdoWorkItem[] }>(
+    `/_apis/wit/workitems`,
+    "7.0",
+    { ids: ids.join(","), fields: "System.Id,System.Title,System.State" }
+  );
+  return (batch.value ?? []).map((item) => ({
+    id: item.id,
+    title: (item.fields["System.Title"] as string) ?? "",
+    state: (item.fields["System.State"] as string) ?? "",
+  }));
+}
 
 const NO_PATH_MSG =
   "No draft location specified. Open a folder in your workspace (drafts will go to <folder>/tc-drafts) or provide draftsPath, or set TC_DRAFTS_PATH / tc_drafts_path in credentials.";
@@ -365,14 +401,15 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
   server.tool(
     "push_tc_draft_to_ado",
-    "Push a reviewed test case draft to ADO. Creates all test cases and updates the draft markdown to APPROVED. Only call after explicit user confirmation (e.g. user typed YES). Pass workspaceRoot or draftsPath. Supports both new subfolder and legacy flat layout. Set repush=true to update existing test cases when draft was revised after initial push.",
+    "Push a reviewed test case draft to ADO. Creates all test cases and updates the draft markdown to APPROVED. Only call after explicit user confirmation (e.g. user typed YES). Pass workspaceRoot or draftsPath. Supports both new subfolder and legacy flat layout. Set repush=true to update existing test cases when draft was revised after initial push. If the User Story already has test cases linked in ADO and the draft has no ADO IDs, the tool returns an error listing them; set insertAnyway=true to add new TCs alongside existing ones, or use repush=true to update existing ones.",
     {
       userStoryId: z.number().int().positive(),
       workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
       draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
       repush: z.boolean().optional().describe("If true, update existing test cases (by ADO ID in draft) instead of creating new ones. Use when draft was revised after initial push."),
+      insertAnyway: z.boolean().optional().describe("If true, skip the duplicate-TC check and insert new test cases even when the US already has test cases linked in ADO. Only set after the user has seen the existing TCs and explicitly confirmed they want new ones alongside."),
     },
-    async ({ userStoryId, workspaceRoot, draftsPath, repush }) => {
+    async ({ userStoryId, workspaceRoot, draftsPath, repush, insertAnyway }) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
         const mdPath = resolveTestCasesMdPath(tcDraftsDir, userStoryId);
@@ -409,6 +446,30 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
             content: [{ type: "text" as const, text: `Repush requires all test cases to have ADO IDs in the draft. Some TCs are missing (ADO #xxx). Delete and re-push, or add ADO IDs manually.` }],
             isError: true,
           };
+        }
+
+        // Duplicate-TC guard: when creating new TCs (not a repush) and the draft has no ADO IDs,
+        // check whether the US already has linked TCs in ADO. If it does, block unless caller
+        // explicitly opts in via insertAnyway=true.
+        if (!isRepush && !allHaveAdoIds && !insertAnyway) {
+          const linked = await fetchLinkedTestCases(adoClient, userStoryId);
+          if (linked.length > 0) {
+            const listing = linked
+              .map((tc) => `  - ADO #${tc.id} [${tc.state}] ${tc.title}`)
+              .join("\n");
+            return {
+              content: [{
+                type: "text" as const,
+                text:
+                  `US ${userStoryId} already has ${linked.length} test case(s) linked in ADO:\n\n${listing}\n\n` +
+                  `To proceed, choose one:\n` +
+                  `  - Update existing: fix the ADO IDs in the draft and call again with repush=true.\n` +
+                  `  - Add alongside existing: confirm with the user, then call again with insertAnyway=true.\n` +
+                  `  - Cancel: do nothing.`,
+              }],
+              isError: true,
+            };
+          }
         }
 
         // Auto-derive planId if not in draft

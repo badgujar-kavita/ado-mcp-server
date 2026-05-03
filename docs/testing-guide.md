@@ -455,6 +455,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `conventions.config.json` validation error | Check JSON syntax; compare with the schema in `src/config.ts` |
 | Test case number always starts at 1 | The auto-increment queries existing TCs by title pattern; if no matches found, starts at 1 |
 | Prerequisites are empty | Persona always uses all three from config; pre-conditions must be generated per user story (never from config). Check `conventions.config.json` > `prerequisiteDefaults.personas` |
+| `US {id} already has N test case(s) linked in ADO` | The duplicate-TC guard blocked the push because the US already has linked TCs. Review the listing: to **update** those existing TCs, add their ADO IDs to the draft and call with `repush: true`; to **add new** TCs alongside the existing ones, confirm with the user and call with `insertAnyway: true`; to cancel, do nothing. |
 
 ---
 
@@ -480,7 +481,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 | `save_tc_clone_preview` | Save clone-and-enhance preview | `sourceUserStoryId`, `targetUserStoryId`, `markdown` |
 | `list_tc_drafts` | List saved drafts (subfolder + legacy layouts, shows supporting docs) | *(none)* |
 | `get_tc_draft` | Get draft by user story ID (subfolder + legacy) | `userStoryId` |
-| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs) | `userStoryId` |
+| `push_tc_draft_to_ado` | Push approved draft to ADO (subfolder + legacy, auto-derives planId, creates suite hierarchy, creates TCs). **Guards against duplicates:** returns error listing existing linked TCs when US already has them; override with `insertAnyway: true` after user confirms. | `userStoryId`, `repush` (optional), `insertAnyway` (optional) |
 | `list_test_cases` | List TCs in a suite | `planId`, `suiteId` |
 | `get_test_case` | Get TC work item details | `workItemId` |
 | `update_test_case` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |

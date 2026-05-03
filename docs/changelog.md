@@ -4,6 +4,36 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-03 — Duplicate Test Case Guard on Push
+
+### Feature
+
+- **`push_tc_draft_to_ado` now checks ADO for existing linked test cases before inserting.** When the User Story already has test cases linked via `Microsoft.VSTS.Common.TestedBy` and the draft has no ADO IDs, the tool returns a non-error listing (ID, state, title) for each existing TC and aborts the insert. Prevents accidental duplicate creation when a draft is regenerated after a previous push, when TCs were created manually/elsewhere, or when pushing from a different workspace.
+- **New `insertAnyway: boolean` parameter** — explicit override. Set `true` only after the user has seen the listing and explicitly confirmed they want new TCs added alongside the existing ones. Default `false`.
+- **`create_test_cases` prompt updated** — new step (6) instructs the agent to surface the existing-TC listing verbatim and ask the user to choose UPDATE (repush), ADD (insertAnyway), or CANCEL. Agent must never pass `insertAnyway: true` without explicit user approval.
+
+### Files Updated
+
+- `src/tools/tc-drafts.ts` — Added `fetchLinkedTestCases()` helper (batch-fetches titles + states via `/_apis/wit/workitems?ids=...&fields=...`); added duplicate guard branch before the insert loop; added `insertAnyway` parameter.
+- `src/prompts/index.ts` — Updated `create_test_cases` prompt flow to handle the new pre-insert guard response.
+
+### Behavior Matrix
+
+| Draft state | Draft has ADO IDs | US has linked TCs in ADO | `repush` | `insertAnyway` | Outcome |
+|---|---|---|---|---|---|
+| PENDING | no | no | — | — | Insert new TCs (unchanged) |
+| PENDING | no | yes | — | false | **Blocked** — list returned; user chooses |
+| PENDING | no | yes | — | true | Insert new TCs alongside existing |
+| APPROVED | yes | — | true | — | Update existing TCs (unchanged) |
+| APPROVED | no | — | true | — | Blocked — repush requires ADO IDs (unchanged) |
+
+### Backward Compatibility
+
+- Existing callers who pass only `userStoryId` / `workspaceRoot` / `draftsPath` / `repush` work identically when the US has no linked TCs in ADO.
+- When linked TCs exist on a US being pushed for the first time from a draft, the call now returns `isError: true` with the listing instead of creating duplicates. Callers that want the old behavior can set `insertAnyway: true`.
+
+---
+
 ## 2026-04-29 — Per-US Folder Structure for Test Case Drafts
 
 ### Feature
