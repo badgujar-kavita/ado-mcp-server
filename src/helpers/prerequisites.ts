@@ -13,9 +13,10 @@ export function buildPrerequisitesHtml(input?: Prerequisites): string {
   const lines: string[] = [];
 
   const rolesLabel = defaults.personaRolesLabel ?? "Roles";
+  const psgLabel = defaults.personaPsgLabel ?? "Permission Set Group";
 
   for (const section of prereqConfig.sections) {
-    const content = renderSection(section.key, section.label, section.required, input, defaults, rolesLabel);
+    const content = renderSection(section.key, section.label, section.required, input, defaults, rolesLabel, psgLabel);
     if (content !== null) {
       lines.push(content);
     }
@@ -33,14 +34,16 @@ function renderSection(
   defaults: {
     personas: Record<string, PersonaConfig>;
     personaRolesLabel?: string;
+    personaPsgLabel?: string;
     commonPreConditions: string[];
     testData: string;
   },
-  rolesLabel: string
+  rolesLabel: string,
+  psgLabel: string
 ): string | null {
   switch (key) {
     case "personas":
-      return renderPersonas(label, input?.personas, defaults.personas, rolesLabel);
+      return renderPersonas(label, input?.personas, defaults.personas, rolesLabel, psgLabel);
     case "preConditions":
       // Pre-requisite is ALWAYS unique per user story; never use config baseline.
       return renderPreConditions(label, input?.preConditions, []);
@@ -55,7 +58,8 @@ function renderPersonas(
   label: string,
   _override: string | string[] | null | undefined,
   defaultPersonas: Record<string, PersonaConfig>,
-  rolesLabel: string
+  rolesLabel: string,
+  psgLabel: string
 ): string {
   let html = `<div><strong>${label}:</strong> </div><ul>`;
   const personaKeys = Object.keys(defaultPersonas);
@@ -67,7 +71,7 @@ function renderPersonas(
     if (persona.user) html += `<li>${formatContentForHtml(persona.user)}</li>`;
     html += `<li>${rolesLabel} = ${formatContentForHtml(persona.roles)}</li>`;
     html += `<li>Profile = ${formatContentForHtml(persona.profile)}</li>`;
-    html += `<li>PSG = ${formatContentForHtml(persona.psg)}</li>`;
+    html += `<li>${psgLabel} = ${formatContentForHtml(persona.psg)}</li>`;
     html += `</ul></li>`;
   }
   return html + "</ul><br>";

@@ -4,6 +4,37 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-04 — Parameterize Permission Set Group label; fix stale persona-field doc snippets
+
+### Change
+
+Follow-up to the `roles` / `personaRolesLabel` rename. The `PSG` column and list-item label is now controlled by a new configurable `personaPsgLabel` field under `prerequisiteDefaults`, same pattern as `personaRolesLabel`. Default is `"Permission Set Group"`; teams that use the abbreviation `PSG` (or a different construct entirely — Permission Set, Public Group, Role) set it explicitly.
+
+- **New optional `prerequisiteDefaults.personaPsgLabel`** — controls the label displayed next to `PersonaConfig.psg` in generated HTML prerequisites and draft markdown. Defaults to `"Permission Set Group"`.
+- **The shipped `conventions.config.json` now sets `personaPsgLabel: "PSG"`** so the project's existing output is byte-identical.
+- **No field rename.** The config key `psg` on persona entries stays the same — only the DISPLAY label is parameterized.
+
+Also fixed stale doc snippets that missed the `roles` rename:
+- `docs/implementation.md`: the sample `conventions.config.json` block now shows `roles` instead of `tpmRoles`, and includes the two label fields.
+- `docs/prerequisite-formatting-instruction.md`: generic HTML example uses placeholder-label wording so non-TPM teams don't see a literal "TPM Roles" in their reference doc.
+
+### Files Updated
+
+- `src/types.ts` — `personaPsgLabel?` added to `prerequisiteDefaults`; JSDoc on `PersonaConfig.psg`.
+- `src/config.ts` — Zod schema for the new optional field.
+- `src/helpers/prerequisites.ts` — reads `personaPsgLabel` from config, default `"Permission Set Group"`; hardcoded `"PSG"` removed from the HTML render.
+- `src/helpers/tc-draft-formatter.ts` — column header reads the new label from config.
+- `conventions.config.json` — `personaPsgLabel: "PSG"` added.
+- `docs/implementation.md`, `docs/prerequisite-formatting-instruction.md` — stale snippets fixed.
+
+### Backward Compatibility
+
+- Config schema: purely additive. Configs without `personaPsgLabel` default to `"Permission Set Group"` — the ONLY consequence for an unconfigured team is the label changes from hardcoded `"PSG"` to the spelled-out default. No behavior change.
+- `PersonaConfig.psg` field is unchanged. Any existing config loads untouched.
+- This project's rendered test case output is byte-identical thanks to the explicit `personaPsgLabel: "PSG"` override.
+
+---
+
 ## 2026-05-04 — Soften customer-specific examples in docs and tool descriptions
 
 ### Change

@@ -164,7 +164,8 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
   // Persona: always all three defaults; no override
   const personaRows = buildPersonaTableRows(undefined, defaults.personas);
   const rolesLabel = defaults.personaRolesLabel ?? "Roles";
-  lines.push(`| Role | Profile | ${rolesLabel} | PSG |`);
+  const psgLabel = defaults.personaPsgLabel ?? "Permission Set Group";
+  lines.push(`| Role | Profile | ${rolesLabel} | ${psgLabel} |`);
   lines.push("|---|---|---|---|");
   for (const row of personaRows) {
     lines.push(`| ${row.role} | ${row.profile} | ${row.roles} | ${row.psg} |`);

@@ -136,6 +136,14 @@ export interface PersonaConfig {
    * "Roles", configurable in `prerequisiteDefaults.personaRolesLabel`).
    */
   roles: string;
+  /**
+   * Identifier for the Permission Set Group (or equivalent record-access
+   * construct — Permission Set, Public Group, Role, etc.) assigned to the
+   * persona. The DISPLAY label rendered next to this value is controlled by
+   * `personaPsgLabel` in `prerequisiteDefaults` (default "Permission Set
+   * Group"), so teams using a different construct can relabel without
+   * renaming this field.
+   */
   psg: string;
 }
 
@@ -172,6 +180,14 @@ export interface ConventionsConfig {
      * to whatever reads naturally for their domain.
      */
     personaRolesLabel?: string;
+    /**
+     * Label displayed next to `PersonaConfig.psg` in generated test cases
+     * and draft markdown. Defaults to "Permission Set Group" when omitted.
+     * Teams using an abbreviation (e.g. "PSG") or a different construct
+     * (e.g. "Permission Set" if they're not using groups) set this
+     * explicitly.
+     */
+    personaPsgLabel?: string;
     commonPreConditions: string[];
     toBeTested: null | string[];
     testData: string;

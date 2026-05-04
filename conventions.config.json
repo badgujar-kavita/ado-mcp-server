@@ -80,6 +80,7 @@
       }
     },
     "personaRolesLabel": "TPM Roles",
+    "personaPsgLabel": "PSG",
     "commonPreConditions": [],
     "toBeTested": null,
     "testData": "N/A"

@@ -616,16 +616,18 @@ All naming patterns, formats, and labels are externalized into a single JSON con
         "label": "System Administrator",
         "profile": "System Admin",
         "user": "\"ADMIN User\" User",
-        "tpmRoles": "ADMIN",
+        "roles": "ADMIN",
         "psg": "TPM Global ADMIN Users"
       },
       "KAM": {
         "label": "Key Account Manager (KAM) User",
         "profile": "TPM_User_Profile",
-        "tpmRoles": "KAM",
+        "roles": "KAM",
         "psg": "TPM Global KAM Users PSG"
       }
     },
+    "personaRolesLabel": "TPM Roles",
+    "personaPsgLabel": "PSG",
     "commonPreConditions": [
       "Context.BusinessUnit IN [Primary, Secondary]",
       "FeatureConfig.RequiredFields != NULL",
@@ -664,7 +666,7 @@ All naming patterns, formats, and labels are externalized into a single JSON con
 - **TO BE TESTED FOR**: Optional. Omitted from the output entirely when `null` / not provided. Only rendered when the caller supplies specific validation scenarios.
 - **Test Data**: Optional. Defaults to `"N/A"` from config. Only overridden when the test case needs specific data.
 
-**Default personas** (added automatically when none specified): come from `prerequisiteDefaults.personas`. In the current project that is System Administrator, "ADMIN User" User, and Key Account Manager (KAM) User. To add a new persona (e.g., a Customer Manager role), add a new key to `prerequisiteDefaults.personas` with `label`, `profile`, `tpmRoles`, `psg` (and optional `user`). Order in the JSON determines display order. No code changes needed.
+**Default personas** (added automatically when none specified): come from `prerequisiteDefaults.personas`. In the current project that is System Administrator, "ADMIN User" User, and Key Account Manager (KAM) User. To add a new persona (e.g., a Customer Manager role), add a new key to `prerequisiteDefaults.personas` with `label`, `profile`, `roles`, `psg` (and optional `user`). Order in the JSON determines display order. No code changes needed.
 
 ---
 
