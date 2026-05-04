@@ -7,7 +7,7 @@ import {
 
 export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("ado-connect", {
-    title: "Configure Credentials",
+    title: "Connect to Azure DevOps",
     description: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing",
   }, async () => ({
     messages: [{
@@ -20,7 +20,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("ado-check", {
-    title: "Check Setup Status",
+    title: "Check ADO Setup Status",
     description: "Check if the ADO TestForge MCP server is fully configured",
   }, async () => ({
     messages: [{
@@ -54,7 +54,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("ado-story", {
-    title: "Get User Story",
+    title: "Read User Story",
     description: "Fetch a User Story from ADO with the full context payload: primary fields, all populated fields (including custom), fetched Confluence pages, embedded ADO images, and unfetched links",
   }, async () => ({
     messages: [{
@@ -81,7 +81,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("qa-tests", {
-    title: "List Test Cases Linked to User Story",
+    title: "List Test Cases for User Story",
     description: "List test case work item IDs linked to a User Story via the Tests/Tested By relation",
   }, async () => ({
     messages: [{
@@ -98,7 +98,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("ado-plan", {
-    title: "Get Test Plan",
+    title: "Read Test Plan",
     description: "Get details of a specific test plan by ID",
   }, async () => ({
     messages: [{
@@ -132,7 +132,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("ado-suite", {
-    title: "Get Test Suite",
+    title: "Read Test Suite",
     description: "Get details of a specific test suite",
   }, async () => ({
     messages: [{
@@ -148,21 +148,8 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("qa-suite-setup-manual", {
-    title: "Ensure Suite Hierarchy",
-    description: "Build the full suite folder hierarchy (sprint > parent-us > us-query) for a User Story",
-  }, async () => ({
-    messages: [{
-      role: "user" as const,
-      content: {
-        type: "text" as const,
-        text: "I want to set up the test suite folder hierarchy for a User Story. Ask me for the test plan ID, sprint number, and user story ID. Then use the qa_suite_setup_manual tool and show which suites were created vs already existing.",
-      },
-    }],
-  }));
-
   server.registerPrompt("qa-suite-setup-auto", {
-    title: "Ensure Suite Hierarchy (User Story ID Only)",
+    title: "Set Up Suite Hierarchy (Auto-Derive)",
     description: "Build or fix suite folder structure. Asks only User Story ID — derives plan and sprint from US.",
   }, async () => ({
     messages: [{
@@ -170,23 +157,6 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: "I want to ensure the test suite folder structure for a User Story. Ask only for the User Story ID. Use qa_suite_setup_auto — it derives plan and sprint from the US AreaPath and Iteration, creates folders if missing, and updates naming if wrong format.",
-      },
-    }],
-  }));
-
-  server.registerPrompt("qa-suite-create", {
-    title: "Create Test Suite",
-    description: "Create test suite folder structure for a User Story. Asks only User Story ID.",
-  }, async () => ({
-    messages: [{
-      role: "user" as const,
-      content: {
-        type: "text" as const,
-        text: [
-          "I want to create a test suite for a User Story.",
-          "",
-          "Ask only for the User Story ID. Then use qa_suite_setup_auto — it derives plan and sprint from the US AreaPath and Iteration, checks if folders exist, creates if missing, and updates naming if existing suites have wrong format.",
-        ].join("\n"),
       },
     }],
   }));
@@ -301,7 +271,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("qa-publish", {
-    title: "Create Test Cases (Push to ADO)",
+    title: "Publish Test Cases to ADO",
     description: "Push reviewed test cases to ADO. Always requires prior draft review and explicit confirmation.",
   }, async () => ({
     messages: [{
@@ -331,7 +301,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("ado-suite-tests", {
-    title: "List Test Cases",
+    title: "List Test Cases in Suite",
     description: "List test cases within a specific test suite",
   }, async () => ({
     messages: [{
@@ -348,7 +318,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("qa-tc-read", {
-    title: "Get Test Case",
+    title: "Read Test Case",
     description: "Get a test case work item by ID with all fields",
   }, async () => ({
     messages: [{
@@ -416,7 +386,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("qa-tc-bulk-delete", {
-    title: "Delete Multiple Test Cases",
+    title: "Bulk Delete Test Cases",
     description: "Delete multiple test cases by ID (Recycle Bin by default)",
   }, async () => ({
     messages: [{
@@ -437,7 +407,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("qa-clone", {
-    title: "Clone and Enhance Test Cases",
+    title: "Clone Test Cases Between User Stories",
     description: "Clone test cases from a source User Story to a target User Story. Analyzes target US + Solution Design, classifies impact, generates preview, creates in ADO only after APPROVED.",
   }, async () => ({
     messages: [{
@@ -475,7 +445,7 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("confluence-read", {
-    title: "Get Confluence Page",
+    title: "Read Confluence Page",
     description: "Read a Confluence page by ID for Solution Design reference",
   }, async () => ({
     messages: [{

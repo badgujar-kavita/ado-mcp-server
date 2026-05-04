@@ -17,11 +17,14 @@ import {
 } from "./read-result.ts";
 
 export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
-  server.tool(
+  server.registerTool(
     "qa_suite_setup_auto",
-    "Build the full suite folder hierarchy for a User Story. Only needs User Story ID — derives plan and sprint from US AreaPath and Iteration. Creates if missing; updates naming if existing suite has wrong format.",
     {
-      userStoryId: z.number().int().positive().describe("The User Story work item ID"),
+      title: "Set Up Suite Hierarchy (Auto-Derive)",
+      description: "Build the full suite folder hierarchy for a User Story. Only needs User Story ID — derives plan and sprint from US AreaPath and Iteration. Creates if missing; updates naming if existing suite has wrong format.",
+      inputSchema: {
+        userStoryId: z.number().int().positive().describe("The User Story work item ID"),
+      },
     },
     async ({ userStoryId }) => {
       try {
@@ -38,58 +41,10 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
     }
   );
 
-  server.tool(
-    "qa_suite_setup_manual",
-    "Build the full suite folder hierarchy (sprint > parent-us/non-epic > us-query) for a User Story. Checks for existing suites at each level before creating.",
-    {
-      planId: z.number().int().positive().describe("The test plan ID (from list_test_plans or conventions.config.json testPlanMapping)"),
-      sprintNumber: z.number().int().positive().describe("Sprint number (e.g., 12 for Sprint_12)"),
-      userStoryId: z.number().int().positive().describe("The User Story work item ID"),
-    },
-    async ({ planId, sprintNumber, userStoryId }) => {
-      try {
-        const result = await ensureSuiteHierarchy(client, planId, sprintNumber, userStoryId);
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-        };
-      } catch (err) {
-        return {
-          content: [{ type: "text" as const, text: `Error ensuring suite hierarchy: ${err}` }],
-          isError: true,
-        };
-      }
-    }
-  );
-
-  server.tool(
-    "qa_suite_find_or_create",
-    "Find a test suite by name under a parent suite, or create it if not found",
-    {
-      planId: z.number().int().positive().describe("The test plan ID"),
-      parentSuiteId: z.number().int().positive().describe("Parent suite ID to search/create under"),
-      suiteName: z.string().describe("Name of the suite to find or create"),
-      suiteType: z.enum(["staticTestSuite", "dynamicTestSuite"]).default("staticTestSuite")
-        .describe("Type of suite to create if not found"),
-      queryString: z.string().optional().describe("WIQL query for dynamic suites"),
-    },
-    async ({ planId, parentSuiteId, suiteName, suiteType, queryString }) => {
-      try {
-        const result = await findOrCreateSuite(client, planId, parentSuiteId, suiteName, suiteType, queryString);
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-        };
-      } catch (err) {
-        return {
-          content: [{ type: "text" as const, text: `Error finding/creating suite: ${err}` }],
-          isError: true,
-        };
-      }
-    }
-  );
-
   server.registerTool(
     "ado_suites",
     {
+      title: "List Test Suites",
       description: "List all test suites in a test plan",
       inputSchema: {
         planId: z.number().int().positive().describe("The test plan ID"),
@@ -127,6 +82,7 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
   server.registerTool(
     "ado_suite",
     {
+      title: "Read Test Suite",
       description: "Get details of a specific test suite",
       inputSchema: {
         planId: z.number().int().positive().describe("The test plan ID"),
@@ -155,48 +111,18 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
     }
   );
 
-  server.tool(
-    "qa_suite_create",
-    "Create a new test suite under a parent suite. Use qa_suite_find_or_create if you need to find-or-create.",
-    {
-      planId: z.number().int().positive().describe("The test plan ID"),
-      parentSuiteId: z.number().int().positive().describe("Parent suite ID to create under"),
-      suiteName: z.string().describe("Name of the suite to create"),
-      suiteType: z.enum(["staticTestSuite", "dynamicTestSuite"]).default("staticTestSuite")
-        .describe("Type of suite"),
-      queryString: z.string().optional().describe("WIQL query for dynamic suites"),
-    },
-    async ({ planId, parentSuiteId, suiteName, suiteType, queryString }) => {
-      try {
-        const result = await findOrCreateSuite(client, planId, parentSuiteId, suiteName, suiteType, queryString);
-        return {
-          content: [{
-            type: "text" as const,
-            text: JSON.stringify({
-              created: result.created,
-              suite: result.suite,
-              message: result.created ? `Suite "${suiteName}" created.` : `Suite "${suiteName}" already existed.`,
-            }, null, 2),
-          }],
-        };
-      } catch (err) {
-        return {
-          content: [{ type: "text" as const, text: `Error creating suite: ${err}` }],
-          isError: true,
-        };
-      }
-    }
-  );
-
-  server.tool(
+  server.registerTool(
     "qa_suite_update",
-    "Update an existing test suite (name, parent, query string). Only include fields you want to change.",
     {
-      planId: z.number().int().positive().describe("The test plan ID"),
-      suiteId: z.number().int().positive().describe("The test suite ID to update"),
-      name: z.string().optional().describe("New suite name"),
-      parentSuiteId: z.number().int().positive().optional().describe("New parent suite ID"),
-      queryString: z.string().optional().describe("New WIQL query (for dynamic suites)"),
+      title: "Update Test Suite",
+      description: "Update an existing test suite (name, parent, query string). Only include fields you want to change.",
+      inputSchema: {
+        planId: z.number().int().positive().describe("The test plan ID"),
+        suiteId: z.number().int().positive().describe("The test suite ID to update"),
+        name: z.string().optional().describe("New suite name"),
+        parentSuiteId: z.number().int().positive().optional().describe("New parent suite ID"),
+        queryString: z.string().optional().describe("New WIQL query (for dynamic suites)"),
+      },
     },
     async ({ planId, suiteId, name, parentSuiteId, queryString }) => {
       try {
@@ -228,12 +154,15 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "qa_suite_delete",
-    "Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.",
     {
-      planId: z.number().int().positive().describe("The test plan ID"),
-      suiteId: z.number().int().positive().describe("The test suite ID to delete"),
+      title: "Delete Test Suite",
+      description: "Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.",
+      inputSchema: {
+        planId: z.number().int().positive().describe("The test plan ID"),
+        suiteId: z.number().int().positive().describe("The test suite ID to delete"),
+      },
     },
     async ({ planId, suiteId }) => {
       try {

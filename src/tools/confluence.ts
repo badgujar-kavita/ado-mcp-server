@@ -37,6 +37,7 @@ export function registerConfluenceTools(server: McpServer, confluenceClient: Con
   server.registerTool(
     "confluence_read",
     {
+      title: "Read Confluence Page",
       description:
         "Read a Confluence page by ID for Solution Design reference (requires CONFLUENCE_* env vars)",
       inputSchema: {

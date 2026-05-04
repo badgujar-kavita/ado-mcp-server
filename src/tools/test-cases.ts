@@ -42,6 +42,7 @@ export function registerTestCaseTools(
   server.registerTool(
     "ado_suite_tests",
     {
+      title: "List Test Cases in Suite",
       description: "List test cases within a specific test suite",
       inputSchema: {
         planId: z.number().int().positive().describe("The test plan ID"),
@@ -77,6 +78,7 @@ export function registerTestCaseTools(
   server.registerTool(
     "qa_tc_read",
     {
+      title: "Read Test Case",
       description: "Get a test case work item by ID with all fields",
       inputSchema: {
         workItemId: z.number().int().positive().describe("The test case work item ID"),
@@ -106,20 +108,23 @@ export function registerTestCaseTools(
     }
   );
 
-  server.tool(
+  server.registerTool(
     "qa_tc_update",
-    "Update fields or steps of an existing test case",
     {
-      workItemId: z.number().int().positive().describe("The test case work item ID"),
-      title: z.string().optional().describe("Updated title"),
-      description: z.string().optional().describe("Raw HTML for Prerequisite for Test (use when providing pre-built HTML)"),
-      prerequisites: PrerequisitesSchema.describe("Structured prerequisites; when provided, builds HTML and writes to prerequisite field"),
-      steps: z.array(StepSchema).optional().describe("Updated test steps"),
-      priority: z.number().int().min(1).max(4).optional().describe("Updated priority"),
-      state: z.string().optional().describe("Updated state"),
-      assignedTo: z.string().optional().describe("Updated assigned to"),
-      areaPath: z.string().optional().describe("Updated area path"),
-      iterationPath: z.string().optional().describe("Updated iteration path"),
+      title: "Update Test Case",
+      description: "Update fields or steps of an existing test case",
+      inputSchema: {
+        workItemId: z.number().int().positive().describe("The test case work item ID"),
+        title: z.string().optional().describe("Updated title"),
+        description: z.string().optional().describe("Raw HTML for Prerequisite for Test (use when providing pre-built HTML)"),
+        prerequisites: PrerequisitesSchema.describe("Structured prerequisites; when provided, builds HTML and writes to prerequisite field"),
+        steps: z.array(StepSchema).optional().describe("Updated test steps"),
+        priority: z.number().int().min(1).max(4).optional().describe("Updated priority"),
+        state: z.string().optional().describe("Updated state"),
+        assignedTo: z.string().optional().describe("Updated assigned to"),
+        areaPath: z.string().optional().describe("Updated area path"),
+        iterationPath: z.string().optional().describe("Updated iteration path"),
+      },
     },
     async ({ workItemId, title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath }) => {
       try {
@@ -161,13 +166,16 @@ export function registerTestCaseTools(
     }
   );
 
-  server.tool(
+  server.registerTool(
     "qa_suite_add_tests",
-    "Add existing test case IDs to a static test suite (not needed for query-based suites)",
     {
-      planId: z.number().int().positive().describe("The test plan ID"),
-      suiteId: z.number().int().positive().describe("The target suite ID"),
-      testCaseIds: z.array(z.number().int().positive()).min(1).describe("Array of test case work item IDs to add"),
+      title: "Add Test Cases to Suite",
+      description: "Add existing test case IDs to a static test suite (not needed for query-based suites)",
+      inputSchema: {
+        planId: z.number().int().positive().describe("The test plan ID"),
+        suiteId: z.number().int().positive().describe("The target suite ID"),
+        testCaseIds: z.array(z.number().int().positive()).min(1).describe("Array of test case work item IDs to add"),
+      },
     },
     async ({ planId, suiteId, testCaseIds }) => {
       try {
@@ -190,12 +198,15 @@ export function registerTestCaseTools(
     }
   );
 
-  server.tool(
+  server.registerTool(
     "qa_tc_delete",
-    "Delete a test case work item by ID. By default moves to Recycle Bin (restorable). Set destroy=true to permanently delete (not recommended).",
     {
-      workItemId: z.number().int().positive().describe("The test case work item ID to delete"),
-      destroy: z.boolean().optional().default(false).describe("If true, permanently delete. Default false (Recycle Bin)."),
+      title: "Delete Test Case",
+      description: "Delete a test case work item by ID. By default moves to Recycle Bin (restorable). Set destroy=true to permanently delete (not recommended).",
+      inputSchema: {
+        workItemId: z.number().int().positive().describe("The test case work item ID to delete"),
+        destroy: z.boolean().optional().default(false).describe("If true, permanently delete. Default false (Recycle Bin)."),
+      },
     },
     async ({ workItemId, destroy }) => {
       try {

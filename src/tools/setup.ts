@@ -285,10 +285,13 @@ function buildUpdateMessage(version: string): string[] {
 }
 
 export function registerSetupTools(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "ado_connect",
-    "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing. This is the recommended way to set up your credentials.",
-    {},
+    {
+      title: "Connect to Azure DevOps",
+      description: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing. This is the recommended way to set up your credentials.",
+      inputSchema: {},
+    },
     async () => {
       try {
         const url = await launchConfigUI();
@@ -324,10 +327,13 @@ export function registerSetupTools(server: McpServer) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "ado_connect_save",
-    "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /ado-testforge/ado-connect instead.",
-    {},
+    {
+      title: "Save ADO Credentials (Manual)",
+      description: "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /ado-testforge/ado-connect instead.",
+      inputSchema: {},
+    },
     async () => {
       const credPath = createCredentialsTemplate();
       const alreadyValid = loadCredentials() !== null;
@@ -363,10 +369,13 @@ export function registerSetupTools(server: McpServer) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "ado_check",
-    "Check if the ADO TestForge MCP server is fully configured and ready to use. Returns a deterministic status table + Overall verdict + Next Actions list.",
-    {},
+    {
+      title: "Check ADO Setup Status",
+      description: "Check if the ADO TestForge MCP server is fully configured and ready to use. Returns a deterministic status table + Overall verdict + Next Actions list.",
+      inputSchema: {},
+    },
     async () => {
       const currentVersion = getCurrentVersion();
       const status = computeSetupStatus();

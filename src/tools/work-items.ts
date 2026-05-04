@@ -84,6 +84,7 @@ export function registerWorkItemTools(
   server.registerTool(
     "ado_story",
     {
+      title: "Read User Story",
       description:
         "Fetch a User Story from ADO with description, acceptance criteria, parent info, Solution Design content from Confluence, and all relations",
       inputSchema: {
@@ -127,6 +128,7 @@ export function registerWorkItemTools(
   server.registerTool(
     "qa_tests",
     {
+      title: "List Test Cases for User Story",
       description:
         "Get test case work item IDs linked to a User Story via Tests/Tested By relation. Use before cloning test cases from one US to another.",
       inputSchema: {
@@ -179,6 +181,7 @@ export function registerWorkItemTools(
   server.registerTool(
     "ado_fields",
     {
+      title: "List Work Item Fields",
       description:
         "List all work item field definitions in the ADO project. Returns reference names (e.g. Custom.PrerequisiteforTest, System.Title) and metadata. Use to verify field names before updating work items.",
       inputSchema: {

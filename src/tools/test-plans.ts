@@ -11,6 +11,7 @@ export function registerTestPlanTools(server: McpServer, client: AdoClient) {
   server.registerTool(
     "ado_plans",
     {
+      title: "List Test Plans",
       description: "List all test plans in the ADO project",
       inputSchema: {},
       outputSchema: READ_OUTPUT_SCHEMA,
@@ -48,6 +49,7 @@ export function registerTestPlanTools(server: McpServer, client: AdoClient) {
   server.registerTool(
     "ado_plan",
     {
+      title: "Read Test Plan",
       description: "Get a specific test plan by ID (includes area path, root suite, etc.)",
       inputSchema: { planId: z.number().int().positive().describe("The test plan ID") },
       outputSchema: READ_OUTPUT_SCHEMA,
@@ -74,13 +76,16 @@ export function registerTestPlanTools(server: McpServer, client: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "ado_plan_create",
-    "Create a new test plan (future use -- existing plans configured in `conventions.config.json` testPlanMapping are typically used)",
     {
-      name: z.string().describe("Name for the new test plan"),
-      areaPath: z.string().optional().describe("Area path for the plan"),
-      iteration: z.string().optional().describe("Iteration path for the plan"),
+      title: "Create Test Plan",
+      description: "Create a new test plan (future use -- existing plans configured in `conventions.config.json` testPlanMapping are typically used)",
+      inputSchema: {
+        name: z.string().describe("Name for the new test plan"),
+        areaPath: z.string().optional().describe("Area path for the plan"),
+        iteration: z.string().optional().describe("Iteration path for the plan"),
+      },
     },
     async ({ name, areaPath, iteration }) => {
       try {

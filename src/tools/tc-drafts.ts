@@ -136,10 +136,13 @@ const SaveTcDraftShape = {
 };
 
 export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
-  server.tool(
+  server.registerTool(
     "qa_draft_save",
-    "Save a test case draft to tc-drafts/US_<id>/ as markdown only. JSON is created only when pushing to ADO. Pass workspaceRoot (open folder) or draftsPath (user-specified location). Creates tc-drafts/US_<id>/ folder if missing. No hardcoded default path.",
-    SaveTcDraftShape,
+    {
+      title: "Save Test Case Draft",
+      description: "Save a test case draft to tc-drafts/US_<id>/ as markdown only. JSON is created only when pushing to ADO. Pass workspaceRoot (open folder) or draftsPath (user-specified location). Creates tc-drafts/US_<id>/ folder if missing. No hardcoded default path.",
+      inputSchema: SaveTcDraftShape,
+    },
     async (input) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(input.workspaceRoot, input.draftsPath);
@@ -194,6 +197,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   server.registerTool(
     "qa_draft_read",
     {
+      title: "Read Test Case Draft",
       description: "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout.",
       inputSchema: {
         userStoryId: z.number().int().positive(),
@@ -255,6 +259,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
   server.registerTool(
     "qa_drafts_list",
     {
+      title: "List Test Case Drafts",
       description: "List all test case drafts in tc-drafts/ with US ID, title, status, version, and supporting docs. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout. Pass workspaceRoot or draftsPath.",
       inputSchema: {
         workspaceRoot: z.string().optional().describe("Project folder path; lists from workspaceRoot/tc-drafts"),
@@ -393,15 +398,18 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "qa_clone_preview_save",
-    "Save a clone-and-enhance preview to tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md. Use after analyzing source TCs and target US+Solution Design. Pass workspaceRoot or draftsPath.",
     {
-      sourceUserStoryId: z.number().int().positive().describe("Source User Story ID"),
-      targetUserStoryId: z.number().int().positive().describe("Target User Story ID"),
-      markdown: z.string().describe("Full markdown content of the clone preview (classification, steps, prerequisites per TC)"),
-      workspaceRoot: z.string().optional().describe("Project folder path; drafts go to workspaceRoot/tc-drafts"),
-      draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      title: "Save Clone-and-Enhance Preview",
+      description: "Save a clone-and-enhance preview to tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md. Use after analyzing source TCs and target US+Solution Design. Pass workspaceRoot or draftsPath.",
+      inputSchema: {
+        sourceUserStoryId: z.number().int().positive().describe("Source User Story ID"),
+        targetUserStoryId: z.number().int().positive().describe("Target User Story ID"),
+        markdown: z.string().describe("Full markdown content of the clone preview (classification, steps, prerequisites per TC)"),
+        workspaceRoot: z.string().optional().describe("Project folder path; drafts go to workspaceRoot/tc-drafts"),
+        draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      },
     },
     async ({ sourceUserStoryId, targetUserStoryId, markdown, workspaceRoot, draftsPath }) => {
       try {
@@ -427,15 +435,18 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "qa_publish_push",
-    "Push a reviewed test case draft to ADO. Creates all test cases and updates the draft markdown to APPROVED. Only call after explicit user confirmation (e.g. user typed YES). Pass workspaceRoot or draftsPath. Supports both new subfolder and legacy flat layout. Set repush=true to update existing test cases when draft was revised after initial push. If the User Story already has test cases linked in ADO and the draft has no ADO IDs, the tool returns an error listing them; set insertAnyway=true to add new TCs alongside existing ones, or use repush=true to update existing ones.",
     {
-      userStoryId: z.number().int().positive(),
-      workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
-      draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
-      repush: z.boolean().optional().describe("If true, update existing test cases (by ADO ID in draft) instead of creating new ones. Use when draft was revised after initial push."),
-      insertAnyway: z.boolean().optional().describe("If true, skip the duplicate-TC check and insert new test cases even when the US already has test cases linked in ADO. Only set after the user has seen the existing TCs and explicitly confirmed they want new ones alongside."),
+      title: "Publish Test Cases to ADO",
+      description: "Push a reviewed test case draft to ADO. Creates all test cases and updates the draft markdown to APPROVED. Only call after explicit user confirmation (e.g. user typed YES). Pass workspaceRoot or draftsPath. Supports both new subfolder and legacy flat layout. Set repush=true to update existing test cases when draft was revised after initial push. If the User Story already has test cases linked in ADO and the draft has no ADO IDs, the tool returns an error listing them; set insertAnyway=true to add new TCs alongside existing ones, or use repush=true to update existing ones.",
+      inputSchema: {
+        userStoryId: z.number().int().positive(),
+        workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
+        draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+        repush: z.boolean().optional().describe("If true, update existing test cases (by ADO ID in draft) instead of creating new ones. Use when draft was revised after initial push."),
+        insertAnyway: z.boolean().optional().describe("If true, skip the duplicate-TC check and insert new test cases even when the US already has test cases linked in ADO. Only set after the user has seen the existing TCs and explicitly confirmed they want new ones alongside."),
+      },
     },
     async ({ userStoryId, workspaceRoot, draftsPath, repush, insertAnyway }) => {
       try {
@@ -603,15 +614,18 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "qa_draft_doc_save",
-    "Save a supporting document (solution_design_summary, qa_cheat_sheet, or regression_tests) for a User Story into tc-drafts/US_<id>/. Creates the US folder if missing. Pass workspaceRoot or draftsPath.",
     {
-      userStoryId: z.number().int().positive().describe("User Story work item ID"),
-      docType: z.enum(["solution_summary", "qa_cheat_sheet", "regression_tests"]).describe("Type of supporting document to save"),
-      markdown: z.string().describe("Full markdown content of the supporting document"),
-      workspaceRoot: z.string().optional().describe("Project folder path; saves to workspaceRoot/tc-drafts/US_<id>/"),
-      draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      title: "Save Draft Supporting Doc",
+      description: "Save a supporting document (solution_design_summary, qa_cheat_sheet, or regression_tests) for a User Story into tc-drafts/US_<id>/. Creates the US folder if missing. Pass workspaceRoot or draftsPath.",
+      inputSchema: {
+        userStoryId: z.number().int().positive().describe("User Story work item ID"),
+        docType: z.enum(["solution_summary", "qa_cheat_sheet", "regression_tests"]).describe("Type of supporting document to save"),
+        markdown: z.string().describe("Full markdown content of the supporting document"),
+        workspaceRoot: z.string().optional().describe("Project folder path; saves to workspaceRoot/tc-drafts/US_<id>/"),
+        draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
+      },
     },
     async ({ userStoryId, docType, markdown, workspaceRoot, draftsPath }) => {
       try {
