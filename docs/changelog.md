@@ -4,6 +4,39 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## 2026-05-04 — Consent rule delivery fix + ask-template tightening
+
+### Fix
+
+The `## What counts as consent` section in AGENTS.md was not reaching Cursor because `AGENTS.md` wasn't included in `dist-package/`. The rule text shipped to git but not to end users.
+
+- `build-dist.mjs`: now copies `AGENTS.md` from repo root into `dist-package/` so the Vercel tarball installer places it at `~/.ado-testforge-mcp/AGENTS.md`. Cursor reads from this directory at session start, so the rule now actually reaches the agent.
+- `src/prompts/index.ts`: tightened ask-templates in `create_test_cases` (steps 4-5) and `clone_and_enhance_test_cases` (if applicable). The "type YES to push" prompt now explicitly includes "no to cancel" per the consent rule's minimum re-ask form. The agent is also pointed at AGENTS.md for the full rule.
+- `src/prompts/shared-contracts.ts`: `CONFIRM_BEFORE_ACT_CONTRACT` tightened to require ask-templates include both yes AND no as equal options, and to cross-reference the consent rule.
+- `src/tools/tc-drafts.ts`: duplicate-TC preflight A/B/C menu — verified C (Cancel) is explicit.
+
+### Motivation
+
+Real-session transcript: user ran `/qa-publish`, agent asked "type YES to push" (without explicit no option), user replied with frustration ("are you that dumb seriously"), agent proceeded anyway and invoked `qa_draft_save`. Two problems compounded:
+1. The agent wasn't reading AGENTS.md because it wasn't bundled.
+2. Even if it had, the ask-template violated the minimum form, giving the agent no clear "this is the cancel path" signal.
+
+Both addressed here.
+
+### Verification (manual)
+
+After reload:
+1. Trigger `/qa-publish` on a US that has a draft pending review.
+2. When the agent asks "reply YES to push / no to cancel", reply with frustration ("are you dumb", "seriously?").
+3. Expected: agent re-asks with yes/no, does NOT call qa_draft_save or qa_publish_push.
+4. If it still proceeds, the rule needs more teeth — log and report.
+
+### Backward compatibility
+
+Text-only changes. No tool or schema change. 150 tests still pass.
+
+---
+
 ## 2026-05-04 — Consent vocabulary rule (frustration-is-not-consent)
 
 ### Change

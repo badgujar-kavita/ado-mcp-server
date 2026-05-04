@@ -218,7 +218,7 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to delete a test suite. Ask me for the plan ID and suite ID, confirm the action, then use the qa_suite_delete tool. Note: Test cases in the suite are not deleted—only their association with the suite is removed.",
+        text: "I want to delete a test suite. Ask me for the plan ID and suite ID, then confirm with: 'Delete suite {id} from plan {planId}? Reply **YES** to delete, **no** to cancel, or tell me what you'd like instead.' Apply the consent rule from AGENTS.md — do not proceed on ambiguous replies. On affirmative, use the qa_suite_delete tool. Note: Test cases in the suite are not deleted—only their association with the suite is removed.",
       },
     }],
   }));
@@ -317,11 +317,11 @@ export function registerAllPrompts(server: McpServer) {
           "1. Ask for plan ID and US ID if not in context.",
           "2. Check: Does a draft exist? Call qa_drafts_list or qa_draft_read(userStoryId) with workspaceRoot or draftsPath (same location user will save to).",
           "3. If NO draft: Fetch US via ado_story. Apply BOTH skills: qa-test-assets for folder structure and qa-test-drafting for content quality (analyze US + Solution Design, coverage matrix, process flow, Test Coverage Insights). Derive business-specific terms from source material. Create all three files: (a) call qa_draft_save for main test cases (auto-creates tc-drafts/US_<ID>/ folder), (b) call qa_draft_doc_save with docType='solution_summary' for solution design summary, (c) call qa_draft_doc_save with docType='qa_cheat_sheet' for QA cheat sheet. ALWAYS pass workspaceRoot or draftsPath. Tell me: 'I've created draft files. Please review at the paths shown. When ready, run this command again and confirm.' Do NOT call qa_publish_push. When consuming `ado_story`, apply the same rules as `qa-draft` step 2d–2e: scan `namedFields`, `allFields`, and `fetchedConfluencePages` for context; surface `unfetchedLinks` to the user before drafting; reference `embeddedImages` via `originalUrl`.",
-          "4. If draft exists but I have NOT confirmed: Show draft summary via qa_draft_read. Ask: 'Have you reviewed the draft? If yes, type YES to push N test cases to ADO.' Do NOT push until I confirm.",
-          "5. If I type YES (or approved, confirmed, push): Ask one more time: 'Type YES to push.' Then call qa_publish_push with the same workspaceRoot or draftsPath used for the draft. If the draft is already APPROVED and I revised it, pass repush: true to update existing test cases (formatting will be re-applied).",
+          "4. If draft exists but I have NOT confirmed: Show draft summary via qa_draft_read. Ask: 'Have you reviewed the draft? Reply **YES** to push N test cases to ADO, **no** to cancel, or tell me what you'd like instead.' Do NOT push until I reply with an affirmative token per the consent rule in AGENTS.md (sarcasm, frustration, and questions back are not consent — re-ask).",
+          "5. If I reply with an affirmative token (YES / approved / confirmed / push / go ahead): Ask one more time for safety — 'Final check: reply **YES** to push to ADO, or **no** to cancel.' Then on affirmative, call qa_publish_push with the same workspaceRoot or draftsPath used for the draft. If the draft is already APPROVED and I revised it, pass repush: true to update existing test cases (formatting will be re-applied).",
           "6. If qa_publish_push returns 'US {id} — existing test cases detected' with A/B/C options: show the message verbatim (do NOT list the existing TCs yourself; counts are deliberate). Wait for my reply. On A, call qa_publish_push again with insertAnyway: true. On B, call qa_tests and then qa_tc_read for each linked ID to show me titles/steps, then ask me again. On C, stop. Never set insertAnyway: true without my A/C-style reply.",
           "7. If I provide feedback or edits: Update draft via qa_draft_save, then ask for confirmation again.",
-          "8. NEVER call qa_publish_push without explicit user confirmation (YES, approved, push, etc.). NEVER pass insertAnyway=true without showing me the A/B/C prompt first and receiving an explicit 'A' reply.",
+          "8. NEVER call qa_publish_push without explicit user confirmation (YES, approved, push, etc.). Apply the consent rule from AGENTS.md — frustration, sarcasm, rhetorical questions, and self-directed replies are NOT consent; on ambiguous replies, re-ask with yes/no options visible, do not proceed. NEVER pass insertAnyway=true without showing me the A/B/C prompt first and receiving an explicit 'A' reply.",
           "9. When showing ADO work item IDs in chat (push summaries, linked TC lists, test case details, etc.), format them as markdown links using the webUrl field from the tool response, e.g. `[ADO #1234](https://dev.azure.com/.../_workitems/edit/1234)`. qa_draft_read also appends an 'ADO Links' section when the draft has IDs — surface those links in tables/summaries for the user. Never show bare `ADO #1234` when a URL is available.",
           "",
           CONFIRM_BEFORE_ACT_CONTRACT,
@@ -410,7 +410,7 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to delete a test case. Ask me for the work item ID, confirm the action, then use the qa_tc_delete tool. By default the work item is moved to Recycle Bin (restorable). Warn if destroy=true is requested (permanent delete).",
+        text: "I want to delete a test case. Ask me for the work item ID, then confirm with: 'Delete test case {id}? Reply **YES** to delete, **no** to cancel, or tell me what you'd like instead.' Apply the consent rule from AGENTS.md — do not proceed on ambiguous replies. On affirmative, use the qa_tc_delete tool. By default the work item is moved to Recycle Bin (restorable). Warn if destroy=true is requested (permanent delete) and re-confirm with the same yes/no form.",
       },
     }],
   }));
@@ -428,8 +428,8 @@ export function registerAllPrompts(server: McpServer) {
           "",
           "Please:",
           "1. Ask me for the work item IDs (comma-separated or list).",
-          "2. Confirm the list and warn that they will be moved to Recycle Bin (restorable within 30 days).",
-          "3. Call qa_tc_delete for each ID in sequence.",
+          "2. Show the parsed list back and ask: 'Delete these N test cases? They will be moved to Recycle Bin (restorable within 30 days). Reply **YES** to delete, **no** to cancel, or tell me what you'd like instead.' Apply the consent rule from AGENTS.md — do not proceed on ambiguous replies.",
+          "3. On affirmative, call qa_tc_delete for each ID in sequence.",
           "4. Report success/failure for each.",
         ].join("\n"),
       },

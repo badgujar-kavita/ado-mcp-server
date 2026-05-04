@@ -90,6 +90,9 @@ alwaysApply: true
   if (existsSync(join(ROOT, "README.md"))) {
     copyFileSync(join(ROOT, "README.md"), join(OUT, "README.md"));
   }
+  if (existsSync(join(ROOT, "AGENTS.md"))) {
+    copyFileSync(join(ROOT, "AGENTS.md"), join(OUT, "AGENTS.md"));
+  }
   if (existsSync(join(ROOT, "conventions.config.json"))) {
     copyFileSync(join(ROOT, "conventions.config.json"), join(OUT, "conventions.config.json"));
   }
