@@ -401,11 +401,9 @@ You can now use any of the available commands. Type `/ado-testforge` in the chat
 | `/ado-testforge/ado-plan` | Get test plan details |
 | `/ado-testforge/ado-suites` | List all suites in a test plan |
 | `/ado-testforge/ado-suite` | Get test suite details |
-| `/ado-testforge/qa-suite-create` | Create test suite structure — asks only User Story ID (derives plan and sprint from US) |
-| `/ado-testforge/qa-suite-update` | Ensure or update test suite structure — asks only User Story ID |
-| `/ado-testforge/qa-suite-setup-auto` | Same as create — ensures folder structure from User Story ID only |
+| `/ado-testforge/qa-suite-setup-auto` | Ensure suite folder structure from User Story ID only (derives plan and sprint from US) |
+| `/ado-testforge/qa-suite-update` | Update test suite properties (name, parent, query string) |
 | `/ado-testforge/qa-suite-delete` | Delete a test suite (test cases remain, only suite association removed) |
-| `/ado-testforge/qa-suite-setup-manual` | Build the test suite folder structure |
 | `/ado-testforge/qa-draft` | Generate a test case draft for review (never creates in ADO). Uses a generic QA architect method and derives project-specific terms from the User Story and Solution Design. |
 | `/ado-testforge/qa-publish` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
 | `/ado-testforge/ado-suite-tests` | List test cases in a suite |

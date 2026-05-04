@@ -100,7 +100,7 @@ AND Area Path    Under      TPM Product Ecosystem\Salesforce_TPM_Global Product\
 AND Title        Contains   TC_1245456
 ```
 
-**Resolution logic (built into `qa_suite_setup_manual` and `qa_suite_setup_auto`):**
+**Resolution logic (built into `qa_suite_setup_auto`):**
 
 1. Fetch the User Story by ID
 2. **`qa_suite_setup_auto`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (per-team configuration in `conventions.config.json`) and sprint from Iteration (e.g. with prefix `Sprint_`, `Sprint_14` → 14)
@@ -142,7 +142,7 @@ sequenceDiagram
     M-->>C: Full US context + solutionDesignContent (if linked)
 
     Note over C: Step 3 - Ensure Suite Hierarchy
-    C->>M: qa_suite_setup_manual(planId, sprintNumber: 24, userStoryId: 1098741)
+    C->>M: qa_suite_setup_auto(userStoryId: 1098741)
     M->>ADO: GET suites (list all)
     M->>M: Check: Sprint_24 exists? Parent folder exists? US folder exists?
     alt All folders exist
@@ -818,7 +818,7 @@ ADO TestForge MCP/
 │   ├── tools/
 │   │   ├── work-items.ts         # ado_story, qa_tests, ado_fields
 │   │   ├── test-plans.ts         # Test plan tools (create, list, get)
-│   │   ├── test-suites.ts        # Suite tools (qa_suite_setup_manual, find_or_create, list, get)
+│   │   ├── test-suites.ts        # Suite tools (qa_suite_setup_auto, list, get, update, delete)
 │   │   ├── test-cases.ts         # Test case tools (list, get, update, delete, add to suite)
 │   │   ├── tc-drafts.ts         # Test case draft tools (save, list, get, push to ADO)
 │   │   ├── confluence.ts         # Confluence page reader (standalone tool, optional)
@@ -883,26 +883,10 @@ Test plans already exist in the project (configured in `conventions.config.json`
 ### Test Suite Management (with hierarchy awareness)
 
 - **`qa_suite_setup_auto`** -- Preferred. Takes only userStoryId. Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format.
-- **`qa_suite_setup_manual`** -- Lower-level. Given planId, sprint number, and userStoryId, it builds the full folder path:
-  1. Fetches the US to determine if it has a Parent US / EPIC
-  2. Ensures `<SprintPrefix>{sprint}` folder exists (static suite)
-  3. If parent exists: ensures `<ParentID> | <ParentTitle>` folder under sprint (static suite)
-  4. If no parent: ensures `Non-Epic US TCs` folder under sprint (static suite)
-  5. Creates the leaf `<USID> | <USTitle>` as a **query-based suite** with this query:
-     - `Work Item Type In Group Microsoft.TestCaseCategory`
-     - `AND Area Path Under <planAreaPath>`
-     - `AND Title Contains TC_<USID>`
-  6. At each level, searches existing suites first -- only creates if missing
-  7. Returns the leaf suite ID (test cases auto-appear here via the query -- no manual add needed)
-- **`qa_suite_find_or_create`** -- Lower-level tool. Checks if a suite with a given name exists under a parent suite; creates one only if not found
-  - API: `GET /_apis/testplan/Plans/{planId}/suites` then conditionally `POST`
-  - Returns: `{ created: boolean, suite: {...} }`
 - **`ado_suites`** -- List all suites in a plan
   - API: `GET /_apis/testplan/Plans/{planId}/suites`
 - **`ado_suite`** -- Get suite details
   - API: `GET /_apis/testplan/Plans/{planId}/suites/{suiteId}`
-- **`qa_suite_create`** -- Create a new suite under a parent (find-or-create; returns existing if found)
-  - API: `GET` suites then conditionally `POST /_apis/testplan/Plans/{planId}/suites`
 - **`qa_suite_update`** -- Update suite properties (name, parent, query string)
   - API: `PATCH /_apis/testplan/Plans/{planId}/suites/{suiteId}`
 - **`qa_suite_delete`** -- Delete a test suite (test cases remain; only suite association removed)
@@ -1158,11 +1142,11 @@ When `userStoryId` is provided to `create_test_case`, the tool:
 
 ### Suite Hierarchy Resolution (`src/helpers/suite-structure.ts`)
 
-The `qa_suite_setup_manual` tool uses this helper to build the correct folder path. The full resolution algorithm:
+The `qa_suite_setup_auto` tool uses this helper to build the correct folder path. The full resolution algorithm:
 
 ```mermaid
 flowchart TD
-    Start["qa_suite_setup_manual(planId, sprintNum, userStoryId)"] --> FetchUS["Fetch US work item\n(get relations + parent)"]
+    Start["qa_suite_setup_auto(userStoryId)"] --> FetchUS["Fetch US work item\n(get relations + parent)"]
     FetchUS --> FetchPlan["Fetch Test Plan\n(get area path for query)"]
     FetchPlan --> HasParent{"US has Parent US\nor EPIC?"}
 
@@ -1221,7 +1205,7 @@ npx tsx src/index.ts   # Runs via stdio, launched by Cursor
 | 6 | Implement work item tools (`src/tools/work-items.ts`): `ado_story` | Pending |
 | 7 | Implement test plan tools (`src/tools/test-plans.ts`): list, get, create | Pending |
 | 8 | Implement suite folder structure helpers (`src/helpers/suite-structure.ts`) | Pending |
-| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `qa_suite_setup_manual`, find_or_create, list, get | Pending |
+| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `qa_suite_setup_auto`, find_or_create, list, get | Pending |
 | 10 | Implement test case tools (`src/tools/test-cases.ts`): create (TC_ format + prerequisites), list, get, update | Pending |
 | 11 | Implement Confluence tools (`src/tools/confluence.ts`): `confluence_read` -- trial/optional | Pending |
 | 12 | Create MCP server entry point (`src/index.ts`) with tool registration + stdio transport | Pending |

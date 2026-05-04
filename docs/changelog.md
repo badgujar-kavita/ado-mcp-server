@@ -190,8 +190,8 @@ backward-compatibility aliases were needed.
 - `create_test_cases` → `/qa-publish`
 - `clone_and_enhance_test_cases` → `/qa-clone`
 - `ensure_suite_hierarchy_for_us` → `/qa-suite-setup-auto`
-- `ensure_suite_hierarchy` → `/qa-suite-setup-manual`
-- `create_test_suite` → `/qa-suite-create`
+- `ensure_suite_hierarchy` → removed (functionality merged into `/qa-suite-setup-auto`)
+- `create_test_suite` → removed (functionality merged into `/qa-suite-setup-auto`)
 - `update_test_suite` → `/qa-suite-update`
 - `delete_test_suite` → `/qa-suite-delete`
 - `get_test_case` → `/qa-tc-read`
@@ -743,8 +743,9 @@ The install command now checks:
 
 ### Prompt Updates
 
-- **`qa_suite_create`** and **`qa_suite_update`** now ask only for User Story ID and use `qa_suite_setup_auto`.
+- **`qa_suite_update`** now asks only for User Story ID and uses `qa_suite_setup_auto`.
 - **`/ado-testforge/qa-suite-setup-auto`** — New slash command for the same flow.
+- **`qa_suite_create`** removed — its functionality was merged into `qa_suite_setup_auto`.
 
 ---
 
@@ -752,10 +753,9 @@ The install command now checks:
 
 ### New Tools and Slash Commands
 
-- **`qa_suite_create`** — Create a new test suite under a parent. Uses find-or-create logic; returns existing suite if one with the same name already exists under that parent.
 - **`qa_suite_update`** — Update an existing test suite. Supports partial updates: `name`, `parentSuiteId`, `queryString` (for dynamic suites).
 - **`qa_suite_delete`** — Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.
-- **Slash commands:** `/ado-testforge/qa-suite-create`, `/ado-testforge/qa-suite-update`, `/ado-testforge/qa-suite-delete`
+- **Slash commands:** `/ado-testforge/qa-suite-update`, `/ado-testforge/qa-suite-delete`
 
 ---
 

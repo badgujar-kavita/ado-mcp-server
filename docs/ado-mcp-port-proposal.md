@@ -65,11 +65,9 @@ in separate, small commits.
 | `qa_suite_add_tests` | `test-cases.ts:141` | action |
 | `qa_tc_delete` | `test-cases.ts:170` | action |
 | `qa_suite_setup_auto` | `test-suites.ts:16` | action |
-| `qa_suite_setup_manual` | `test-suites.ts:37` | action |
-| `qa_suite_find_or_create` | `test-suites.ts:60` | action |
+| ~~`qa_suite_find_or_create`~~ | removed — internal helper `findOrCreateSuite` remains | — |
 | `ado_suites` | `test-suites.ts:86` | read |
 | `ado_suite` | `test-suites.ts:115` | read |
-| `qa_suite_create` | `test-suites.ts:140` | action |
 | `qa_suite_update` | `test-suites.ts:173` | action |
 | `qa_suite_delete` | `test-suites.ts:213` | action |
 | `qa_draft_save` | `tc-drafts.ts:120` | action |
