@@ -46,7 +46,7 @@ in separate, small commits.
 
 ## 1. ado-mcp current surface — concrete inventory
 
-### Tools (29 total)
+### Tools (26 total)
 
 | Tool name | File:line | Category |
 |---|---|---|
@@ -78,13 +78,13 @@ in separate, small commits.
 | `qa_draft_doc_save` | `tc-drafts.ts:496` | action |
 | `confluence_read` | `confluence.ts:6` | read |
 
-**Read category (14 tools):** the most valuable targets for this
+**Read category (12 tools):** the most valuable targets for this
 refactor. They currently return `JSON.stringify(context, null, 2)`
 as a prose block — a form users already complained about in
 jira-mcp ("show the result verbatim" anti-pattern). Port has high
 leverage here.
 
-**Action category (13 tools):** already single-turn, no resume
+**Action category (11 tools):** already single-turn, no resume
 tokens. Most don't need elicitation; a few (`qa_clone_preview_save`,
 `qa_publish_push`) have informal approve/modify/cancel
 prompting that could be formalized.
@@ -95,7 +95,7 @@ to jira-mcp's patterns to port cleanly.
 ### Prompts (partial inventory)
 
 ado-mcp uses `server.registerPrompt(name, meta, handler)` — static
-text, no shared contract composition. ~15 prompts in
+text, no shared contract composition. 21 prompts in
 `src/prompts/index.ts`. Each is an independent string literal.
 
 ### What's in the repo today (structural)
@@ -104,8 +104,8 @@ text, no shared contract composition. ~15 prompts in
 - Tool registration: `server.tool(name, desc, schema, handler)` —
   4-arg form that **does not accept `outputSchema`**. The newer
   `server.registerTool(name, config, handler)` does.
-- No `AGENTS.md`.
-- No test framework (no Jest, Vitest, or similar). `package.json`
+- `AGENTS.md` present (ported from jira-mcp, includes consent-vocabulary rule).
+- Test framework: `node:test` (built-in). `package.json`
   devDependencies: TypeScript, tsx, esbuild, @types/node only.
 - No pending-state / resume-token system. Action tools are
   single-turn; any multi-step flows are agent-orchestrated through
@@ -151,7 +151,7 @@ directly but the 4-arg form omits `outputSchema`.
 a trivial addition to `ToolDef`. In ado-mcp it requires migrating
 every tool registration from `server.tool(...)` to
 `server.registerTool(name, {description, inputSchema, outputSchema,
-...}, handler)`. That's 29 call-site edits for a change that was
+...}, handler)`. That's 26 call-site edits for a change that was
 ~4 lines in jira-mcp.
 
 **Recommendation:** migrate tool-by-tool during Commit 2 (canonical
