@@ -30,7 +30,7 @@ Every tool is **read**, **action**, **diagnostic**, or **setup**.
 - **Action tools** mutate state (filesystem, ADO work items, test
   suites, Confluence reads cached locally): `ado_plan_create`,
   `qa_tc_update`, `qa_suite_add_tests`, `qa_tc_delete`,
-  `qa_suite_setup_auto`,
+  `qa_suite_setup`,
   `qa_suite_update`, `qa_suite_delete`, `qa_draft_save`,
   `qa_clone_preview_save`, `qa_publish_push`,
   `qa_draft_doc_save`. The two interactive action prompts

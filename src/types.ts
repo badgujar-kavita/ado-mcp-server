@@ -79,6 +79,7 @@ export interface SuiteHierarchyResult {
   leafSuiteName: string;
   created: string[];
   existing: string[];
+  warnings?: string[];
 }
 
 // ── Test Case Types ──
@@ -198,6 +199,8 @@ export interface ConventionsConfig {
     parentUsTemplate: string;
     usTemplate: string;
     nonEpicFolderName: string;
+    /** Prefix used in WIQL query for query-based suites (default "TC"). */
+    tcTitlePrefix?: string;
     /** Map AreaPath to test plan ID. First match wins. */
     testPlanMapping?: Array<{ planId: number; areaPathContains: string | string[] }>;
   };

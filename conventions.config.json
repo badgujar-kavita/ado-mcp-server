@@ -91,6 +91,7 @@
     "parentUsTemplate": "{id}{separator}{title}",
     "usTemplate": "{id}{separator}{title}",
     "nonEpicFolderName": "Non-Epic US TCs",
+    "tcTitlePrefix": "TC",
     "testPlanMapping": [
       {
         "planId": 1066479,

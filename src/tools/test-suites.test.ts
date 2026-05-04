@@ -138,3 +138,39 @@ test("ado_suite of static suite has no query artifact", () => {
     "expected artifacts to be undefined or empty for static suite",
   );
 });
+
+test("ado_suite simple suite: no parent, no query → no children, no artifacts", () => {
+  const suite = makeSuite({
+    id: 50,
+    name: "Simple Suite",
+    suiteType: "staticTestSuite",
+    // no parentSuite, no queryString
+  });
+  const canonical = buildSuiteCanonicalResult(suite);
+
+  assert.equal(canonical.item.id, 50);
+  assert.equal(canonical.item.type, "test-suite");
+  assert.equal(canonical.item.title, "Simple Suite");
+  assert.equal(canonical.item.summary, "Type: staticTestSuite");
+
+  // No parent → no children
+  assert.equal(canonical.children, undefined);
+  // No queryString → no artifacts
+  assert.equal(canonical.artifacts, undefined);
+
+  assert.equal(canonical.completeness.isPartial, false);
+});
+
+test("ado_suites singular suite count in summary", () => {
+  const suites: AdoTestSuite[] = [
+    makeSuite({ id: 10, name: "Only Suite" }),
+  ];
+  const canonical = buildSuiteListCanonicalResult(99, suites);
+
+  assert.equal(canonical.item.id, 99);
+  assert.equal(canonical.item.type, "test-plan");
+  // 1 suite → singular "suite" (no trailing "s")
+  assert.ok(canonical.item.summary!.includes("1 suite"));
+  assert.ok(!canonical.item.summary!.includes("1 suites"));
+  assert.equal(canonical.children!.length, 1);
+});

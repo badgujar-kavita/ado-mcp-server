@@ -80,10 +80,12 @@ export function resolveSprintFromIteration(iterationPath: string): number {
  * that auto-links test cases by title pattern.
  */
 export function buildSuiteQueryString(usId: number, areaPath: string): string {
+  const config = loadConventionsConfig();
+  const prefix = config.suiteStructure.tcTitlePrefix ?? "TC";
   return (
     `SELECT [System.Id] FROM WorkItems ` +
     `WHERE [System.WorkItemType] IN GROUP 'Microsoft.TestCaseCategory' ` +
     `AND [System.AreaPath] UNDER '${areaPath}' ` +
-    `AND [System.Title] CONTAINS 'TC_${usId}'`
+    `AND [System.Title] CONTAINS '${prefix}_${usId}'`
   );
 }

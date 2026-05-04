@@ -148,15 +148,15 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
-  server.registerPrompt("qa-suite-setup-auto", {
-    title: "Set Up Suite Hierarchy (Auto-Derive)",
-    description: "Build or fix suite folder structure. Asks only User Story ID — derives plan and sprint from US.",
+  server.registerPrompt("qa-suite-setup", {
+    title: "Set Up Suite Hierarchy",
+    description: "Build or fix suite folder structure. Asks only User Story ID — derives plan and sprint from US. Optionally accepts planId and/or sprintNumber overrides for manual control.",
   }, async () => ({
     messages: [{
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to ensure the test suite folder structure for a User Story. Ask only for the User Story ID. Use qa_suite_setup_auto — it derives plan and sprint from the US AreaPath and Iteration, creates folders if missing, and updates naming if wrong format.",
+        text: "I want to ensure the test suite folder structure for a User Story. Ask only for the User Story ID. Use qa_suite_setup — it derives plan and sprint from the US AreaPath and Iteration, creates folders if missing, and updates naming if wrong format. If plan or sprint resolution fails, the tool returns a structured needs-input response with a suggestion to provide planId or sprintNumber overrides.",
       },
     }],
   }));
@@ -172,7 +172,7 @@ export function registerAllPrompts(server: McpServer) {
         text: [
           "I want to update a test suite.",
           "",
-          "**Preferred:** If this is for a User Story, ask only for the User Story ID. Use qa_suite_setup_auto — it checks if folders exist, creates if missing, and updates naming if wrong format.",
+          "**Preferred:** If this is for a User Story, ask only for the User Story ID. Use qa_suite_setup — it checks if folders exist, creates if missing, and updates naming if wrong format.",
           "",
           "**Alternative:** If updating a specific suite by ID, ask for plan ID and suite ID, show current state with ado_suite, then use qa_suite_update with the fields to change.",
         ].join("\n"),
@@ -427,7 +427,7 @@ export function registerAllPrompts(server: McpServer) {
           "7. Call qa_clone_preview_save with the markdown. Pass workspaceRoot or draftsPath.",
           "8. Tell me: 'Review the preview at the path shown. Respond APPROVED to create in ADO, MODIFY to revise, or CANCEL to abort.'",
           "9. On APPROVED:",
-          "   a. Call qa_suite_setup_auto(targetUserStoryId) to ensure suite (returns planId).",
+          "   a. Call qa_suite_setup(targetUserStoryId) to ensure suite (returns planId).",
           "   b. Call qa_draft_save with transformed TCs (target US context, planId from step a, version 1). Pass workspaceRoot or draftsPath.",
           "   c. Call qa_publish_push with same workspaceRoot/draftsPath.",
           "10. On MODIFY: Revise the preview and qa_clone_preview_save again, then ask for APPROVED/MODIFY/CANCEL.",

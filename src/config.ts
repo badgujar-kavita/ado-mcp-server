@@ -95,6 +95,7 @@ const ConventionsConfigSchema = z.object({
     parentUsTemplate: z.string(),
     usTemplate: z.string(),
     nonEpicFolderName: z.string(),
+    tcTitlePrefix: z.string().optional().default("TC"),
     testPlanMapping: z.array(z.object({
       planId: z.number().int().positive(),
       areaPathContains: z.union([z.string(), z.array(z.string())]),

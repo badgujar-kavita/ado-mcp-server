@@ -100,10 +100,10 @@ AND Area Path    Under      TPM Product Ecosystem\Salesforce_TPM_Global Product\
 AND Title        Contains   TC_1245456
 ```
 
-**Resolution logic (built into `qa_suite_setup_auto`):**
+**Resolution logic (built into `qa_suite_setup`):**
 
 1. Fetch the User Story by ID
-2. **`qa_suite_setup_auto`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (per-team configuration in `conventions.config.json`) and sprint from Iteration (e.g. with prefix `Sprint_`, `Sprint_14` → 14)
+2. **`qa_suite_setup`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (per-team configuration in `conventions.config.json`) and sprint from Iteration (e.g. with prefix `Sprint_`, `Sprint_14` → 14)
 3. Walk US relations to find Parent US or EPIC link
 4. If parent exists: resolve or create `Sprint_X > ParentID | ParentTitle > USID | USTitle`
 5. If no parent: resolve or create `Sprint_X > Non-Epic US TCs > USID | USTitle`
@@ -142,7 +142,7 @@ sequenceDiagram
     M-->>C: Full US context + solutionDesignContent (if linked)
 
     Note over C: Step 3 - Ensure Suite Hierarchy
-    C->>M: qa_suite_setup_auto(userStoryId: 1098741)
+    C->>M: qa_suite_setup(userStoryId: 1098741)
     M->>ADO: GET suites (list all)
     M->>M: Check: Sprint_24 exists? Parent folder exists? US folder exists?
     alt All folders exist
@@ -818,7 +818,7 @@ ADO TestForge MCP/
 │   ├── tools/
 │   │   ├── work-items.ts         # ado_story, qa_tests, ado_fields
 │   │   ├── test-plans.ts         # Test plan tools (create, list, get)
-│   │   ├── test-suites.ts        # Suite tools (qa_suite_setup_auto, list, get, update, delete)
+│   │   ├── test-suites.ts        # Suite tools (qa_suite_setup, list, get, update, delete)
 │   │   ├── test-cases.ts         # Test case tools (list, get, update, delete, add to suite)
 │   │   ├── tc-drafts.ts         # Test case draft tools (save, list, get, push to ADO)
 │   │   ├── confluence.ts         # Confluence page reader (standalone tool, optional)
@@ -882,7 +882,7 @@ Test plans already exist in the project (configured in `conventions.config.json`
 
 ### Test Suite Management (with hierarchy awareness)
 
-- **`qa_suite_setup_auto`** -- Preferred. Takes only userStoryId. Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format.
+- **`qa_suite_setup`** -- Preferred. Takes only userStoryId. Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format.
 - **`ado_suites`** -- List all suites in a plan
   - API: `GET /_apis/testplan/Plans/{planId}/suites`
 - **`ado_suite`** -- Get suite details
@@ -928,7 +928,7 @@ Test plans already exist in the project (configured in `conventions.config.json`
 
 Flow: `qa_draft` prompt → AI applies `.cursor/skills/qa-test-drafting/SKILL.md` (QA architect methodology) → AI calls `qa_draft_save` (creates US folder + test_cases.md) → AI calls `qa_draft_doc_save` for solution_summary and qa_cheat_sheet → user reviews (revisions) → `qa_publish` prompt → user confirms → `qa_publish_push` (runs duplicate-TC guard: aborts if US already has linked TCs unless `repush` or `insertAnyway` is set) → inserts/updates TCs, or `qa_publish` calls `create_test_case` directly.
 
-**Clone and Enhance Flow:** `qa_clone` prompt → AI calls `qa_tests`(source) → `qa_tc_read` for each → `ado_story`(target) → classifies each TC (Clone As-Is / Minor Update / Enhanced) → `qa_clone_preview_save` → user reviews → on APPROVED: `qa_suite_setup_auto`(target) → `qa_draft_save` with transformed TCs → `qa_publish_push`. Never creates in ADO without explicit APPROVED.
+**Clone and Enhance Flow:** `qa_clone` prompt → AI calls `qa_tests`(source) → `qa_tc_read` for each → `ado_story`(target) → classifies each TC (Clone As-Is / Minor Update / Enhanced) → `qa_clone_preview_save` → user reviews → on APPROVED: `qa_suite_setup`(target) → `qa_draft_save` with transformed TCs → `qa_publish_push`. Never creates in ADO without explicit APPROVED.
 
 **Draft Test Cases Skill:** `.cursor/skills/qa-test-drafting/SKILL.md` defines an implementation-generic QA architect methodology: analyze US + Confluence Solution Design, extract business behavior (not implementation), derive project-specific terminology from the source material, validate coverage matrix (scope/config variations, trigger fields, status scenarios, configuration logic, backward compatibility), add Functionality Process Flow and Test Coverage Insights at draft start, and generate complete test cases.
 
@@ -1142,11 +1142,11 @@ When `userStoryId` is provided to `create_test_case`, the tool:
 
 ### Suite Hierarchy Resolution (`src/helpers/suite-structure.ts`)
 
-The `qa_suite_setup_auto` tool uses this helper to build the correct folder path. The full resolution algorithm:
+The `qa_suite_setup` tool uses this helper to build the correct folder path. The full resolution algorithm:
 
 ```mermaid
 flowchart TD
-    Start["qa_suite_setup_auto(userStoryId)"] --> FetchUS["Fetch US work item\n(get relations + parent)"]
+    Start["qa_suite_setup(userStoryId)"] --> FetchUS["Fetch US work item\n(get relations + parent)"]
     FetchUS --> FetchPlan["Fetch Test Plan\n(get area path for query)"]
     FetchPlan --> HasParent{"US has Parent US\nor EPIC?"}
 
@@ -1205,7 +1205,7 @@ npx tsx src/index.ts   # Runs via stdio, launched by Cursor
 | 6 | Implement work item tools (`src/tools/work-items.ts`): `ado_story` | Pending |
 | 7 | Implement test plan tools (`src/tools/test-plans.ts`): list, get, create | Pending |
 | 8 | Implement suite folder structure helpers (`src/helpers/suite-structure.ts`) | Pending |
-| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `qa_suite_setup_auto`, find_or_create, list, get | Pending |
+| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `qa_suite_setup`, find_or_create, list, get | Pending |
 | 10 | Implement test case tools (`src/tools/test-cases.ts`): create (TC_ format + prerequisites), list, get, update | Pending |
 | 11 | Implement Confluence tools (`src/tools/confluence.ts`): `confluence_read` -- trial/optional | Pending |
 | 12 | Create MCP server entry point (`src/index.ts`) with tool registration + stdio transport | Pending |

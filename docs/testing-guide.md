@@ -129,7 +129,7 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 | `ado-suites` | List all suites in a test plan |
 | `ado-suite` | Get test suite details |
 | `qa-suite-update` | Ensure or update suite structure — User Story ID only |
-| `qa-suite-setup-auto` | Ensure suite hierarchy — User Story ID only, derives plan and sprint from US |
+| `qa-suite-setup` | Ensure suite hierarchy — User Story ID only, derives plan and sprint from US. Optional planId/sprintNumber overrides. |
 | `qa-suite-delete` | Delete a test suite (test cases remain) |
 | `qa-draft` | Generate a test case draft for review (never creates in ADO). Only asks for User Story ID - Test Plan ID is auto-derived during push. Applies a generic QA architect skill: analyze US + Solution Design, derive project-specific terminology from the source material, then build the coverage matrix, process flow, and checklist. |
 | `qa-publish` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
@@ -504,7 +504,7 @@ consumers that parse text see zero change.
 | `ado_story` | Fetch US with full context payload: primary fields (title, description, AC, area/iteration path, parent info, relations) + `namedFields`, `allFields` pass-through, `fetchedConfluencePages` (all linked Confluence pages with current-version images), `unfetchedLinks` (SharePoint/Figma/cross-instance Confluence etc.), `embeddedImages` (ADO rich-text attachments). Response includes `webUrl` for clickable linking. When `images.returnMcpImageParts: true`, also returns `{ type: "image" }` content parts for vision-capable clients. Deprecated `solutionDesignUrl` / `solutionDesignContent` aliases remain populated; returns structuredContent | `workItemId` |
 | `qa_tests` | Get TC IDs + clickable `webUrl` per TC, plus `userStoryWebUrl` (backward-compat `testCaseIds` kept); returns structuredContent | `userStoryId` |
 | `ado_fields` | List work item field definitions (reference names, types); returns structuredContent | `expand` (optional) |
-| `qa_suite_setup_auto` | Ensure sprint > parent > US suite hierarchy (derives plan + sprint from US) | `userStoryId` |
+| `qa_suite_setup` | Ensure sprint > parent > US suite hierarchy (derives plan + sprint from US). Optional `planId` and `sprintNumber` overrides. | `userStoryId`, `planId` (optional), `sprintNumber` (optional) |
 | `qa_suite_update` | Update suite (name, parent, query) | `planId`, `suiteId`, `name`, `parentSuiteId`, `queryString` |
 | `qa_suite_delete` | Delete a suite | `planId`, `suiteId` |
 | `ado_suites` | List all suites in a plan; returns structuredContent | `planId` |
@@ -535,7 +535,7 @@ consumers that parse text see zero change.
 5. ado_plans                      -- Verify connection
 6. ado_plan                       -- Get plan ID + area path
 7. ado_story                      -- Verify US context
-8. qa_suite_setup_auto            -- Build folder structure
+8. qa_suite_setup                 -- Build folder structure
 9. create_test_case               -- Create first TC
 10. Verify in ADO                 -- Manual check
 11. ado_suite_tests               -- Verify via API

@@ -1157,8 +1157,8 @@
 
           <div data-reveal class="feature">
             <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-suite-setup-auto</h4>
-            <p>Auto-derive plan + sprint from US AreaPath + Iteration and ensure the Sprint → Parent-US → US suite hierarchy. US ID only, nothing else.</p>
+            <h4><span class="slash">/</span>qa-suite-setup</h4>
+            <p>Auto-derive plan + sprint from US AreaPath + Iteration and ensure the Sprint → Parent-US → US suite hierarchy. US ID only — optionally override planId or sprintNumber for manual control.</p>
           </div>
 
           <div data-reveal data-delay="1" class="feature">
@@ -1310,10 +1310,10 @@
                 <td><span class="example">/qa-suite-delete 2145873</span></td>
               </tr>
               <tr>
-                <td class="cmd">/qa-suite-setup-auto &lt;US-ID&gt;</td>
+                <td class="cmd">/qa-suite-setup &lt;US-ID&gt;</td>
                 <td><span class="pill action">Action</span></td>
-                <td>Auto-derive plan + sprint from the US, ensure Sprint → Parent-US → US suite hierarchy.</td>
-                <td><span class="example">/qa-suite-setup-auto 1363798</span></td>
+                <td>Auto-derive plan + sprint from the US, ensure Sprint → Parent-US → US suite hierarchy. Optional planId/sprintNumber overrides.</td>
+                <td><span class="example">/qa-suite-setup 1363798</span></td>
               </tr>
               <tr>
                 <td class="cmd">/confluence-read &lt;PAGE-ID&gt;</td>

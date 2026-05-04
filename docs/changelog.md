@@ -4,6 +4,18 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ---
 
+## Unreleased
+
+### Suite Tool Consolidation
+
+- **`qa_suite_setup_auto`** renamed to **`qa_suite_setup`** with optional `planId` and `sprintNumber` overrides for manual control.
+- Structured ask-responses for plan/sprint resolution failures (returns `needs-input` status instead of throwing).
+- Parent-title fetch failures now produce `warnings[]` instead of silent fallback.
+- New config knob: `suiteStructure.tcTitlePrefix` — customizes the WIQL title prefix (default `"TC"`).
+- Suite name case-corrections surface as `warnings[]` in the hierarchy result.
+
+---
+
 ## 2026-05-04 — Consent rule delivery fix + ask-template tightening
 
 ### Fix
