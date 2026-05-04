@@ -156,7 +156,17 @@ export function registerAllPrompts(server: McpServer) {
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "I want to ensure the test suite folder structure for a User Story. Ask only for the User Story ID. Use qa_suite_setup — it derives plan and sprint from the US AreaPath and Iteration, creates folders if missing, and updates naming if wrong format. If plan or sprint resolution fails, the tool returns a structured needs-input response with a suggestion to provide planId or sprintNumber overrides.",
+        text: [
+          "I want to ensure the test suite folder structure for a User Story. Ask only for the User Story ID. Use qa_suite_setup — it derives plan and sprint from the US AreaPath and Iteration, creates folders if missing, and updates naming if wrong format.",
+          "",
+          "If plan or sprint resolution fails, the tool returns a structured needs-input response with a suggestion to provide planId or sprintNumber overrides.",
+          "",
+          "**Override mismatch handling:** If the tool returns `status: \"needs-confirmation\"` with `reason: \"override-mismatch\"`, the user provided a planId or sprintNumber that doesn't match the US's auto-derived values. Show the mismatch details and present exactly two options:",
+          "  1. **Confirm override** — re-run with confirmMismatch: true to force creation in the overridden plan",
+          "  2. **Use auto-derived** — re-run without the planId/sprintNumber overrides",
+          "",
+          "Apply the consent rule from AGENTS.md: the user must reply with an explicit choice (\"1\", \"2\", \"confirm override\", \"use auto-derived\", or equivalent). Replies like \"okay\", \"sure\", \"fine\", or any response that doesn't clearly pick an option are AMBIGUOUS — re-ask with the numbered options visible. Do NOT default to either option on an ambiguous reply. Do NOT call qa_suite_setup again until the user picks a specific option.",
+        ].join("\n"),
       },
     }],
   }));
