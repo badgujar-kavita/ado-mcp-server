@@ -371,7 +371,15 @@ in `src/prompts/index.ts`:
   verbatim. Composed into `ado-check`.
 - **`CONFIRM_BEFORE_ACT_CONTRACT`** -- offer plan → wait for
   explicit yes → call NEXT action tool → stop on no. Composed into
-  `qa_publish` and `qa_clone`.
+  all 7 action prompts: `qa-suite-update`, `qa-suite-delete`,
+  `qa-tc-update`, `qa-tc-delete`, `qa-tc-bulk-delete`, `qa-publish`,
+  `qa-clone`.
+- **`OPTION_SELECTION_CONTRACT`** -- when a tool returns numbered
+  options (1/2, A/B/C), generic affirmatives ("okay", "sure", "yes")
+  do not pick an option. Agent must re-ask with the numbered choices
+  visible. Composed into: `qa-suite-setup` (override mismatch),
+  `qa-publish` (A/B/C duplicate-TC menu), `qa-clone`
+  (APPROVED/MODIFY/CANCEL), `qa-draft` (unfetched links a/b).
 
 ### Canonical read result
 
@@ -882,7 +890,7 @@ Test plans already exist in the project (configured in `conventions.config.json`
 
 ### Test Suite Management (with hierarchy awareness)
 
-- **`qa_suite_setup`** -- Preferred. Takes only userStoryId. Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format.
+- **`qa_suite_setup`** -- Preferred. Takes only userStoryId (optionally `planId`, `sprintNumber` overrides, `confirmMismatch`). Derives plan and sprint from US AreaPath and Iteration via `testPlanMapping`. Creates if missing; updates naming if wrong format. When overrides are provided, cross-validates against auto-derived values and blocks on mismatch unless `confirmMismatch: true`.
 - **`ado_suites`** -- List all suites in a plan
   - API: `GET /_apis/testplan/Plans/{planId}/suites`
 - **`ado_suite`** -- Get suite details
@@ -1205,7 +1213,7 @@ npx tsx src/index.ts   # Runs via stdio, launched by Cursor
 | 6 | Implement work item tools (`src/tools/work-items.ts`): `ado_story` | Pending |
 | 7 | Implement test plan tools (`src/tools/test-plans.ts`): list, get, create | Pending |
 | 8 | Implement suite folder structure helpers (`src/helpers/suite-structure.ts`) | Pending |
-| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `qa_suite_setup`, find_or_create, list, get | Pending |
+| 9 | Implement test suite tools (`src/tools/test-suites.ts`): `qa_suite_setup`, list, get, update, delete | Pending |
 | 10 | Implement test case tools (`src/tools/test-cases.ts`): create (TC_ format + prerequisites), list, get, update | Pending |
 | 11 | Implement Confluence tools (`src/tools/confluence.ts`): `confluence_read` -- trial/optional | Pending |
 | 12 | Create MCP server entry point (`src/index.ts`) with tool registration + stdio transport | Pending |

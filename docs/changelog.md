@@ -14,6 +14,33 @@ All notable changes to the ADO TestForge MCP server are documented here.
 - New config knob: `suiteStructure.tcTitlePrefix` — customizes the WIQL title prefix (default `"TC"`).
 - Suite name case-corrections surface as `warnings[]` in the hierarchy result.
 
+### Override Mismatch Blocking
+
+- **`qa_suite_setup`** now cross-validates override `planId`/`sprintNumber` against the US's auto-derived values **before creating any suites**. If they don't match, the tool returns a `needs-confirmation` structured response with the mismatch details. The agent must re-run with `confirmMismatch: true` after the user explicitly picks an option.
+- Prevents accidental suite creation in the wrong test plan when a planId override doesn't match the US's AreaPath.
+
+### Option Selection Contract (new shared prompt contract)
+
+- New `OPTION_SELECTION_CONTRACT` in `src/prompts/shared-contracts.ts`. When a tool returns numbered options (1/2, A/B/C, APPROVED/MODIFY/CANCEL), "okay", "sure", "yes" are **not** valid selections — they don't identify which option. Agent must re-ask with the numbered choices visible.
+- Applied to all prompts that present choices: `qa-suite-setup` (override mismatch 1/2), `qa-publish` (A/B/C duplicate-TC menu), `qa-clone` (APPROVED/MODIFY/CANCEL), `qa-draft` (unfetched links a/b).
+- Also added to AGENTS.md as a universal rule: "When a tool returns numbered options" section.
+
+### Confirm-Before-Act Contract Coverage
+
+- `CONFIRM_BEFORE_ACT_CONTRACT` now composed into every action prompt that mutates ADO: `qa-suite-update`, `qa-suite-delete`, `qa-tc-update`, `qa-tc-delete`, `qa-tc-bulk-delete` (in addition to the existing `qa-publish` and `qa-clone`).
+- `qa-tc-update` prompt now shows proposed changes and asks for confirmation before calling `qa_tc_update`.
+
+### Ghost Tool Cleanup
+
+- Deleted 3 ghost tools (`qa_suite_setup_manual`, `qa_suite_find_or_create`, `qa_suite_create`) and 2 ghost prompts (`qa-suite-setup-manual`, `qa-suite-create`).
+- Updated all docs, website (23→21 slash commands), and changelog references.
+
+### Tests
+
+- New `src/helpers/suite-structure.test.ts` — 14 tests covering all pure helper functions (sprint name, folder names, plan resolution, sprint extraction, WIQL query builder).
+- Updated `src/tools/test-suites.test.ts` — 7 tests covering canonical read-result builders.
+- All tests use `node:test` (built-in).
+
 ---
 
 ## 2026-05-04 — Consent rule delivery fix + ask-template tightening
