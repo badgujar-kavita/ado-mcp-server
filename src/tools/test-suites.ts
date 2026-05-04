@@ -332,7 +332,39 @@ export async function ensureSuiteHierarchyForUs(
 
   const planId = overridePlanId ?? resolvePlanIdFromAreaPath(areaPath);
   const sprintNumber = overrideSprintNumber ?? resolveSprintFromIteration(iterationPath);
-  return ensureSuiteHierarchy(client, planId, sprintNumber, userStoryId);
+
+  // Cross-validate: if planId was overridden, check if it matches auto-derivation
+  const overrideWarnings: string[] = [];
+  if (overridePlanId && areaPath) {
+    try {
+      const autoPlanId = resolvePlanIdFromAreaPath(areaPath);
+      if (autoPlanId !== overridePlanId) {
+        overrideWarnings.push(
+          `Plan ID mismatch: US ${userStoryId} AreaPath "${areaPath}" maps to plan ${autoPlanId}, but you overrode with plan ${overridePlanId}. The suite was created in plan ${overridePlanId}. If this was unintentional, delete the suite and re-run without the planId override.`
+        );
+      }
+    } catch {
+      // Auto-derivation failed (no mapping) — override is the only option, no warning needed
+    }
+  }
+  if (overrideSprintNumber && iterationPath) {
+    try {
+      const autoSprint = resolveSprintFromIteration(iterationPath);
+      if (autoSprint !== overrideSprintNumber) {
+        overrideWarnings.push(
+          `Sprint mismatch: US ${userStoryId} Iteration "${iterationPath}" maps to sprint ${autoSprint}, but you overrode with sprint ${overrideSprintNumber}.`
+        );
+      }
+    } catch {
+      // Auto-derivation failed — override is the only option, no warning needed
+    }
+  }
+
+  const result = await ensureSuiteHierarchy(client, planId, sprintNumber, userStoryId);
+  if (overrideWarnings.length > 0) {
+    result.warnings = [...(result.warnings ?? []), ...overrideWarnings];
+  }
+  return result;
 }
 
 async function ensureSuiteHierarchy(
