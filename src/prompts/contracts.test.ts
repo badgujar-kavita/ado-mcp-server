@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAllPrompts } from "./index.ts";
 import {
@@ -97,6 +99,43 @@ test("setup prompt (ado-connect) intentionally skips the read contract", async (
   assert.ok(
     !connect.includes(INTERACTIVE_READ_CONTRACT),
     "ado-connect prompt should not compose INTERACTIVE_READ_CONTRACT (setup category)",
+  );
+});
+
+test("AGENTS.md pins 'Frustration is not authorization' phrase", () => {
+  const agentsMd = readFileSync(
+    resolve(import.meta.dirname, "..", "..", "AGENTS.md"),
+    "utf-8",
+  );
+  assert.ok(
+    agentsMd.includes("Frustration is not authorization"),
+    "AGENTS.md must contain the consent-vocabulary 'Frustration is not authorization' phrase",
+  );
+});
+
+test("AGENTS.md pins 'Ambiguity never resolves in favor of action' phrase", () => {
+  const agentsMd = readFileSync(
+    resolve(import.meta.dirname, "..", "..", "AGENTS.md"),
+    "utf-8",
+  );
+  assert.ok(
+    agentsMd.includes("Ambiguity never resolves in favor of action"),
+    "AGENTS.md must contain the consent-vocabulary 'Ambiguity never resolves in favor of action' phrase",
+  );
+});
+
+test("AGENTS.md pins 'Re-ask, don't proceed' phrase", () => {
+  const agentsMd = readFileSync(
+    resolve(import.meta.dirname, "..", "..", "AGENTS.md"),
+    "utf-8",
+  );
+  // Normalize whitespace so the phrase matches even when the source wraps
+  // "re-ask, don't proceed" across a line break (which it does in the
+  // verbatim-copied section body).
+  const normalized = agentsMd.replace(/\s+/g, " ");
+  assert.ok(
+    normalized.includes("re-ask, don't proceed"),
+    "AGENTS.md must contain the consent-vocabulary 're-ask, don't proceed' phrase",
   );
 });
 
