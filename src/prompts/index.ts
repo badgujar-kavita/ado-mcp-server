@@ -161,6 +161,36 @@ export function registerAllPrompts(server: McpServer) {
     }],
   }));
 
+  server.registerPrompt("qa-suite-setup-manual", {
+    title: "Set Up Suite Hierarchy (Explicit IDs)",
+    description: "Build the full suite folder hierarchy (sprint > parent-us > us-query) for a User Story with explicit plan ID, sprint number, and US ID",
+  }, async () => ({
+    messages: [{
+      role: "user" as const,
+      content: {
+        type: "text" as const,
+        text: "I want to set up the test suite folder hierarchy for a User Story. Ask me for the test plan ID, sprint number, and user story ID. Then use the qa_suite_setup_manual tool and show which suites were created vs already existing.",
+      },
+    }],
+  }));
+
+  server.registerPrompt("qa-suite-create", {
+    title: "Create Test Suite",
+    description: "Create test suite folder structure for a User Story. Asks only User Story ID.",
+  }, async () => ({
+    messages: [{
+      role: "user" as const,
+      content: {
+        type: "text" as const,
+        text: [
+          "I want to create a test suite for a User Story.",
+          "",
+          "Ask only for the User Story ID. Then use qa_suite_setup_auto — it derives plan and sprint from the US AreaPath and Iteration, checks if folders exist, creates if missing, and updates naming if existing suites have wrong format.",
+        ].join("\n"),
+      },
+    }],
+  }));
+
   server.registerPrompt("qa-suite-update", {
     title: "Update Test Suite",
     description: "Ensure test suite structure for a User Story (checks/creates/updates naming) or update a specific suite",
