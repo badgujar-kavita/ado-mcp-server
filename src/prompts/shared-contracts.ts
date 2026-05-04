@@ -67,6 +67,36 @@ export const DIAGNOSTIC_CONTRACT = [
   "   will ask.",
 ].join("\n");
 
+export const OPTION_SELECTION_CONTRACT = [
+  "## When a tool returns numbered options — strict selection contract",
+  "",
+  "When a tool response presents the user with numbered options (1, 2,",
+  "3, A, B, C, etc.), the user MUST explicitly pick one before you",
+  "proceed. This contract overrides the general consent rule for this",
+  "specific case — a yes/no is not enough when multiple choices exist.",
+  "",
+  "**What counts as a valid selection:**",
+  "- The number or letter itself: '1', '2', 'A', 'B'",
+  "- Naming the option: 'confirm override', 'use auto-derived', 'cancel'",
+  "- Quoting the option text: 'the first one', 'option 2'",
+  "",
+  "**What does NOT count as a valid selection:**",
+  "- 'okay', 'sure', 'yes', 'go ahead', 'fine', 'proceed' — these do",
+  "  not identify WHICH option. They are ambiguous when multiple choices",
+  "  exist.",
+  "- Frustration, sarcasm, emoji, rhetorical questions — per AGENTS.md.",
+  "- Any reply that doesn't clearly map to one specific option.",
+  "",
+  "**On ambiguous reply, re-ask:**",
+  "> *'I need to know which option you'd like. Reply with the number:*",
+  "> *1 for [first option], 2 for [second option].'*",
+  "",
+  "**Never default to any option.** Never pick the 'safest' or 'most",
+  "likely' choice on behalf of the user. Re-asking costs one turn;",
+  "acting on the wrong choice creates real data in ADO that must be",
+  "manually cleaned up.",
+].join("\n");
+
 export const CONFIRM_BEFORE_ACT_CONTRACT = [
   "## Confirm before you act",
   "",

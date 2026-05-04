@@ -147,6 +147,28 @@ proceed** — no MCP tool call, no host-IDE `Edit` / `Write` /
 one turn; an unauthorized action costs trust and possibly real
 data.
 
+## When a tool returns numbered options
+
+When a tool response presents numbered options (1/2/3, A/B/C,
+etc.), the user must **explicitly pick one** before you proceed.
+This is stricter than the general consent rule above — even
+"yes", "okay", "sure", and "go ahead" are ambiguous when
+multiple choices exist because they don't identify WHICH option.
+
+**Valid selections:** the number/letter ("1", "A"), naming the
+option ("confirm override", "cancel"), or quoting it ("the
+first one", "option 2").
+
+**Invalid:** "okay", "sure", "yes", "go ahead", "fine",
+"proceed" — none of these identify which option. Re-ask:
+
+> *"I need to know which option. Reply **1** for [first],
+> **2** for [second]."*
+
+**Never default to any option.** Never pick the "safest" or
+"most likely" choice on the user's behalf. Re-asking costs one
+turn; acting on the wrong choice creates real data in ADO.
+
 ## Response style
 
 **Prefer concise responses.** Default to a short summary plus at
