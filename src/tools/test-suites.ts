@@ -26,11 +26,12 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
         userStoryId: z.number().int().positive().describe("The User Story work item ID"),
         planId: z.number().int().positive().optional().describe("Override: test plan ID (skips AreaPath lookup)"),
         sprintNumber: z.number().int().positive().optional().describe("Override: sprint number (skips Iteration parsing)"),
+        confirmMismatch: z.boolean().optional().describe("Set to true to force creation when override doesn't match the US's auto-derived plan/sprint"),
       },
     },
-    async ({ userStoryId, planId, sprintNumber }) => {
+    async ({ userStoryId, planId, sprintNumber, confirmMismatch }) => {
       try {
-        const result = await ensureSuiteHierarchyForUs(client, userStoryId, planId, sprintNumber);
+        const result = await ensureSuiteHierarchyForUs(client, userStoryId, planId, sprintNumber, confirmMismatch);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
         };
@@ -70,6 +71,20 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
               message,
               suggestion: "Provide sprintNumber override: { sprintNumber: 14 }",
               resolvedSoFar: { userStoryId },
+            }, null, 2) }],
+            isError: true,
+          };
+        }
+        if (message.startsWith("OVERRIDE_MISMATCH:")) {
+          const data = JSON.parse(message.slice("OVERRIDE_MISMATCH:".length));
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({
+              status: "needs-confirmation",
+              reason: "override-mismatch",
+              mismatches: data.mismatches,
+              message: `The override values don't match the US's auto-derived plan/sprint. This would create suites in a plan that doesn't match the US's AreaPath.`,
+              suggestion: "If intentional, re-run with confirmMismatch: true. Otherwise, remove the planId/sprintNumber overrides to use auto-derivation.",
+              resolvedSoFar: { userStoryId, overridePlanId: data.overridePlanId, overrideSprintNumber: data.overrideSprintNumber },
             }, null, 2) }],
             isError: true,
           };
@@ -308,7 +323,8 @@ export async function ensureSuiteHierarchyForUs(
   client: AdoClient,
   userStoryId: number,
   overridePlanId?: number,
-  overrideSprintNumber?: number
+  overrideSprintNumber?: number,
+  confirmMismatch?: boolean
 ): Promise<SuiteHierarchyResult> {
   const usItem = await client.get<AdoWorkItem>(
     `/_apis/wit/workitems/${userStoryId}`,
@@ -333,38 +349,37 @@ export async function ensureSuiteHierarchyForUs(
   const planId = overridePlanId ?? resolvePlanIdFromAreaPath(areaPath);
   const sprintNumber = overrideSprintNumber ?? resolveSprintFromIteration(iterationPath);
 
-  // Cross-validate: if planId was overridden, check if it matches auto-derivation
-  const overrideWarnings: string[] = [];
+  // Cross-validate BEFORE creating anything: block on mismatch
+  const mismatches: string[] = [];
   if (overridePlanId && areaPath) {
     try {
       const autoPlanId = resolvePlanIdFromAreaPath(areaPath);
       if (autoPlanId !== overridePlanId) {
-        overrideWarnings.push(
-          `Plan ID mismatch: US ${userStoryId} AreaPath "${areaPath}" maps to plan ${autoPlanId}, but you overrode with plan ${overridePlanId}. The suite was created in plan ${overridePlanId}. If this was unintentional, delete the suite and re-run without the planId override.`
+        mismatches.push(
+          `Plan ID mismatch: US ${userStoryId} AreaPath "${areaPath}" auto-derives to plan ${autoPlanId}, but override is ${overridePlanId}.`
         );
       }
     } catch {
-      // Auto-derivation failed (no mapping) — override is the only option, no warning needed
+      // Auto-derivation failed (no mapping) — override is the only option, no block needed
     }
   }
   if (overrideSprintNumber && iterationPath) {
     try {
       const autoSprint = resolveSprintFromIteration(iterationPath);
       if (autoSprint !== overrideSprintNumber) {
-        overrideWarnings.push(
-          `Sprint mismatch: US ${userStoryId} Iteration "${iterationPath}" maps to sprint ${autoSprint}, but you overrode with sprint ${overrideSprintNumber}.`
+        mismatches.push(
+          `Sprint mismatch: US ${userStoryId} Iteration "${iterationPath}" auto-derives to sprint ${autoSprint}, but override is ${overrideSprintNumber}.`
         );
       }
     } catch {
-      // Auto-derivation failed — override is the only option, no warning needed
+      // Auto-derivation failed — override is the only option, no block needed
     }
   }
-
-  const result = await ensureSuiteHierarchy(client, planId, sprintNumber, userStoryId);
-  if (overrideWarnings.length > 0) {
-    result.warnings = [...(result.warnings ?? []), ...overrideWarnings];
+  if (mismatches.length > 0 && !confirmMismatch) {
+    throw new Error(`OVERRIDE_MISMATCH:${JSON.stringify({ mismatches, userStoryId, overridePlanId, overrideSprintNumber })}`);
   }
-  return result;
+
+  return ensureSuiteHierarchy(client, planId, sprintNumber, userStoryId);
 }
 
 async function ensureSuiteHierarchy(
