@@ -1,6 +1,10 @@
-# Cursor Rules — Example Templates for ADO TestForge MCP
+# Cursor Rules — Tenant Extension Bundle for ADO TestForge MCP
 
-Ready-to-copy `.mdc` rule files that customize ADO TestForge behavior for your team. Pair with [`docs/extend-with-cursor-rules.md`](../../extend-with-cursor-rules.md) for the full guide.
+A self-contained folder with **the full guide + ready-to-copy `.mdc` examples** for customizing ADO TestForge behavior per team, without code changes.
+
+**Share this whole folder with tenants.** Everything they need is here:
+- **[GUIDE.md](./GUIDE.md)** — the full ~540-line guide (what rules are, precedence, TC title convention, gotchas)
+- **`.mdc` files** — 5 worked examples + 1 quickstart template, copy directly into their `.cursor/rules/`
 
 ---
 
@@ -57,7 +61,7 @@ cp /path/to/ado-mcp-server/docs/examples/cursor-rules/sit-coverage.mdc .cursor/r
 
 ## Reference the full guide
 
-The main guide at [`docs/extend-with-cursor-rules.md`](../../extend-with-cursor-rules.md) covers:
+The main guide at [GUIDE.md](./GUIDE.md) (in this same folder) covers:
 - What Cursor rules are and how they integrate with the MCP
 - The precedence model (MCP safety > tenant rules > config defaults)
 - Frontmatter reference (`globs`, `alwaysApply`)

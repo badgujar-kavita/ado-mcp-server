@@ -24,7 +24,7 @@ Documentation for the ADO TestForge MCP server — Azure DevOps test case automa
 | [distribution-guide.md](distribution-guide.md) | Distribution via GitHub \+ curl installer |
 | [repush-workflow.md](repush-workflow.md) | Re-push test cases (delete & re-create workflow) |
 | [ado-test-case-update-guide.md](ado-test-case-update-guide.md) | Updating prerequisites, TO BE TESTED FOR format, when to restart MCP and deploy |
-| [extend-with-cursor-rules.md](extend-with-cursor-rules.md) | **Tenant extension guide** — Customize draft/publish behavior with `.cursor/rules/*.mdc` (regression, SIT, E2E coverage, priority policies, per-team conventions) without code changes |
+| [examples/cursor-rules/](examples/cursor-rules/) | **Tenant extension bundle** — Full guide + copy-ready `.mdc` examples (regression, SIT, E2E coverage, priority policies, per-team conventions). Share this whole folder with tenants to customize behavior without code changes |
 
 ---
 
@@ -39,4 +39,4 @@ Documentation for the ADO TestForge MCP server — Azure DevOps test case automa
 - **Recent changes?** → [changelog.md](changelog.md)
 - **Re-push test cases?** → [repush-workflow.md](repush-workflow.md)
 - **Update prerequisites / TO BE TESTED FOR?** → [ado-test-case-update-guide.md](ado-test-case-update-guide.md)
-- **Extend for your team (regression / SIT / E2E policies)?** → [extend-with-cursor-rules.md](extend-with-cursor-rules.md)
+- **Extend for your team (regression / SIT / E2E policies)?** → [examples/cursor-rules/](examples/cursor-rules/) (share this whole folder with tenants)
