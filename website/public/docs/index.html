@@ -27,11 +27,14 @@
       --violet-2: #B3A4F8;
       --teal: #00B8D9;
       --green: #36B37E;
+      --grad-hero: linear-gradient(135deg, #2684FF 0%, #8777D9 55%, #FF5EA3 100%);
+      --grad-soft: linear-gradient(135deg, rgba(38, 132, 255, 0.9), rgba(135, 119, 217, 0.9));
       --radius: 14px;
       --radius-sm: 10px;
       --maxw: 860px;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     html, body { margin: 0; padding: 0; }
     body {
       background: var(--bg-0);
@@ -40,15 +43,51 @@
       font-size: 16px;
       line-height: 1.7;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
     code, pre { font-family: 'JetBrains Mono', monospace; }
-    a { color: var(--blue-2); text-decoration: none; }
+    a { color: var(--blue-2); text-decoration: none; transition: color 150ms ease; }
     a:hover { color: var(--violet-2); }
 
+    /* Pixel-grid backdrop (matches landing page) */
+    .backdrop {
+      position: fixed; inset: 0; z-index: -2;
+      background:
+        radial-gradient(1200px 800px at 10% -10%, rgba(38, 132, 255, 0.15), transparent 60%),
+        radial-gradient(900px 700px at 100% 0%, rgba(135, 119, 217, 0.15), transparent 60%),
+        linear-gradient(180deg, var(--bg-0), var(--bg-1) 40%, var(--bg-0));
+    }
+    .backdrop::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, rgba(148, 163, 196, 0.07) 1px, transparent 1px);
+      background-size: 16px 16px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 45%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 45%, transparent 100%);
+    }
+    .orb {
+      position: fixed; z-index: -1;
+      width: 40vmax; height: 40vmax;
+      border-radius: 50%; filter: blur(100px);
+      opacity: 0.3; pointer-events: none;
+      animation: drift 28s ease-in-out infinite;
+    }
+    .orb.a { top: -15vmax; left: -10vmax; background: radial-gradient(circle at 30% 30%, var(--blue), transparent 62%); }
+    .orb.b { bottom: -18vmax; right: -14vmax; background: radial-gradient(circle at 70% 70%, var(--violet), transparent 62%); animation-delay: -10s; }
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(4vmax, -2vmax) scale(1.04); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .orb { animation: none !important; }
+    }
+
+    /* Nav (matches landing page) */
     header {
       position: sticky; top: 0; z-index: 50;
-      backdrop-filter: blur(14px);
-      background: rgba(6, 9, 15, 0.8);
+      backdrop-filter: saturate(160%) blur(14px);
+      -webkit-backdrop-filter: saturate(160%) blur(14px);
+      background: rgba(6, 9, 15, 0.55);
       border-bottom: 1px solid var(--line);
     }
     header .wrap {
@@ -58,14 +97,35 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 60px;
+      height: 68px;
     }
-    header .brand { font-weight: 700; color: var(--ink); font-size: 15px; }
-    header nav a { margin-left: 24px; color: var(--muted); font-size: 14px; font-weight: 500; }
+    header .brand {
+      display: inline-flex; align-items: center; gap: 12px;
+      font-weight: 700; color: var(--ink); font-size: 15.5px;
+      text-decoration: none;
+    }
+    header .brand .mark {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 9px;
+      background: var(--grad-soft); color: #fff; font-weight: 800;
+      box-shadow: 0 6px 18px rgba(38, 132, 255, 0.4);
+    }
+    header nav { display: flex; align-items: center; gap: 24px; }
+    header nav a {
+      color: var(--muted); font-weight: 500; font-size: 14.5px;
+      position: relative; margin-left: 0;
+    }
     header nav a:hover { color: var(--ink); }
+    header nav a::after {
+      content: ''; position: absolute; left: 0; right: 100%; bottom: -6px;
+      height: 2px; background: var(--grad-hero); border-radius: 2px;
+      transition: right 200ms ease;
+    }
+    header nav a:hover::after { right: 0; }
     header nav a.active { color: var(--blue-2); }
+    header nav a.active::after { right: 0; }
 
-    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
     main { padding: 56px 0 80px; }
 
     h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.02em; }
@@ -170,9 +230,16 @@
   </style>
 </head>
 <body>
+  <div class="backdrop" aria-hidden="true"></div>
+  <div class="orb a" aria-hidden="true"></div>
+  <div class="orb b" aria-hidden="true"></div>
+
   <header>
     <div class="wrap">
-      <a href="/" class="brand">Vortex ADO</a>
+      <a href="/" class="brand">
+        <span class="mark" aria-hidden="true">V</span>
+        <span>Vortex ADO</span>
+      </a>
       <nav>
         <a href="/">Home</a>
         <a href="/docs" class="active">Docs</a>
