@@ -1,4 +1,4 @@
-# Agent rules — vortex-ado-mcp
+# Agent rules — vortex-mcp-ado
 
 Repo-wide rules that apply to every MCP tool this server exposes.
 Per-tool overrides live in `src/prompts/index.ts`; this file covers
@@ -253,7 +253,7 @@ user explicitly asked in their most recent message:
 
 **Critical distinction: this blacklist applies only to the host
 IDE's built-in `Read` / `Write` / `Edit` tools — NEVER to the
-MCP's own tools.** vortex-ado-mcp ships `qa_draft_read`,
+MCP's own tools.** vortex-mcp-ado ships `qa_draft_read`,
 `qa_drafts_list`, `qa_draft_save`, `qa_clone_preview_save`,
 `qa_draft_doc_save`, and `qa_publish_push` precisely so
 that the agent can read and write these paths through the

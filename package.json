@@ -1,5 +1,5 @@
 {
-  "name": "vortex-ado-mcp",
+  "name": "vortex-mcp-ado",
   "version": "1.0.0",
   "description": "MCP server for Azure DevOps QA test case management",
   "type": "module",

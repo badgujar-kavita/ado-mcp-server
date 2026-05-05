@@ -783,7 +783,7 @@ The install command now checks:
 - **MCP servers:** `mars-ado` → `vortex-ado` (single entry, no separate installer)
 - **Slash commands:** `/mars-ado/*` → `/vortex-ado/*`
 - **Credentials path:** `~/.mars-ado-mcp/` → `~/.vortex-ado/`
-- **Package name:** `mars-ado-mcp` → `vortex-ado-mcp`
+- **Package name:** `mars-ado-mcp` → `vortex-mcp-ado`
 
 **Migration for existing users:** Copy your credentials to the new path, or run `/vortex-ado/install` to create a fresh template and re-enter your PAT/org/project. Restart Cursor or reload MCP after migration.
 
