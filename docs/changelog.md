@@ -6,6 +6,14 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ## Unreleased
 
+### Tenant Extension Guide (`.cursor/rules/*.mdc`)
+
+- **New document: `docs/extend-with-cursor-rules.md`** — a guide for tenants/teams to customize ADO TestForge behavior via Cursor `.mdc` rules without any code changes to the MCP.
+- Documents the precedence model (MCP safety rails > tenant rules > config defaults), the `globs` vs `alwaysApply` decision, and the introduced **TC title category prefix convention**: place `Regression`, `SIT`, `E2E`, or any team-defined category as the **first arrow segment** of the TC title — e.g. `TC_12345_06 -> Regression -> Promotion -> Compensation -> Verify ...`. Category is the first `featureTag` in the parser; the format works with the existing draft/parse/push path — no code changes required.
+- Ships five worked examples tenants can copy: regression coverage policy, SIT coverage policy, E2E test scope, priority assignment policy, and team-specific persona conventions. Plus a quickstart template and an appendix of category-prefix quick references (including Smoke, Accessibility, Performance, Security — extensible by any team).
+- Documents gotchas: rules are Cursor-only, context-budget-bound, non-enforcing (safety rails stay in MCP prompts), and constrained by what the existing parser accepts. Clear list of what rules CAN and CANNOT do.
+- Added to `docs/README.md` index and quick links.
+
 ### Delete Safety — Type Enforcement + Permanent-Delete Gate
 
 - **`qa_tc_delete` now verifies work-item type before deleting.** The tool fetches the target work item first and checks `System.WorkItemType === "Test Case"`. If the ID resolves to a User Story, Bug, Task, or any other work item type, the tool refuses with a clear message showing the actual type and title. Prevents accidental deletion of non-test-case work items when an ID is mis-entered.
