@@ -383,7 +383,7 @@ If you see **READY**, setup is complete.
 
 After deployment, verify:
 
-- **21 tools** total (including `ado_fields`, `qa_tc_delete`)
+- **20 slash commands** + **26 MCP tools** (including `ado_fields`, `qa_tc_delete`)
 - **Commands:** `/ado-testforge/qa-tc-delete` (single or batch), `/ado-testforge/qa-tc-update`, `/ado-testforge/ado-fields`
 - **Title limit:** Test case titles ≤ 256 characters (ADO constraint)
 

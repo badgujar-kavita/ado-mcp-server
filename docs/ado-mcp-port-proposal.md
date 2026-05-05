@@ -65,7 +65,6 @@ in separate, small commits.
 | `qa_suite_add_tests` | `test-cases.ts:141` | action |
 | `qa_tc_delete` | `test-cases.ts:170` | action |
 | `qa_suite_setup` | `test-suites.ts:16` | action |
-| ~~`qa_suite_find_or_create`~~ | removed — internal helper `findOrCreateSuite` remains | — |
 | `ado_suites` | `test-suites.ts:86` | read |
 | `ado_suite` | `test-suites.ts:115` | read |
 | `qa_suite_update` | `test-suites.ts:173` | action |
@@ -95,7 +94,7 @@ to jira-mcp's patterns to port cleanly.
 ### Prompts (partial inventory)
 
 ado-mcp uses `server.registerPrompt(name, meta, handler)` — static
-text, no shared contract composition. 21 prompts in
+text, no shared contract composition. 20 prompts in
 `src/prompts/index.ts`. Each is an independent string literal.
 
 ### What's in the repo today (structural)
