@@ -87,15 +87,15 @@ After setup, ADO TestForge MCP is available globally in all workspaces.
 
 | Command | Purpose |
 |---------|---------|
-| `/ado-testforge/ado-check` | Verify setup and credentials |
-| `/ado-testforge/ado-story` | Fetch User Story with acceptance criteria and Solution Design |
-| `/ado-testforge/qa-draft` | Generate test case draft for review (no ADO write) |
-| `/ado-testforge/qa-publish` | Push draft to ADO (create test cases) |
-| `/ado-testforge/qa-tc-update` | Update existing test case (prerequisites, steps, etc.) |
-| `/ado-testforge/qa-tc-delete` | Delete a single test case |
-| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases |
-| `/ado-testforge/ado-plans` | List test plans in the project |
-| `/ado-testforge/ado-fields` | List ADO field definitions |
+| `/ado-testforge/ado-check` | Verify ADO credentials, Confluence config, and server health |
+| `/ado-testforge/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
+| `/ado-testforge/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
+| `/ado-testforge/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `/ado-testforge/qa-tc-delete` | Delete a test case by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/ado-testforge/ado-plans` | List all test plans in the ADO project |
+| `/ado-testforge/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
 
 ---
 

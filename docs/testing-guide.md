@@ -122,21 +122,21 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 
 | Command | Description |
 |---|---|
-| `ado-check` | Verify setup status |
-| `ado-plans` | List all test plans in the project |
-| `ado-story` | Fetch a User Story with full context |
-| `ado-plan` | Get test plan details |
-| `ado-suites` | List all suites in a test plan |
-| `ado-suite` | Get test suite details |
-| `qa-suite-update` | Ensure or update suite structure — User Story ID only |
-| `qa-suite-setup` | Ensure suite hierarchy — User Story ID only, derives plan and sprint from US. Optional planId/sprintNumber overrides. |
-| `qa-suite-delete` | Delete a test suite (test cases remain) |
-| `qa-draft` | Generate a test case draft for review (never creates in ADO). Only asks for User Story ID - Test Plan ID is auto-derived during push. Applies a generic QA architect skill: analyze US + Solution Design, derive project-specific terminology from the source material, then build the coverage matrix, process flow, and checklist. |
-| `qa-publish` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
-| `ado-suite-tests` | List test cases in a suite |
-| `qa-tc-read` | Get test case details |
-| `qa-tc-update` | Update one or more fields (partial or full) |
-| `ado-fields` | List all work item field definitions |
+| `ado-check` | Verify ADO credentials, Confluence config, and server health |
+| `ado-plans` | List all test plans in the ADO project |
+| `ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
+| `ado-plan` | Read a test plan by ID — area path, state, root suite |
+| `ado-suites` | List all test suites in a test plan |
+| `ado-suite` | Read a test suite by ID — type, parent, query string |
+| `qa-suite-update` | Update a test suite — rename, move, or change its query |
+| `qa-suite-setup` | Create or fix the Sprint → Epic → US suite hierarchy from a User Story ID |
+| `qa-suite-delete` | Delete a test suite — test cases stay in ADO, only the suite link is removed |
+| `qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
+| `qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `ado-suite-tests` | List test cases within a specific test suite |
+| `qa-tc-read` | Read a test case — title, steps, prerequisites, priority, and state |
+| `qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
 | `qa-tc-delete` | Delete a test case (Recycle Bin by default) |
 | `qa-tc-bulk-delete` | Delete multiple test cases by ID (Recycle Bin by default) |
 | `confluence-read` | Read a Confluence page for reference |

@@ -395,25 +395,27 @@ You can now use any of the available commands. Type `/ado-testforge` in the chat
 
 | Command | What It Does |
 |---|---|
-| `/ado-testforge/ado-check` | Verify your setup |
-| `/ado-testforge/ado-plans` | List all test plans in your project |
-| `/ado-testforge/ado-story` | Fetch a User Story with full context |
-| `/ado-testforge/ado-plan` | Get test plan details |
-| `/ado-testforge/ado-suites` | List all suites in a test plan |
-| `/ado-testforge/ado-suite` | Get test suite details |
-| `/ado-testforge/qa-suite-setup` | Ensure suite folder structure from User Story ID (derives plan and sprint from US). Optionally accepts planId and/or sprintNumber overrides for manual control. |
-| `/ado-testforge/qa-suite-update` | Update test suite properties (name, parent, query string) |
-| `/ado-testforge/qa-suite-delete` | Delete a test suite (test cases remain, only suite association removed) |
-| `/ado-testforge/qa-draft` | Generate a test case draft for review (never creates in ADO). Uses a generic QA architect method and derives project-specific terms from the User Story and Solution Design. |
-| `/ado-testforge/qa-publish` | Push reviewed test cases to ADO (requires prior draft + confirmation) |
-| `/ado-testforge/ado-suite-tests` | List test cases in a suite |
-| `/ado-testforge/qa-tc-read` | View a test case by ID |
-| `/ado-testforge/qa-tc-update` | Update one or more fields of an existing test case (partial or full) |
-| `/ado-testforge/ado-fields` | List all work item field definitions (reference names, types) |
-| `/ado-testforge/qa-tc-delete` | Delete a test case (Recycle Bin by default) |
-| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases by ID (Recycle Bin by default) |
-| `/ado-testforge/confluence-read` | Read a Confluence page for reference |
-| `/ado-testforge/qa-clone` | Clone TCs from source US to target US — analyzes target + Solution Design, classifies impact, preview → APPROVED creates in ADO |
+| `/ado-testforge/ado-connect` | Set up ADO and Confluence credentials via a guided web UI |
+| `/ado-testforge/ado-check` | Verify ADO credentials, Confluence config, and server health |
+| `/ado-testforge/ado-plans` | List all test plans in the ADO project |
+| `/ado-testforge/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
+| `/ado-testforge/qa-tests` | List test cases linked to a User Story (Tests/Tested By) |
+| `/ado-testforge/ado-plan` | Read a test plan by ID — area path, state, root suite |
+| `/ado-testforge/ado-suites` | List all test suites in a test plan |
+| `/ado-testforge/ado-suite` | Read a test suite by ID — type, parent, query string |
+| `/ado-testforge/qa-suite-setup` | Create or fix the Sprint → Epic → US suite hierarchy from a User Story ID |
+| `/ado-testforge/qa-suite-update` | Update a test suite — rename, move, or change its query |
+| `/ado-testforge/qa-suite-delete` | Delete a test suite — test cases stay in ADO, only the suite link is removed |
+| `/ado-testforge/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
+| `/ado-testforge/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/ado-testforge/ado-suite-tests` | List test cases within a specific test suite |
+| `/ado-testforge/qa-tc-read` | Read a test case — title, steps, prerequisites, priority, and state |
+| `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `/ado-testforge/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
+| `/ado-testforge/qa-tc-delete` | Delete a test case by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/ado-testforge/qa-clone` | Clone and adapt test cases from one User Story to another |
+| `/ado-testforge/confluence-read` | Read a Confluence page by ID — useful for Solution Design reference |
 
 You can also use natural language instead of commands. For example, type "Fetch user story 1273966 from ADO" and the AI will call the right tool.
 

@@ -6,6 +6,16 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ## Unreleased
 
+### Slash-Command Description Polish
+
+- Rewrote all 21 slash-command descriptions (shown in Cursor's autocomplete tooltip) to be concise, professional, and directly explain what the command does. Removed internal phrasing ("Get details of...", "Generate a test case draft (markdown) for review..."), truncations caused by long descriptions, and marketing-style adjectives ("beautiful web UI").
+- Examples:
+  - `/ado-connect`: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing" → "Set up ADO and Confluence credentials via a guided web UI"
+  - `/ado-check`: "Check if the ADO TestForge MCP server is fully configured" → "Verify ADO credentials, Confluence config, and server health"
+  - `/ado-story`: now "Fetch a User Story — fields, Confluence pages, images, and links"
+  - `/qa-tc-delete`: "Delete a test case by ID (Recycle Bin by default)" → "Delete a test case by ID — moves to Recycle Bin (restorable for 30 days)"
+- No behavioral change — description text only.
+
 ### Suite Tool Consolidation
 
 - **`qa_suite_setup_auto`** renamed to **`qa_suite_setup`** with optional `planId` and `sprintNumber` overrides for manual control.

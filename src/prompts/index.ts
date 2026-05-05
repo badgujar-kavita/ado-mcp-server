@@ -9,7 +9,7 @@ import {
 export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("ado-connect", {
     title: "Connect to Azure DevOps",
-    description: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing",
+    description: "Set up ADO and Confluence credentials via a guided web UI",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -22,7 +22,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("ado-check", {
     title: "Check ADO Setup Status",
-    description: "Check if the ADO TestForge MCP server is fully configured",
+    description: "Verify ADO credentials, Confluence config, and server health",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -56,7 +56,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("ado-story", {
     title: "Read User Story",
-    description: "Fetch a User Story from ADO with the full context payload: primary fields, all populated fields (including custom), fetched Confluence pages, embedded ADO images, and unfetched links",
+    description: "Fetch a User Story — fields, Confluence pages, images, and links",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -83,7 +83,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-tests", {
     title: "List Test Cases for User Story",
-    description: "List test case work item IDs linked to a User Story via the Tests/Tested By relation",
+    description: "List test cases linked to a User Story (Tests/Tested By)",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -100,7 +100,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("ado-plan", {
     title: "Read Test Plan",
-    description: "Get details of a specific test plan by ID",
+    description: "Read a test plan by ID — area path, state, root suite",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -134,7 +134,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("ado-suite", {
     title: "Read Test Suite",
-    description: "Get details of a specific test suite",
+    description: "Read a test suite by ID — type, parent, query string",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -151,7 +151,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-suite-setup", {
     title: "Set Up Suite Hierarchy",
-    description: "Build or fix suite folder structure. Asks only User Story ID — derives plan and sprint from US. Optionally accepts planId and/or sprintNumber overrides for manual control.",
+    description: "Create or fix the Sprint → Epic → US suite hierarchy from a User Story ID",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -174,7 +174,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-suite-update", {
     title: "Update Test Suite",
-    description: "Ensure test suite structure for a User Story (checks/creates/updates naming) or update a specific suite",
+    description: "Update a test suite — rename, move, or change its query",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -195,7 +195,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-suite-delete", {
     title: "Delete Test Suite",
-    description: "Delete a test suite (test cases are not deleted, only the suite association)",
+    description: "Delete a test suite — test cases stay in ADO, only the suite link is removed",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -212,7 +212,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-draft", {
     title: "Draft Test Cases",
-    description: "Generate a test case draft (markdown) for review. Never creates in ADO.",
+    description: "Draft test cases as reviewable markdown — never pushes to ADO",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -291,7 +291,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-publish", {
     title: "Publish Test Cases to ADO",
-    description: "Push reviewed test cases to ADO. Always requires prior draft review and explicit confirmation.",
+    description: "Push a reviewed draft to ADO — creates test cases after explicit confirmation",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -340,7 +340,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-tc-read", {
     title: "Read Test Case",
-    description: "Get a test case work item by ID with all fields",
+    description: "Read a test case — title, steps, prerequisites, priority, and state",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -357,7 +357,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-tc-update", {
     title: "Update Test Case",
-    description: "Update fields or steps of an existing test case",
+    description: "Update a test case — title, steps, prerequisites, priority, or assignment",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -381,7 +381,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("ado-fields", {
     title: "List Work Item Fields",
-    description: "List all work item field definitions (reference names, types) in the ADO project",
+    description: "List all ADO field definitions — reference names, types, and read-only status",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -398,7 +398,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-tc-delete", {
     title: "Delete Test Case",
-    description: "Delete a test case by ID (Recycle Bin by default)",
+    description: "Delete a test case by ID — moves to Recycle Bin (restorable for 30 days)",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -415,7 +415,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-tc-bulk-delete", {
     title: "Bulk Delete Test Cases",
-    description: "Delete multiple test cases by ID (Recycle Bin by default)",
+    description: "Delete multiple test cases by ID — moves to Recycle Bin (restorable for 30 days)",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -438,7 +438,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("qa-clone", {
     title: "Clone Test Cases Between User Stories",
-    description: "Clone test cases from a source User Story to a target User Story. Analyzes target US + Solution Design, classifies impact, generates preview, creates in ADO only after APPROVED.",
+    description: "Clone and adapt test cases from one User Story to another",
   }, async () => ({
     messages: [{
       role: "user" as const,
@@ -478,7 +478,7 @@ export function registerAllPrompts(server: McpServer) {
 
   server.registerPrompt("confluence-read", {
     title: "Read Confluence Page",
-    description: "Read a Confluence page by ID for Solution Design reference",
+    description: "Read a Confluence page by ID — useful for Solution Design reference",
   }, async () => ({
     messages: [{
       role: "user" as const,

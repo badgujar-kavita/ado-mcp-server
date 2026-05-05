@@ -166,12 +166,12 @@ Type `/ado-testforge` in the AI chat to see all commands. Common ones:
 
 | Command | Purpose |
 |---------|---------|
-| `/ado-testforge/ado-check` | Verify setup |
-| `/ado-testforge/ado-story` | Fetch a User Story with acceptance criteria |
-| `/ado-testforge/qa-draft` | Generate a test case draft for review |
-| `/ado-testforge/qa-publish` | Push reviewed draft to ADO |
-| `/ado-testforge/ado-plans` | List test plans in your project |
-| `/ado-testforge/qa-tc-update` | Update an existing test case |
+| `/ado-testforge/ado-check` | Verify ADO credentials, Confluence config, and server health |
+| `/ado-testforge/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
+| `/ado-testforge/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
+| `/ado-testforge/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/ado-testforge/ado-plans` | List all test plans in the ADO project |
+| `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
 
 You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or *"Draft test cases for user story 12345"*.
 
