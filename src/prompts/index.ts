@@ -397,38 +397,21 @@ export function registerAllPrompts(server: McpServer) {
   }));
 
   server.registerPrompt("qa-tc-delete", {
-    title: "Delete Test Case",
-    description: "Delete a test case by ID — moves to Recycle Bin (restorable for 30 days)",
+    title: "Delete Test Case(s)",
+    description: "Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days)",
   }, async () => ({
     messages: [{
       role: "user" as const,
       content: {
         type: "text" as const,
         text: [
-          "I want to delete a test case. Ask me for the work item ID, then confirm with: 'Delete test case {id}? Reply **YES** to delete, **no** to cancel, or tell me what you'd like instead.' Apply the consent rule from AGENTS.md — do not proceed on ambiguous replies. On affirmative, use the qa_tc_delete tool. By default the work item is moved to Recycle Bin (restorable). Warn if destroy=true is requested (permanent delete) and re-confirm with the same yes/no form.",
-          "",
-          CONFIRM_BEFORE_ACT_CONTRACT,
-        ].join("\n"),
-      },
-    }],
-  }));
-
-  server.registerPrompt("qa-tc-bulk-delete", {
-    title: "Bulk Delete Test Cases",
-    description: "Delete multiple test cases by ID — moves to Recycle Bin (restorable for 30 days)",
-  }, async () => ({
-    messages: [{
-      role: "user" as const,
-      content: {
-        type: "text" as const,
-        text: [
-          "I want to delete multiple test cases.",
+          "I want to delete test case(s).",
           "",
           "Please:",
-          "1. Ask me for the work item IDs (comma-separated or list).",
-          "2. Show the parsed list back and ask: 'Delete these N test cases? They will be moved to Recycle Bin (restorable within 30 days). Reply **YES** to delete, **no** to cancel, or tell me what you'd like instead.' Apply the consent rule from AGENTS.md — do not proceed on ambiguous replies.",
-          "3. On affirmative, call qa_tc_delete for each ID in sequence.",
-          "4. Report success/failure for each.",
+          "1. Ask me for the work item ID(s). Accept a single ID (e.g. `12345`) or multiple (comma-separated or space-separated, e.g. `12345, 67890` or `12345 67890 11111`).",
+          "2. Parse my reply. If I gave one ID, confirm with: 'Delete test case {id}? It will be moved to Recycle Bin (restorable within 30 days). Reply **YES** to delete, **no** to cancel, or tell me what you'd like instead.' If I gave multiple IDs, show the parsed list back and confirm with: 'Delete these N test cases? They will be moved to Recycle Bin (restorable within 30 days). Reply **YES** to delete, **no** to cancel, or tell me what you'd like instead.' Apply the consent rule from AGENTS.md — do not proceed on ambiguous replies.",
+          "3. On affirmative, call the qa_tc_delete tool once per ID (sequentially). By default the work item is moved to Recycle Bin (restorable). If I explicitly requested `destroy=true` (permanent delete), warn me and re-confirm with the same yes/no form before proceeding.",
+          "4. Report success/failure per ID. For bulk deletes, use a compact table: `| ID | Status | Notes |`.",
           "",
           CONFIRM_BEFORE_ACT_CONTRACT,
         ].join("\n"),

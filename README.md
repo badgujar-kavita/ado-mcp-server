@@ -92,8 +92,7 @@ After setup, ADO TestForge MCP is available globally in all workspaces.
 | `/ado-testforge/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
 | `/ado-testforge/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
 | `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
-| `/ado-testforge/qa-tc-delete` | Delete a test case by ID — moves to Recycle Bin (restorable for 30 days) |
-| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/ado-testforge/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
 | `/ado-testforge/ado-plans` | List all test plans in the ADO project |
 | `/ado-testforge/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
 

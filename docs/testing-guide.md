@@ -138,7 +138,6 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 | `qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
 | `ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
 | `qa-tc-delete` | Delete a test case (Recycle Bin by default) |
-| `qa-tc-bulk-delete` | Delete multiple test cases by ID (Recycle Bin by default) |
 | `confluence-read` | Read a Confluence page for reference |
 
 ### How to Use
@@ -519,7 +518,6 @@ consumers that parse text see zero change.
 | `qa_tc_read` | Get TC work item details; response includes `webUrl` for clickable linking; returns structuredContent | `workItemId` |
 | `qa_tc_update` | Update one or more TC fields (partial or full) | `workItemId`, *(optional: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |
 | `qa_tc_delete` | Delete a test case (Recycle Bin by default) | `workItemId`, `destroy` (optional) |
-| `qa-tc-bulk-delete` | (Command only — calls qa_tc_delete per ID) | N/A — use slash command |
 | `qa_suite_add_tests` | Add TCs to static suite | `planId`, `suiteId`, `testCaseIds` |
 | `confluence_read` | Read Confluence page content; returns structuredContent | `pageId` |
 

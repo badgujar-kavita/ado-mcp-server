@@ -23,7 +23,7 @@ Use when test cases were created in the wrong suite, or you need structural chan
 ### Steps
 
 1. **Restart Cursor** (or reload MCP).
-2. **Delete** the existing test cases in ADO (use `qa_tc_delete` or `/ado-testforge/qa-tc-bulk-delete`).
+2. **Delete** the existing test cases in ADO (use `qa_tc_delete` or `/ado-testforge/qa-tc-delete` — accepts single ID or a comma-separated list).
 3. **Set draft status to DRAFT** in the markdown header.
 4. **Remove ADO IDs** from TC titles (e.g. remove `(ADO #12345)`).
 5. Run **`/ado-testforge/qa-publish`** and confirm with **YES**.

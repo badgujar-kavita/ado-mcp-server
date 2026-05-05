@@ -384,7 +384,7 @@ If you see **READY**, setup is complete.
 After deployment, verify:
 
 - **21 tools** total (including `ado_fields`, `qa_tc_delete`)
-- **Commands:** `/ado-testforge/qa-tc-bulk-delete` (batch delete), `/ado-testforge/qa-tc-update`, `/ado-testforge/ado-fields`
+- **Commands:** `/ado-testforge/qa-tc-delete` (single or batch), `/ado-testforge/qa-tc-update`, `/ado-testforge/ado-fields`
 - **Title limit:** Test case titles ≤ 256 characters (ADO constraint)
 
 ---
@@ -412,8 +412,7 @@ You can now use any of the available commands. Type `/ado-testforge` in the chat
 | `/ado-testforge/qa-tc-read` | Read a test case — title, steps, prerequisites, priority, and state |
 | `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
 | `/ado-testforge/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
-| `/ado-testforge/qa-tc-delete` | Delete a test case by ID — moves to Recycle Bin (restorable for 30 days) |
-| `/ado-testforge/qa-tc-bulk-delete` | Delete multiple test cases by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/ado-testforge/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
 | `/ado-testforge/qa-clone` | Clone and adapt test cases from one User Story to another |
 | `/ado-testforge/confluence-read` | Read a Confluence page by ID — useful for Solution Design reference |
 

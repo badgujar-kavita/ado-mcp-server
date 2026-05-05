@@ -6,6 +6,11 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ## Unreleased
 
+### Slash-Command Consolidation
+
+- **Merged `/qa-tc-bulk-delete` into `/qa-tc-delete`.** The single command now accepts either a single work-item ID or multiple IDs (comma/space-separated). Both paths route to the same `qa_tc_delete` backend tool. Removes one slash command (21 → 20) without losing capability.
+- Rewrote the `/qa-tc-delete` prompt to detect single vs bulk input at runtime, use the right confirmation phrasing for each, and render a per-ID result table for bulk deletes.
+
 ### Slash-Command Description Polish
 
 - Rewrote all 21 slash-command descriptions (shown in Cursor's autocomplete tooltip) to be concise, professional, and directly explain what the command does. Removed internal phrasing ("Get details of...", "Generate a test case draft (markdown) for review..."), truncations caused by long descriptions, and marketing-style adjectives ("beautiful web UI").
@@ -37,7 +42,7 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ### Confirm-Before-Act Contract Coverage
 
-- `CONFIRM_BEFORE_ACT_CONTRACT` now composed into every action prompt that mutates ADO: `qa-suite-update`, `qa-suite-delete`, `qa-tc-update`, `qa-tc-delete`, `qa-tc-bulk-delete` (in addition to the existing `qa-publish` and `qa-clone`).
+- `CONFIRM_BEFORE_ACT_CONTRACT` now composed into every action prompt that mutates ADO: `qa-suite-update`, `qa-suite-delete`, `qa-tc-update`, `qa-tc-delete` (in addition to the existing `qa-publish` and `qa-clone`).
 - `qa-tc-update` prompt now shows proposed changes and asks for confirmation before calling `qa_tc_update`.
 
 ### Ghost Tool Cleanup

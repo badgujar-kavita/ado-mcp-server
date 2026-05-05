@@ -371,9 +371,8 @@ in `src/prompts/index.ts`:
   verbatim. Composed into `ado-check`.
 - **`CONFIRM_BEFORE_ACT_CONTRACT`** -- offer plan → wait for
   explicit yes → call NEXT action tool → stop on no. Composed into
-  all 7 action prompts: `qa-suite-update`, `qa-suite-delete`,
-  `qa-tc-update`, `qa-tc-delete`, `qa-tc-bulk-delete`, `qa-publish`,
-  `qa-clone`.
+  all 6 action prompts: `qa-suite-update`, `qa-suite-delete`,
+  `qa-tc-update`, `qa-tc-delete`, `qa-publish`, `qa-clone`.
 - **`OPTION_SELECTION_CONTRACT`** -- when a tool returns numbered
   options (1/2, A/B/C), generic affirmatives ("okay", "sure", "yes")
   do not pick an option. Agent must re-ask with the numbered choices

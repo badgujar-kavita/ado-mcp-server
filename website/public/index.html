@@ -1128,13 +1128,7 @@
           <div data-reveal data-delay="4" class="feature">
             <span class="tag action">Action</span>
             <h4><span class="slash">/</span>qa-tc-delete</h4>
-            <p>Delete a single test case. Sends to Recycle Bin by default; pass <code>destroy: true</code> for permanent removal.</p>
-          </div>
-
-          <div data-reveal class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-tc-bulk-delete</h4>
-            <p>Delete multiple test cases by ID. Confirmation-gated — the agent shows the full list and waits for <code>yes</code>.</p>
+            <p>Delete one or more test cases by ID. Accepts a single ID or a comma-separated list. Sends to Recycle Bin by default; pass <code>destroy: true</code> for permanent removal. Confirmation-gated — the agent shows the full list and waits for <code>yes</code>.</p>
           </div>
 
           <div data-reveal data-delay="1" class="feature">
@@ -1280,16 +1274,10 @@
                 <td><span class="example">/qa-tc-update 1363812</span></td>
               </tr>
               <tr>
-                <td class="cmd">/qa-tc-delete &lt;TC-ID&gt;</td>
+                <td class="cmd">/qa-tc-delete &lt;TC-ID&gt; | &lt;ID,ID,...&gt;</td>
                 <td><span class="pill action">Action</span></td>
-                <td>Delete a single test case. Recycle Bin by default; destroy:true for permanent.</td>
-                <td><span class="example">/qa-tc-delete 1363812</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-tc-bulk-delete</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Delete multiple test cases by ID. Confirmation-gated with the full list shown.</td>
-                <td><span class="example">/qa-tc-bulk-delete 1363812,1363813</span></td>
+                <td>Delete one or more test cases by ID. Accepts a single ID or a comma-separated list. Recycle Bin by default; destroy:true for permanent. Confirmation-gated with the full list shown.</td>
+                <td><span class="example">/qa-tc-delete 1363812,1363813</span></td>
               </tr>
               <tr>
                 <td class="cmd">/qa-clone</td>
