@@ -1,0 +1,42 @@
+---
+description: Regression coverage policy — applied during /qa-draft
+globs: tc-drafts/**/*.md
+---
+
+# Regression Coverage Policy
+
+When drafting test cases for this project, include regression test cases for any
+of the following triggers detected in the User Story or Solution Design:
+
+1. **Cross-service integration touchpoints** — any field or flow touching Billing,
+   Promotions, Order Fulfillment, or Customer Master.
+2. **Dependency fields** — any custom field whose reference name ends with
+   `Dependency__c`, `_Link__c`, or `RelatedTo__c`.
+3. **Persona/profile access changes** — any modification to permission sets,
+   profiles, page layouts for `System Administrator`, `ADMIN User`, or `KAM User`.
+4. **Query-based suite additions** — any change that could affect existing
+   query-based test suite membership.
+
+## Format rules
+
+- Keep regression TCs in the **same** `US_<ID>_test_cases.md` draft file as
+  functional TCs. Do not create a separate file.
+- Place them under a new `## Regression Scenarios` section immediately after
+  `## Test Cases`.
+- TC title format: `TC_<USID>_<NN> -> Regression -> <feature> -> <area> -> <summary>`
+  — the word `Regression` is the **first arrow segment**, before feature and area.
+- Continue numbering from the main TCs (e.g. if functional goes 01–05,
+  regression starts at 06).
+
+## Coverage scope (minimum)
+
+For each regression trigger above, include at least:
+
+- 1 positive scenario (verify existing behavior still works as expected)
+- 1 negative or boundary scenario (verify error paths / rejections unchanged)
+
+## Priority guidance
+
+- Critical-path regression (billing totals, order commit, persona access): Priority 1
+- Broad-coverage regression (UI, reports, non-critical flows): Priority 2
+- Happy-path re-runs (smoke-like): Priority 3

@@ -521,7 +521,7 @@ When the US touches [your project's critical areas], always include:
 
 ## 9. Where to go next
 
-- **Examples of real rules from the jira-mcp port:** [Placeholder — add link once `jira-mcp-v2` publishes its equivalent]
+- **Ready-to-copy example files:** [`docs/examples/cursor-rules/`](./examples/cursor-rules/README.md) — standalone `.mdc` files for all five examples plus a quickstart template. Copy into your project's `.cursor/rules/` and edit the placeholders.
 - **MCP prompt source:** `src/prompts/index.ts` in the MCP distribution — useful to understand what safety rails exist.
 - **Config reference:** `conventions.config.json` — useful to understand what machine settings already exist (don't duplicate in rules).
 - **Need something rules can't do?** File an issue or talk to the MCP maintainers. New safety rails and new tool capabilities belong upstream; team policy belongs in rules.

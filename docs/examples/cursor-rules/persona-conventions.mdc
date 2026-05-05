@@ -1,0 +1,29 @@
+---
+description: Persona naming + access matrix for Team X
+alwaysApply: true
+---
+
+# Personas for Team X
+
+Use only these personas when drafting test cases. Do not invent project-specific
+personas without approval from the QA lead.
+
+| Label                            | Profile               | TPM roles | PSG                                |
+|----------------------------------|-----------------------|-----------|------------------------------------|
+| System Administrator             | System Admin          | —         | —                                  |
+| "ADMIN User" User                | TPM_User_Profile      | ADMIN     | TPM Global ADMIN Users             |
+| Key Account Manager (KAM) User   | TPM_User_Profile      | KAM       | TPM Global KAM Users PSG           |
+| Trade Marketing Analyst          | TPM_Analyst_Profile   | ANALYST   | TPM Global Analyst Users PSG       |
+| Regional Sales Director          | TPM_RSD_Profile       | RSD       | TPM Global RSD PSG                 |
+
+## Persona selection rules
+
+- If the US does not specify, default to "ADMIN User" User
+- If the US mentions approval workflow, include Regional Sales Director
+- For admin-validation TCs (config accessibility), always include System Administrator
+- If the US mentions reporting or analytics, include Trade Marketing Analyst
+
+## Prohibited shortcuts
+
+- Never use generic labels like "Manager User" or "Team Lead" — map to one of the above
+- Never split a single TC across two personas — create one TC per persona

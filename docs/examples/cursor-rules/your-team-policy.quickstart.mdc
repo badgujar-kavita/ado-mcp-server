@@ -1,0 +1,44 @@
+---
+description: [Team name] test case drafting policy
+globs: tc-drafts/**/*.md
+---
+
+# [Team name] Test Case Policy
+
+## Category classification
+
+Apply the following category prefixes in the **first arrow segment** of the TC title:
+
+- `Regression` — for re-verification of previously working behavior
+- `SIT` — for integration with [list your external systems here]
+- `E2E` — for multi-persona, multi-module journeys
+- (add more as needed)
+
+Title format: `TC_<USID>_<NN> -> <Category> -> <feature> -> <area> -> <summary>`.
+Standard functional TCs have **no** category prefix.
+
+## Coverage floors
+
+When the US touches [your project's critical areas], always include:
+
+- [ ] [Coverage item 1]
+- [ ] [Coverage item 2]
+- [ ] [Coverage item 3]
+
+## Priority guidance
+
+- Priority 1: [your P1 criteria]
+- Priority 2: [your P2 criteria]
+- Priority 3: [your P3 criteria]
+- Priority 4: [your P4 criteria]
+
+## Persona conventions
+
+- Default persona: [your default]
+- Admin-validation TCs: always include `System Administrator`
+- [Add other persona rules specific to your project]
+
+## Pre-requisite format
+
+- Use condition-based format: `Object.Field = Value`
+- [Add your team's specific format rules]

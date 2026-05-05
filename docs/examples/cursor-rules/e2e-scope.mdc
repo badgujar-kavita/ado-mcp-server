@@ -1,0 +1,40 @@
+---
+description: E2E test scope — applied during /qa-draft when a user story spans multiple personas or modules
+globs: tc-drafts/**/*.md
+---
+
+# End-to-End Test Coverage
+
+E2E test cases cover complete user journeys that span multiple personas, modules,
+or system boundaries. Include E2E TCs when the User Story:
+
+- Involves more than one persona handing off work
+- Crosses two or more major modules (e.g. CRM → Order → Fulfillment → Invoice)
+- Requires an external system round-trip with visible downstream effect
+
+## Format rules
+
+- Title format: `TC_<USID>_<NN> -> E2E -> <primary-persona> -> <journey-name> -> <summary>`
+- Example: `TC_12345_11 -> E2E -> KAM User -> Order-to-Cash -> Verify promotion applies and invoice reflects discount`
+
+## Scope boundaries
+
+E2E tests are **deliberately coarse**. Each E2E TC should:
+
+- Exercise the real integration path (not mocked) — the SIT tier covers mocked/edge cases
+- Validate the **end-state** (invoice total, customer-facing confirmation, report output)
+  rather than each intermediate state
+- Have a clear business observable (a customer can or cannot do X)
+
+## Priority guidance
+
+E2E tests default to **Priority 1** because they represent the business-critical
+value proposition of the release. Downgrade only with explicit justification in
+the TC `notes` field.
+
+## Pre-requisites template
+
+Always include:
+- All integrations in the chain are live (not mock)
+- All personas in the journey have valid credentials and required access
+- Test data is prepared end-to-end (customer, product, config all pre-staged)

@@ -1,0 +1,27 @@
+---
+description: Project-wide priority assignment — applied during /qa-draft
+globs: tc-drafts/**/*.md
+---
+
+# Test Case Priority Policy
+
+Use this scale when setting TC priority during draft generation. Override only
+with explicit justification in the TC `notes` field.
+
+| Priority | Use when                                                                              |
+|---------:|---------------------------------------------------------------------------------------|
+|        1 | Touches billing, invoicing, customer-visible money fields, or regulatory compliance   |
+|        1 | E2E tests (default — see E2E policy)                                                  |
+|        2 | Touches order fulfillment, customer notifications, or audit trail                     |
+|        2 | Critical-path regression                                                              |
+|        3 | Reporting, dashboards, internal tooling                                               |
+|        3 | Broad-coverage regression and happy-path smoke                                        |
+|        4 | Non-functional polish, minor UI tweaks, optional flags                                |
+
+## Rule of thumb
+
+When in doubt, ask: *"If this test fails in production for a week, what's the
+customer impact?"* Severe → P1/P2. Mild → P3/P4.
+
+Never set a TC at P1 if you cannot name the customer-impact scenario in one
+sentence.

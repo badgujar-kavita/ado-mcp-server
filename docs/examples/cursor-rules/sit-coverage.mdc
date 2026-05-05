@@ -1,0 +1,41 @@
+---
+description: SIT coverage policy — applied during /qa-draft
+globs: tc-drafts/**/*.md
+---
+
+# System Integration Test Coverage
+
+When drafting test cases, include SIT cases for any external system interaction:
+
+- Outbound API calls (WareHouse API, Payment gateway, Email service, CDP)
+- Inbound webhook handlers (order-status updates, payment callbacks)
+- Scheduled/batch jobs that cross the project boundary
+- Files uploaded to or consumed from shared drives (SharePoint, S3)
+- Events published to or consumed from message buses (Kafka, Pub/Sub, Platform Events)
+
+## Format rules
+
+- Title format: `TC_<USID>_<NN> -> SIT -> <external-system> -> <interaction-type> -> <summary>`
+- Example: `TC_12345_09 -> SIT -> WarehouseAPI -> Outbound -> Verify order payload includes SKU and quantity`
+
+## Coverage scope
+
+For each integration identified, cover:
+
+- Happy path — valid request, expected response
+- Retry path — transient failure then success (if the system retries)
+- Failure path — permanent failure, verify error handling and user-facing behavior
+- Timeout path — no response within SLA, verify circuit-breaker / fallback
+
+## Priority guidance
+
+- Revenue-impacting integrations (payment, fulfillment): Priority 1
+- Customer-facing informational integrations (notifications): Priority 2
+- Internal-only integrations (reporting, logging): Priority 3
+
+## Pre-requisites template
+
+Always include in the SIT pre-requisites:
+- The target integration is reachable (connectivity verified)
+- Mock mode disabled (`IntegrationSettings.UseMockAPI = FALSE` or equivalent)
+- Any auth tokens / API keys for the target system are current
