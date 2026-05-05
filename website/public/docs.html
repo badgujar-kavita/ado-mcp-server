@@ -202,10 +202,10 @@
       <h2>Installation &amp; Upgrades</h2>
       <p>Run one command in your terminal. The installer downloads the server, installs dependencies, and registers with Cursor automatically.</p>
       <div class="copy-wrap"><pre><code>curl https://vortexado.vercel.app/install -fsS | bash</code></pre><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
-      <p>After install, restart Cursor IDE. You'll see <strong>ado-testforge</strong> in your MCP server list.</p>
+      <p>After install, restart Cursor IDE. You'll see <strong>vortex-ado</strong> in your MCP server list.</p>
 
       <div class="tip">
-        <strong>Same command for upgrades.</strong> Running the install command on an existing installation automatically detects the previous version, backs up your credentials, downloads the latest release, restores credentials, and re-installs dependencies. Your setup is preserved — just restart the MCP server (Settings → MCP → refresh ado-testforge) after the upgrade completes.
+        <strong>Same command for upgrades.</strong> Running the install command on an existing installation automatically detects the previous version, backs up your credentials, downloads the latest release, restores credentials, and re-installs dependencies. Your setup is preserved — just restart the MCP server (Settings → MCP → refresh vortex-ado) after the upgrade completes.
       </div>
 
       <h3>Uninstall</h3>
@@ -221,7 +221,7 @@
 
       <h3>Option 2: Manual edit</h3>
       <p>Edit the credentials file directly:</p>
-      <pre><code>~/.ado-testforge-mcp/credentials.json</code></pre>
+      <pre><code>~/.vortex-ado/credentials.json</code></pre>
 
       <div class="card">
         <h3>Required fields</h3>
@@ -321,7 +321,7 @@
       <!-- CONVENTIONS CONFIG -->
       <h2>Team Configuration</h2>
       <p>VortexADO adapts to your team's conventions via a single configuration file placed alongside the installation:</p>
-      <pre><code>~/.ado-testforge-mcp/conventions.config.json</code></pre>
+      <pre><code>~/.vortex-ado/conventions.config.json</code></pre>
 
       <p>This file controls everything from test case title format to suite hierarchy rules. Settings are grouped into logical sections:</p>
 
@@ -363,7 +363,7 @@
       <div class="card">
         <h3>Fetching &amp; Image Processing</h3>
         <p>These settings live in the <code>images</code> and <code>context</code> sections of:</p>
-        <pre><code>~/.ado-testforge-mcp/conventions.config.json</code></pre>
+        <pre><code>~/.vortex-ado/conventions.config.json</code></pre>
         <p>VortexADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. The AI agent uses these images as visual reference when designing test cases, ensuring test scenarios accurately reflect the intended UI behavior, business flows, and acceptance criteria shown in diagrams.</p>
 
         <h3>Key settings</h3>
@@ -427,7 +427,7 @@
       <!-- TROUBLESHOOTING -->
       <h2>Troubleshooting</h2>
       <h3>MCP server not showing in Cursor</h3>
-      <p>Restart Cursor after install. Check that <code>~/.cursor/mcp.json</code> contains an <code>ado-testforge</code> entry.</p>
+      <p>Restart Cursor after install. Check that <code>~/.cursor/mcp.json</code> contains an <code>vortex-ado</code> entry.</p>
 
       <h3>ADO connection fails</h3>
       <p>Verify your PAT hasn't expired. Check that you have the correct org and project names. Run <code>/ado-check</code> for a detailed diagnostic.</p>

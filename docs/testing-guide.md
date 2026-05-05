@@ -1,4 +1,4 @@
-# ADO TestForge MCP -- Step-by-Step Testing Guide
+# VortexADO MCP -- Step-by-Step Testing Guide
 
 **Documentation index:** [docs/README.md](README.md) | **Changelog:** [docs/changelog.md](changelog.md)
 
@@ -36,12 +36,12 @@ This guide walks you through setting up, running, and testing the MCP server end
    ```bash
    curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
    ```
-2. Open the credentials file (`~/.ado-testforge-mcp/credentials.json`)
+2. Open the credentials file (`~/.vortex-ado/credentials.json`)
 3. Fill in your **ADO PAT**, **organization name**, and **project name** \-\- save the file
 4. Restart Cursor IDE (or refresh MCP in **Cursor Settings > MCP**)
-5. Done \-\- all tools and slash commands are now available under `ado-testforge`
+5. Done \-\- all tools and slash commands are now available under `vortex-ado`
 
-Your credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` and are **never shared**.
+Your credentials are stored locally at `~/.vortex-ado/credentials.json` and are **never shared**.
 
 ---
 
@@ -59,7 +59,7 @@ Your credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` a
 
 1. Go to `https://dev.azure.com/{your-org}/_usersSettings/tokens`
 2. Click **+ New Token**
-3. Set a name (e.g., `ADO TestForge MCP`)
+3. Set a name (e.g., `VortexADO MCP`)
 4. Set expiration (recommend 90 days)
 5. Under **Scopes**, select **Custom defined** and enable:
    - **Work Items** -- Read & Write
@@ -74,10 +74,10 @@ The MCP server is installed via a curl one\-liner that handles everything automa
 
 ### What the Installer Does
 
-1. Clones the repository to `~/.ado-testforge-mcp`
+1. Clones the repository to `~/.vortex-ado`
 2. Installs dependencies and builds the project
-3. Creates `~/.ado-testforge-mcp/credentials.json` with a template
-4. Registers `ado-testforge` globally in `~/.cursor/mcp.json`
+3. Creates `~/.vortex-ado/credentials.json` with a template
+4. Registers `vortex-ado` globally in `~/.cursor/mcp.json`
 
 ### Configuring Credentials
 
@@ -92,14 +92,14 @@ Save the file and restart Cursor (or refresh MCP in Cursor Settings > MCP).
 
 ### Credential Storage
 
-Credentials are stored per\-user at `~/.ado-testforge-mcp/credentials.json` (your home directory). They are **never shared** and never appear in chat.
+Credentials are stored per\-user at `~/.vortex-ado/credentials.json` (your home directory). They are **never shared** and never appear in chat.
 
 ### Checking Status
 
-Use `/ado-testforge/ado-check` to verify your setup is complete.
+Use `/vortex-ado/ado-check` to verify your setup is complete.
 
 - **First successful run for a version:** shows the full welcome message and quick-start CTA
-- **Later runs on the same version:** show a brief `ADO TestForge MCP vX.Y.Z | Status: ✓ Ready` header
+- **Later runs on the same version:** show a brief `VortexADO MCP vX.Y.Z | Status: ✓ Ready` header
 - **After an update:** shows a one-time "What's New" summary pulled from the changelog
 - **If Confluence is not configured:** the status remains fully healthy; no warnings are shown for the optional integration
 
@@ -107,7 +107,7 @@ Use `/ado-testforge/ado-check` to verify your setup is complete.
 
 ## 4. Using Slash Commands
 
-The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that provide a quick way to invoke tools. Type `/` in Cursor's chat to see all available commands.
+The `vortex-ado` MCP server registers **slash commands** (MCP prompts) that provide a quick way to invoke tools. Type `/` in Cursor's chat to see all available commands.
 
 ### Available Commands
 
@@ -142,7 +142,7 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 
 ### How to Use
 
-1. In Cursor's AI chat (Agent mode), type `/ado-testforge`
+1. In Cursor's AI chat (Agent mode), type `/vortex-ado`
 2. A dropdown list appears showing all available commands
 3. Select the command -- it fires immediately
 4. The AI asks for any required inputs (work item IDs, plan IDs, etc.) in the chat
@@ -151,14 +151,14 @@ The `ado-testforge` MCP server registers **slash commands** (MCP prompts) that p
 ### Examples
 
 **Quick lookup:**
-- Select `ado-testforge / ado-plans` -- results appear immediately
+- Select `vortex-ado / ado-plans` -- results appear immediately
 
 **Fetch a User Story:**
-- Select `ado-testforge / ado-story`
+- Select `vortex-ado / ado-story`
 - AI asks for the work item ID -- type it in chat (e.g., `1273966`)
 
 **Create test cases interactively:**
-- Select `ado-testforge / qa-publish`
+- Select `vortex-ado / qa-publish`
 - AI asks for plan ID and US ID, fetches context, suggests test cases, asks for confirmation
 
 ### Slash Commands vs Natural Language
@@ -167,7 +167,7 @@ Both approaches work. Use whichever is more convenient:
 
 | Approach | When to Use |
 |---|---|
-| **Slash commands** (`ado-testforge / *`) | Quick, structured lookups; sharing with teammates who want a guided experience |
+| **Slash commands** (`vortex-ado / *`) | Quick, structured lookups; sharing with teammates who want a guided experience |
 | **Natural language** | Complex requests, combining multiple steps, or when you want full control over the prompt |
 
 ---
@@ -365,7 +365,7 @@ Update test case {TC_WORK_ITEM_ID}: change priority to 1 and add a new step:
 
 **Purpose:** Test both the standalone Confluence page reader and the automatic Solution Design enrichment on User Stories.
 
-**Pre-requisite:** Configure the Confluence credentials in `~/.ado-testforge-mcp/credentials.json`:
+**Pre-requisite:** Configure the Confluence credentials in `~/.vortex-ado/credentials.json`:
 ```json
 {
   "confluence_base_url": "https://yoursite.atlassian.net/wiki",
@@ -424,7 +424,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 
 | Symptom | Fix |
 |---|---|
-| `Missing required environment variables` | Check `~/.ado-testforge-mcp/credentials.json` has `ado_pat`, `ado_org`, `ado_project` set correctly |
+| `Missing required environment variables` | Check `~/.vortex-ado/credentials.json` has `ado_pat`, `ado_org`, `ado_project` set correctly |
 | `Cannot find module` | Run `npm install` again |
 | `SyntaxError` or TypeScript errors | Run `npx tsc --noEmit` to see compilation errors |
 | Red dot persists | Check Cursor MCP logs: **Cursor Settings > MCP > Click the server name > View logs** |

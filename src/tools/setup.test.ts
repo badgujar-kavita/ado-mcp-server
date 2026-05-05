@@ -48,7 +48,7 @@ test("PAT/org/project missing → overall=broken, Next Actions mentions configur
   const status = computeSetupStatus({
     creds: null,
     credentialsFileExists: false,
-    credsPath: "/fake/home/.ado-testforge-mcp/credentials.json",
+    credsPath: "/fake/home/.vortex-ado/credentials.json",
   });
 
   assert.equal(status.overall, "broken");

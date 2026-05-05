@@ -1,8 +1,8 @@
-# Extend ADO TestForge MCP with Cursor `.mdc` Rules
+# Extend VortexADO MCP with Cursor `.mdc` Rules
 
 **Audience:** QA leads, tenant admins, project owners who want to tune the MCP's behavior for their team — without forking the server, without code changes, and without filing enhancement requests.
 
-**What you get:** per-project policy (regression coverage, SIT scope, priority rules, persona conventions, and more) applied automatically every time someone runs `/qa-draft`, `/qa-publish`, or any other ADO TestForge command in your repo.
+**What you get:** per-project policy (regression coverage, SIT scope, priority rules, persona conventions, and more) applied automatically every time someone runs `/qa-draft`, `/qa-publish`, or any other VortexADO command in your repo.
 
 **Time to first rule:** about 10 minutes. **Time to understand the model:** 5 minutes.
 
@@ -10,7 +10,7 @@
 
 ## 1. What Cursor `.mdc` rules are
 
-Cursor IDE lets each project define its own AI instructions via files at `.cursor/rules/<rule-name>.mdc`. These rules flow into the agent's context alongside whatever prompt is active — so when you run `/ado-testforge/qa-draft`, the agent sees **both** the MCP's instructions **and** your team's rules.
+Cursor IDE lets each project define its own AI instructions via files at `.cursor/rules/<rule-name>.mdc`. These rules flow into the agent's context alongside whatever prompt is active — so when you run `/vortex-ado/qa-draft`, the agent sees **both** the MCP's instructions **and** your team's rules.
 
 This is the right place to put anything that is:
 
@@ -22,7 +22,7 @@ It is **not** the right place for:
 
 - **Mechanical settings** — field reference names, title prefixes, sprint naming — those live in `conventions.config.json`
 - **Hard safety rails** — never-push-without-YES, destructive-action confirmations — those live in the MCP prompts and can't be overridden
-- **Sensitive data** — credentials, API tokens, PII — those belong in `~/.ado-testforge-mcp/credentials.json`
+- **Sensitive data** — credentials, API tokens, PII — those belong in `~/.vortex-ado/credentials.json`
 
 ---
 
@@ -90,7 +90,7 @@ alwaysApply: false
 | Rule is a universal team policy (e.g. persona list) | `alwaysApply: true` (omit `globs`) |
 | Rule is language- or framework-specific in code | `globs: **/*.ts` or similar |
 
-For ADO TestForge rules, 90% of the time you want `globs: tc-drafts/**/*.md`.
+For VortexADO rules, 90% of the time you want `globs: tc-drafts/**/*.md`.
 
 ---
 
@@ -413,8 +413,8 @@ with title pattern intact]
 ### Testing a new rule
 
 1. Drop the `.mdc` file in `.cursor/rules/`.
-2. Restart Cursor (or reload the MCP — Settings → MCP → refresh `ado-testforge`).
-3. Run `/ado-testforge/qa-draft` on a User Story you know well.
+2. Restart Cursor (or reload the MCP — Settings → MCP → refresh `vortex-ado`).
+3. Run `/vortex-ado/qa-draft` on a User Story you know well.
 4. Inspect `tc-drafts/US_<id>/US_<id>_test_cases.md`.
 5. Iterate on the rule text until the draft reflects your policy.
 
@@ -458,7 +458,7 @@ Rules consume LLM context window. Keep each rule under ~100 lines. If a rule is 
 
 ### Cursor-only
 
-These rules work **only in Cursor IDE**. If someone on your team uses a different MCP client (Claude Desktop, VS Code MCP extension, the ADO TestForge web portal if any), they won't see these rules — the agent will run with MCP defaults only. Document the supported-client expectation in your team's onboarding.
+These rules work **only in Cursor IDE**. If someone on your team uses a different MCP client (Claude Desktop, VS Code MCP extension, the VortexADO web portal if any), they won't see these rules — the agent will run with MCP defaults only. Document the supported-client expectation in your team's onboarding.
 
 ### Rules are guidance, not enforcement
 

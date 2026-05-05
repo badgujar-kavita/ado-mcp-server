@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { getCurrentVersion, getLatestChangelogHighlights, isNewerVersion } from "../version.ts";
 import { launchConfigUI } from "./configure-ui.ts";
 
-const INITIALIZED_FLAG = ".ado-testforge-initialized";
+const INITIALIZED_FLAG = ".vortex-ado-initialized";
 
 interface SetupState {
   initialized: boolean;
@@ -50,7 +50,7 @@ export interface SetupStatus {
 /**
  * Inputs to `computeSetupStatus`. Dependency-injected so tests can supply
  * deterministic credentials + existence state without touching
- * `~/.ado-testforge-mcp/credentials.json` on disk. Defaults read from the
+ * `~/.vortex-ado/credentials.json` on disk. Defaults read from the
  * real filesystem — production call sites pass nothing.
  */
 export interface SetupStatusDeps {
@@ -95,11 +95,11 @@ export function computeSetupStatus(deps: SetupStatusDeps = {}): SetupStatus {
     rows.push({ name: "ADO Project", status: "fail", detail: "Not configured" });
 
     nextActions.push(
-      "Run `/ado-testforge/configure` to set the ADO PAT, organization, and project with Test Management read/write scope.",
+      "Run `/vortex-ado/configure` to set the ADO PAT, organization, and project with Test Management read/write scope.",
     );
     if (!fileExists) {
       nextActions.push(
-        "Alternative: run `/ado-testforge/ado_connect_save` to create the credentials template, then edit it directly.",
+        "Alternative: run `/vortex-ado/ado_connect_save` to create the credentials template, then edit it directly.",
       );
     }
 
@@ -125,7 +125,7 @@ export function computeSetupStatus(deps: SetupStatusDeps = {}): SetupStatus {
       detail: "Not configured (optional)",
     });
     nextActions.push(
-      "Optional: add `confluence_base_url`, `confluence_email`, and `confluence_api_token` to `~/.ado-testforge-mcp/credentials.json` to enable Solution Design fetch.",
+      "Optional: add `confluence_base_url`, `confluence_email`, and `confluence_api_token` to `~/.vortex-ado/credentials.json` to enable Solution Design fetch.",
     );
   }
 
@@ -237,17 +237,17 @@ function isConfluenceConfigured(creds: Credentials): boolean {
 
 function buildFirstRunWelcome(version: string, confluenceConfigured: boolean): string[] {
   const contextLine = confluenceConfigured
-    ? "ADO TestForge MCP connects Cursor IDE directly to Azure DevOps and Confluence — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, automatically pulls in linked Solution Design pages from Confluence for full business and technical context, follows your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality."
-    : "ADO TestForge MCP connects Cursor IDE directly to Azure DevOps — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, understands your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality.";
+    ? "VortexADO MCP connects Cursor IDE directly to Azure DevOps and Confluence — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, automatically pulls in linked Solution Design pages from Confluence for full business and technical context, follows your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality."
+    : "VortexADO MCP connects Cursor IDE directly to Azure DevOps — so you can draft, review, and push test cases without ever leaving your editor. It reads your User Stories, understands your team's naming conventions, and handles all the ADO plumbing (folder structures, query-based suites, field mappings) so you can stay focused on test quality.";
   const getUserStoryLine = confluenceConfigured
-    ? "/ado-testforge/ado_story — Fetch a User Story with full QA context + Solution Design"
-    : "/ado-testforge/ado_story — Fetch a User Story with full QA context";
+    ? "/vortex-ado/ado_story — Fetch a User Story with full QA context + Solution Design"
+    : "/vortex-ado/ado_story — Fetch a User Story with full QA context";
   const readinessLine = confluenceConfigured
     ? "Your AI-powered QA co-pilot is ready — with Confluence connected."
     : "Your AI-powered QA co-pilot is ready.";
 
   return [
-    `Welcome to ADO TestForge MCP v${version}`,
+    `Welcome to VortexADO MCP v${version}`,
     "",
     readinessLine,
     "",
@@ -256,21 +256,21 @@ function buildFirstRunWelcome(version: string, confluenceConfigured: boolean): s
     "Think of it as the QA teammate who never forgets a convention, never skips a step, and works at the speed of your prompts.",
     "",
     "Two ways to work — pick what feels natural:",
-    "- Slash command: /ado-testforge/qa-draft",
+    "- Slash command: /vortex-ado/qa-draft",
     '- Plain English: "Draft test cases for User Story #12345"',
     "",
     "Ready? Start here:",
     `- ${getUserStoryLine}`,
-    "- /ado-testforge/qa-draft — Generate test cases ready for ADO",
-    "- /ado-testforge/check_status — Verify your setup anytime",
+    "- /vortex-ado/qa-draft — Generate test cases ready for ADO",
+    "- /vortex-ado/check_status — Verify your setup anytime",
     "",
-    'Quick start: Try /ado-testforge/ado_story or say "Draft test cases for User Story #12345".',
+    'Quick start: Try /vortex-ado/ado_story or say "Draft test cases for User Story #12345".',
   ];
 }
 
 function buildUpdateMessage(version: string): string[] {
   const highlights = getLatestChangelogHighlights(5);
-  const lines = [`What's New in ADO TestForge MCP v${version}`, ""];
+  const lines = [`What's New in VortexADO MCP v${version}`, ""];
 
   if (highlights.length > 0) {
     lines.push(...highlights.map((item) => `- ${item}`));
@@ -280,7 +280,7 @@ function buildUpdateMessage(version: string): string[] {
 
   lines.push("");
   lines.push("Full changelog: docs/changelog.md");
-  lines.push('Quick start: Try /ado-testforge/ado-check or say "Draft test cases for User Story #12345".');
+  lines.push('Quick start: Try /vortex-ado/ado-check or say "Draft test cases for User Story #12345".');
   return lines;
 }
 
@@ -307,7 +307,7 @@ export function registerSetupTools(server: McpServer) {
               "• Enter your Azure DevOps credentials (PAT, Organization, Project)",
               "• Optionally configure Confluence integration",
               "• Test connections before saving",
-              "• Save credentials securely to ~/.ado-testforge-mcp/credentials.json",
+              "• Save credentials securely to ~/.vortex-ado/credentials.json",
               "",
               "After saving, restart Cursor to apply the changes.",
               "",
@@ -331,7 +331,7 @@ export function registerSetupTools(server: McpServer) {
     "ado_connect_save",
     {
       title: "Save ADO Credentials (Manual)",
-      description: "Create the credentials template file at ~/.ado-testforge-mcp/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /ado-testforge/ado-connect instead.",
+      description: "Create the credentials template file at ~/.vortex-ado/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /vortex-ado/ado-connect instead.",
       inputSchema: {},
     },
     async () => {
@@ -342,7 +342,7 @@ export function registerSetupTools(server: McpServer) {
         return {
           content: [{
             type: "text" as const,
-            text: `Credentials are already configured at: ${credPath}\n\nTo update them, edit the file directly or use /ado-testforge/ado-connect for a guided setup.`,
+            text: `Credentials are already configured at: ${credPath}\n\nTo update them, edit the file directly or use /vortex-ado/ado-connect for a guided setup.`,
           }],
         };
       }
@@ -362,7 +362,7 @@ export function registerSetupTools(server: McpServer) {
             "",
             "After saving the file, restart the MCP server in Cursor Settings > MCP.",
             "",
-            "💡 Tip: Use /ado-testforge/ado-connect for a guided setup with connection testing.",
+            "💡 Tip: Use /vortex-ado/ado-connect for a guided setup with connection testing.",
           ].join("\n"),
         }],
       };
@@ -373,7 +373,7 @@ export function registerSetupTools(server: McpServer) {
     "ado_check",
     {
       title: "Check ADO Setup Status",
-      description: "Check if the ADO TestForge MCP server is fully configured and ready to use. Returns a deterministic status table + Overall verdict + Next Actions list.",
+      description: "Check if the VortexADO MCP server is fully configured and ready to use. Returns a deterministic status table + Overall verdict + Next Actions list.",
       inputSchema: {},
     },
     async () => {
@@ -398,7 +398,7 @@ export function registerSetupTools(server: McpServer) {
         }
         saveSetupState(currentVersion, state);
       } else {
-        lines.push("ADO TestForge MCP — Setup Incomplete");
+        lines.push("VortexADO MCP — Setup Incomplete");
         lines.push("");
         lines.push("Core ADO tools will not work until this is resolved.");
         lines.push("");

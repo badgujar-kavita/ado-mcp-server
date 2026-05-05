@@ -3,7 +3,7 @@
  * Build a distribution package for the Vercel-hosted tarball.
  * Output: dist-package/ with compiled JS (no src/) — this is the folder
  * that `scripts/build-website.sh` tarballs and publishes as
- * https://vortexado.vercel.app/ado-testforge.tar.gz.
+ * https://vortexado.vercel.app/vortex-ado.tar.gz.
  */
 
 import { build } from "esbuild";
@@ -49,7 +49,7 @@ async function main() {
     //     at module load, which esbuild can't inline into an ESM bundle.
     //   - `node-html-parser` behaves cleanly when bundled, but we keep it
     //     external for symmetry and so npm handles version resolution.
-    // The installer runs `npm install` inside ~/.ado-testforge-mcp/ so these
+    // The installer runs `npm install` inside ~/.vortex-ado/ so these
     // resolve from the installed node_modules at runtime.
     external: ["jimp", "node-html-parser"],
   });
@@ -74,7 +74,7 @@ alwaysApply: true
 
 - **Why:** This folder is populated by the Vercel-hosted tarball installer. Any edits here are untracked and will be overwritten the next time you run the install command.
 - **How updates work:** Re-run the install command from the Vercel site to pull the latest tarball, then restart the MCP server to load the new code.
-- **Need a change?** Open an issue / PR on the main ADO TestForge MCP project. Do not edit here.
+- **Need a change?** Open an issue / PR on the main VortexADO MCP project. Do not edit here.
 `
   );
   // Copy skills (entire directory structure)

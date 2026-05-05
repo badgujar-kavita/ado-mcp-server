@@ -1,6 +1,6 @@
-# ADO TestForge MCP Documentation
+# VortexADO MCP Documentation
 
-Documentation for the ADO TestForge MCP server — Azure DevOps test case automation for Cursor IDE.
+Documentation for the VortexADO MCP server — Azure DevOps test case automation for Cursor IDE.
 
 ---
 

@@ -1,6 +1,6 @@
-# ADO TestForge MCP — Distribution Guide
+# VortexADO MCP — Distribution Guide
 
-This guide explains how to distribute ADO TestForge MCP to team members.
+This guide explains how to distribute VortexADO MCP to team members.
 
 ---
 
@@ -18,12 +18,12 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 The installer will:
 
-* Clone the repository to `~/.ado-testforge-mcp`
+* Clone the repository to `~/.vortex-ado`
 * Install dependencies and build
 * Register the MCP in Cursor (`~/.cursor/mcp.json`)
 * Create a credentials template
 
-**After installation**, users edit `~/.ado-testforge-mcp/credentials.json` with their ADO PAT, org, and project, then restart Cursor.
+**After installation**, users edit `~/.vortex-ado/credentials.json` with their ADO PAT, org, and project, then restart Cursor.
 
 ### For Developers (Updates)
 
@@ -68,7 +68,7 @@ Users can uninstall with:
 curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/uninstall.sh | bash
 ```
 
-This removes the `~/.ado-testforge-mcp` directory and the Cursor MCP registration. The uninstaller prompts whether to keep or delete the credentials file.
+This removes the `~/.vortex-ado` directory and the Cursor MCP registration. The uninstaller prompts whether to keep or delete the credentials file.
 
 ---
 
@@ -81,7 +81,7 @@ This removes the `~/.ado-testforge-mcp` directory and the Cursor MCP registratio
 | **ADO PAT** | Each user creates their own |
 | **Internet** | For initial install and updates |
 
-Credentials are stored locally at `~/.ado-testforge-mcp/credentials.json` — never in the repository.
+Credentials are stored locally at `~/.vortex-ado/credentials.json` — never in the repository.
 
 ---
 

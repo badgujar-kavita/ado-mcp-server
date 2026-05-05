@@ -1,4 +1,4 @@
-# ADO TestForge MCP — Azure DevOps Test Case Automation
+# VortexADO MCP — Azure DevOps Test Case Automation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
@@ -8,7 +8,7 @@ A Model Context Protocol (MCP) server that integrates Azure DevOps with Cursor I
 
 ## Overview
 
-ADO TestForge MCP enables QA teams to automate test case creation and management workflows directly within Cursor. Use natural language prompts and slash commands to fetch User Stories, generate test case drafts from acceptance criteria and Solution Design, and push validated test cases to Azure DevOps—all without leaving your IDE.
+VortexADO MCP enables QA teams to automate test case creation and management workflows directly within Cursor. Use natural language prompts and slash commands to fetch User Stories, generate test case drafts from acceptance criteria and Solution Design, and push validated test cases to Azure DevOps—all without leaving your IDE.
 
 ---
 
@@ -35,7 +35,7 @@ flowchart TB
     end
 
     subgraph mcp["MCP Server"]
-        Server["ado-testforge<br/><i>Node.js</i>"]
+        Server["vortex-ado<br/><i>Node.js</i>"]
     end
 
     subgraph ado["Azure DevOps"]
@@ -71,15 +71,15 @@ flowchart TB
 
 2. **Run the installer**  
    - Open Cursor's AI chat (Cmd+L / Ctrl+L)  
-   - Type `/ado-testforge/install` and run the command
+   - Type `/vortex-ado/install` and run the command
 
 3. **Configure credentials**  
-   - Edit `~/.ado-testforge-mcp/credentials.json` (created by installer)  
+   - Edit `~/.vortex-ado/credentials.json` (created by installer)  
    - Add your ADO PAT, organization name, and project name
 
 4. **Restart Cursor** (or reload MCP in Settings > MCP)
 
-After setup, ADO TestForge MCP is available globally in all workspaces.
+After setup, VortexADO MCP is available globally in all workspaces.
 
 ---
 
@@ -87,14 +87,14 @@ After setup, ADO TestForge MCP is available globally in all workspaces.
 
 | Command | Purpose |
 |---------|---------|
-| `/ado-testforge/ado-check` | Verify ADO credentials, Confluence config, and server health |
-| `/ado-testforge/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
-| `/ado-testforge/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
-| `/ado-testforge/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
-| `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
-| `/ado-testforge/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
-| `/ado-testforge/ado-plans` | List all test plans in the ADO project |
-| `/ado-testforge/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
+| `/vortex-ado/ado-check` | Verify ADO credentials, Confluence config, and server health |
+| `/vortex-ado/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
+| `/vortex-ado/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
+| `/vortex-ado/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/vortex-ado/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `/vortex-ado/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/vortex-ado/ado-plans` | List all test plans in the ADO project |
+| `/vortex-ado/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
 
 ---
 
@@ -132,7 +132,7 @@ After setup, ADO TestForge MCP is available globally in all workspaces.
 
 ## Distribution
 
-End users install ADO TestForge MCP via a one-line `curl` command from the Vercel-hosted install site, which fetches the latest tarball. See [docs/distribution-guide.md](docs/distribution-guide.md) for the full install flow and publishing workflow.
+End users install VortexADO MCP via a one-line `curl` command from the Vercel-hosted install site, which fetches the latest tarball. See [docs/distribution-guide.md](docs/distribution-guide.md) for the full install flow and publishing workflow.
 
 ---
 

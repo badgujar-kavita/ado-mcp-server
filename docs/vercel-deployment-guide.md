@@ -1,12 +1,12 @@
 # Vercel Deployment Guide 
 
-This guide explains how to deploy ADO TestForge MCP to Vercel for distribution via a simple curl command.
+This guide explains how to deploy VortexADO MCP to Vercel for distribution via a simple curl command.
 
 ---
 
 ## Overview 
 
-Once deployed, users can install ADO TestForge MCP with:
+Once deployed, users can install VortexADO MCP with:
 
 ```bash
 curl https://vortexado.vercel.app/install -fsS | bash
@@ -88,7 +88,7 @@ When Vercel builds the project:
 1. Runs `npm install` to install dependencies
 2. Runs `bash scripts/build-website.sh` which:
    * Runs `npm run build:dist` to create the distribution package
-   * Creates `ado-testforge.tar.gz` from `dist-package/`
+   * Creates `vortex-ado.tar.gz` from `dist-package/`
    * Places it in `website/public/`
 
 ### Middleware (Browser Protection)
@@ -128,13 +128,13 @@ git push
 
 If `vortexado.vercel.app` is unavailable, you'll need to:
 
-1. Choose a different project name (e.g., `ado-testforge`)
+1. Choose a different project name (e.g., `vortex-ado`)
 2. Update these files with the new URL:
 
 **`website/public/install`** (line 12):
 
 ```bash
-TARBALL_URL="https://YOUR-PROJECT-NAME.vercel.app/ado-testforge.tar.gz"
+TARBALL_URL="https://YOUR-PROJECT-NAME.vercel.app/vortex-ado.tar.gz"
 ```
 
 **`website/public/index.html`** (search for the install command):

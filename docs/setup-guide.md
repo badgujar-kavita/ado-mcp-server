@@ -1,8 +1,8 @@
-# ADO TestForge MCP \-\- Setup Guide
+# VortexADO MCP \-\- Setup Guide
 
 **Documentation index:** [docs/README.md](README.md) | **Changelog:** [docs/changelog.md](changelog.md)
 
-Welcome to the ADO TestForge MCP server. This guide walks you through the complete setup process so you can start using ADO tools directly from Cursor's AI chat.
+Welcome to the VortexADO MCP server. This guide walks you through the complete setup process so you can start using ADO tools directly from Cursor's AI chat.
 
 ---
 
@@ -17,18 +17,18 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 The installer will:
 
 * Check prerequisites (Node.js v18+)
-* Clone the repository to `~/.ado-testforge-mcp`
+* Clone the repository to `~/.vortex-ado`
 * Install dependencies and build
-* Register ADO TestForge MCP in Cursor
-* Create a credentials template at `~/.ado-testforge-mcp/credentials.json`
+* Register VortexADO MCP in Cursor
+* Create a credentials template at `~/.vortex-ado/credentials.json`
 
 **After installation:**
 
-1. **Configure credentials** \-\- Edit `~/.ado-testforge-mcp/credentials.json` with your ADO PAT, org, and project (see [Step 2](#step-2-configure-your-credentials))
+1. **Configure credentials** \-\- Edit `~/.vortex-ado/credentials.json` with your ADO PAT, org, and project (see [Step 2](#step-2-configure-your-credentials))
 2. **Restart Cursor** (or reload MCP in Settings > MCP)
-3. **Verify** \-\- Type `/ado-testforge/ado-check` in AI chat
+3. **Verify** \-\- Type `/vortex-ado/ado-check` in AI chat
 
-After setup, ADO TestForge MCP is available in **all workspaces** automatically.
+After setup, VortexADO MCP is available in **all workspaces** automatically.
 
 ---
 
@@ -61,7 +61,7 @@ Replace `{your-org}` with your ADO organization name (e.g., `YourOrgName`).
 
 2. Click **+ New Token**
 3. Configure the token:
-   * **Name**: `ADO TestForge MCP` (or any name you prefer)
+   * **Name**: `VortexADO MCP` (or any name you prefer)
    * **Expiration**: 90 days recommended
    * **Scopes**: Select **Custom defined**, then enable the scopes listed below
 4. Click **Create**
@@ -115,7 +115,7 @@ This is only relevant for production/shared deployments. For individual use, PAT
 After restarting Cursor, run this command in the AI chat:
 
 ```
-/ado-testforge/ado-connect
+/vortex-ado/ado-connect
 ```
 
 This opens a beautiful web interface where you can:
@@ -134,13 +134,13 @@ If you prefer to edit the file directly:
 **Mac:**
 
 ```bash
-open ~/.ado-testforge-mcp/credentials.json
+open ~/.vortex-ado/credentials.json
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-notepad "$env:USERPROFILE\.ado-testforge-mcp\credentials.json"
+notepad "$env:USERPROFILE\.vortex-ado\credentials.json"
 ```
 
 2. The file looks like this:
@@ -184,7 +184,7 @@ This is the approach the MCP server uses today. It's the simplest option for ind
 
 1. Go to [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
 2. Click **Create API token**
-3. Give it a label (e.g., `ADO TestForge MCP`)
+3. Give it a label (e.g., `VortexADO MCP`)
 4. Click **Create** and **copy the token immediately**
 
 #### Required Permissions
@@ -210,7 +210,7 @@ That's it -- **read-only access to page content only**.
 
 #### Fill in the Credentials
 
-Open `~/.ado-testforge-mcp/credentials.json` and fill in the three Confluence fields:
+Open `~/.vortex-ado/credentials.json` and fill in the three Confluence fields:
 
 | Field | What to Enter | Example |
 |---|---|---|
@@ -263,7 +263,7 @@ The following knobs in `conventions.config.json` control how much work-item cont
 
 > **⚠️ Important — edits to `conventions.config.json` are overwritten by re-install.**
 >
-> The file lives at `~/.ado-testforge-mcp/conventions.config.json`. It IS created automatically on first install (the tarball contains it), and the MCP reads your edits at runtime — so tweaking values locally works as expected. **But** the installer (curl one-liner) overwrites this file on every re-install with the latest repo defaults. Only `credentials.json` is preserved across re-installs today.
+> The file lives at `~/.vortex-ado/conventions.config.json`. It IS created automatically on first install (the tarball contains it), and the MCP reads your edits at runtime — so tweaking values locally works as expected. **But** the installer (curl one-liner) overwrites this file on every re-install with the latest repo defaults. Only `credentials.json` is preserved across re-installs today.
 >
 > If you flip `returnMcpImageParts` or add entries to `additionalContextFields`, either keep a copy of your edits somewhere safe, or plan to re-apply them after running the installer to upgrade. (A future installer improvement may preserve this file too.)
 
@@ -317,7 +317,7 @@ Every other populated field (standard + custom) is still surfaced in `allFields`
 ## Step 3: Restart the MCP Server
 
 1. Go to **Cursor Settings > MCP**
-2. Find **ado-testforge** in the list
+2. Find **vortex-ado** in the list
 3. Click the **refresh/restart** button next to it
 4. Wait for the green dot to appear
 
@@ -325,37 +325,37 @@ Every other populated field (standard + custom) is still surfaced in `allFields`
 
 ## Step 4: Verify Everything Works
 
-In Cursor's AI chat, type `/ado-testforge` and select **ado-check**.
+In Cursor's AI chat, type `/vortex-ado` and select **ado-check**.
 
 ### First Successful Run
 
 On the first successful run for a given version, you should see a full welcome message followed by your setup status:
 
 ```
-Welcome to ADO TestForge MCP v1.1.0
+Welcome to VortexADO MCP v1.1.0
 
 Your AI-powered QA co-pilot is ready.
 
-ADO TestForge MCP connects Cursor IDE directly to Azure DevOps — so you can draft,
+VortexADO MCP connects Cursor IDE directly to Azure DevOps — so you can draft,
 review, and push test cases without ever leaving your editor.
 
 Two ways to work — pick what feels natural:
-- Slash command: /ado-testforge/qa-draft
+- Slash command: /vortex-ado/qa-draft
 - Plain English: "Draft test cases for User Story #12345"
 
 Ready? Start here:
-- /ado-testforge/ado-story — Fetch a User Story with full QA context
-- /ado-testforge/qa-draft — Generate test cases ready for ADO
-- /ado-testforge/ado-check — Verify your setup anytime
+- /vortex-ado/ado-story — Fetch a User Story with full QA context
+- /vortex-ado/qa-draft — Generate test cases ready for ADO
+- /vortex-ado/ado-check — Verify your setup anytime
 
-Quick start: Try /ado-testforge/ado-story or say "Draft test cases for User Story #12345".
+Quick start: Try /vortex-ado/ado-story or say "Draft test cases for User Story #12345".
 
 Setup Status
 ------------
 ADO PAT: Configured
 ADO Org: YourOrgName
 ADO Project: YourProjectName
-TC Drafts: /Users/you/.ado-testforge-mcp/tc-drafts
+TC Drafts: /Users/you/.vortex-ado/tc-drafts
 
 Status: READY — all tools and commands are available.
 ```
@@ -365,12 +365,12 @@ Status: READY — all tools and commands are available.
 After the first run, the status output becomes brief:
 
 ```
-ADO TestForge MCP v1.1.0 | Status: ✓ Ready
+VortexADO MCP v1.1.0 | Status: ✓ Ready
 
 ADO PAT: Configured
 ADO Org: YourOrgName
 ADO Project: YourProjectName
-TC Drafts: /Users/you/.ado-testforge-mcp/tc-drafts
+TC Drafts: /Users/you/.vortex-ado/tc-drafts
 ```
 
 ### After a New Deploy
@@ -384,37 +384,37 @@ If you see **READY**, setup is complete.
 After deployment, verify:
 
 - **20 slash commands** + **26 MCP tools** (including `ado_fields`, `qa_tc_delete`)
-- **Commands:** `/ado-testforge/qa-tc-delete` (single or batch), `/ado-testforge/qa-tc-update`, `/ado-testforge/ado-fields`
+- **Commands:** `/vortex-ado/qa-tc-delete` (single or batch), `/vortex-ado/qa-tc-update`, `/vortex-ado/ado-fields`
 - **Title limit:** Test case titles ≤ 256 characters (ADO constraint)
 
 ---
 
 ## You're All Set
 
-You can now use any of the available commands. Type `/ado-testforge` in the chat to see the full list:
+You can now use any of the available commands. Type `/vortex-ado` in the chat to see the full list:
 
 | Command | What It Does |
 |---|---|
-| `/ado-testforge/ado-connect` | Set up ADO and Confluence credentials via a guided web UI |
-| `/ado-testforge/ado-check` | Verify ADO credentials, Confluence config, and server health |
-| `/ado-testforge/ado-plans` | List all test plans in the ADO project |
-| `/ado-testforge/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
-| `/ado-testforge/qa-tests` | List test cases linked to a User Story (Tests/Tested By) |
-| `/ado-testforge/ado-plan` | Read a test plan by ID — area path, state, root suite |
-| `/ado-testforge/ado-suites` | List all test suites in a test plan |
-| `/ado-testforge/ado-suite` | Read a test suite by ID — type, parent, query string |
-| `/ado-testforge/qa-suite-setup` | Create or fix the Sprint → Epic → US suite hierarchy from a User Story ID |
-| `/ado-testforge/qa-suite-update` | Update a test suite — rename, move, or change its query |
-| `/ado-testforge/qa-suite-delete` | Delete a test suite — test cases stay in ADO, only the suite link is removed |
-| `/ado-testforge/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
-| `/ado-testforge/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
-| `/ado-testforge/ado-suite-tests` | List test cases within a specific test suite |
-| `/ado-testforge/qa-tc-read` | Read a test case — title, steps, prerequisites, priority, and state |
-| `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
-| `/ado-testforge/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
-| `/ado-testforge/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
-| `/ado-testforge/qa-clone` | Clone and adapt test cases from one User Story to another |
-| `/ado-testforge/confluence-read` | Read a Confluence page by ID — useful for Solution Design reference |
+| `/vortex-ado/ado-connect` | Set up ADO and Confluence credentials via a guided web UI |
+| `/vortex-ado/ado-check` | Verify ADO credentials, Confluence config, and server health |
+| `/vortex-ado/ado-plans` | List all test plans in the ADO project |
+| `/vortex-ado/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
+| `/vortex-ado/qa-tests` | List test cases linked to a User Story (Tests/Tested By) |
+| `/vortex-ado/ado-plan` | Read a test plan by ID — area path, state, root suite |
+| `/vortex-ado/ado-suites` | List all test suites in a test plan |
+| `/vortex-ado/ado-suite` | Read a test suite by ID — type, parent, query string |
+| `/vortex-ado/qa-suite-setup` | Create or fix the Sprint → Epic → US suite hierarchy from a User Story ID |
+| `/vortex-ado/qa-suite-update` | Update a test suite — rename, move, or change its query |
+| `/vortex-ado/qa-suite-delete` | Delete a test suite — test cases stay in ADO, only the suite link is removed |
+| `/vortex-ado/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
+| `/vortex-ado/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/vortex-ado/ado-suite-tests` | List test cases within a specific test suite |
+| `/vortex-ado/qa-tc-read` | Read a test case — title, steps, prerequisites, priority, and state |
+| `/vortex-ado/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `/vortex-ado/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
+| `/vortex-ado/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/vortex-ado/qa-clone` | Clone and adapt test cases from one User Story to another |
+| `/vortex-ado/confluence-read` | Read a Confluence page by ID — useful for Solution Design reference |
 
 You can also use natural language instead of commands. For example, type "Fetch user story 1273966 from ADO" and the AI will call the right tool.
 
@@ -429,13 +429,13 @@ You can also use natural language instead of commands. For example, type "Fetch 
 
 ### Reliability
 
-- Run `/ado-testforge/ado-check` after setup or deployment to verify the current version and status before starting work.
+- Run `/vortex-ado/ado-check` after setup or deployment to verify the current version and status before starting work.
 - Confluence is optional. If it is not configured or a linked page cannot be fetched, the core ADO workflow still works and `solutionDesignContent` stays `null`.
 - The welcome flow uses a first-run flag file so users see the full orientation once per version instead of on every status check.
 
 ### Maintainability
 
-- `npm run build:dist` rebuilds `dist-package/` from the current source. Distribution to end users happens via the Vercel-hosted tarball (`scripts/build-website.sh` rebuilds `/ado-testforge.tar.gz` on every Vercel deploy); users pick up updates by re-running the one-line install command.
+- `npm run build:dist` rebuilds `dist-package/` from the current source. Distribution to end users happens via the Vercel-hosted tarball (`scripts/build-website.sh` rebuilds `/vortex-ado.tar.gz` on every Vercel deploy); users pick up updates by re-running the one-line install command.
 - Version-aware status output makes it easy to confirm which build a user is currently running.
 
 ---
@@ -459,7 +459,7 @@ See [docs/test-case-writing-style-reference.md](docs/test-case-writing-style-ref
 |--------|-------------|
 | **workspaceRoot** | Open a folder in your workspace. The AI passes `workspaceRoot`; drafts go to `workspaceRoot/tc-drafts/US_<id>/` (folder created automatically). |
 | **draftsPath** | When you say "save to X" or "create under folder Y", the AI passes `draftsPath` with your chosen location. |
-| **tc_drafts_path** | Set in `~/.ado-testforge-mcp/credentials.json` for a fixed path. Optional. |
+| **tc_drafts_path** | Set in `~/.vortex-ado/credentials.json` for a fixed path. Optional. |
 | **TC_DRAFTS_PATH** | Environment variable. Optional. |
 
 **Folder Structure:** Each User Story gets its own subfolder:
@@ -494,7 +494,7 @@ The server can't start. Common causes:
 curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
 ```
 
-### ADO TestForge MCP doesn't appear in Cursor
+### VortexADO MCP doesn't appear in Cursor
 
 * **Restart Cursor** after installation
 * Check **Cursor Settings > MCP** \-\- ado\-testforge should be listed
@@ -508,9 +508,9 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 ### "No valid credentials found" after restart
 
-- Open `~/.ado-testforge-mcp/credentials.json` and verify you replaced all placeholder values
+- Open `~/.vortex-ado/credentials.json` and verify you replaced all placeholder values
 - Make sure the `ado_pat`, `ado_org`, and `ado_project` fields are not empty
-- Run `/ado-testforge/ado-check` to see which field is missing
+- Run `/vortex-ado/ado-check` to see which field is missing
 
 ### PAT authentication errors (401)
 
@@ -531,7 +531,7 @@ When `ado_story` or `confluence_read` returns "401 Unauthorized" when fetching S
 
 4. **Space permissions** — Your account must have **Can view** on the Confluence space (e.g., GCTP). Check Space Settings > Permissions.
 
-5. **Credentials location** — Add to `~/.ado-testforge-mcp/credentials.json`:
+5. **Credentials location** — Add to `~/.vortex-ado/credentials.json`:
    ```json
    "confluence_base_url": "https://your-org.atlassian.net/wiki",
    "confluence_email": "your.email@company.com",
@@ -539,7 +539,7 @@ When `ado_story` or `confluence_read` returns "401 Unauthorized" when fetching S
    ```
    Or use env vars: `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`.
 
-6. **Restart** — After changing credentials, restart the MCP server (Cursor Settings > MCP > refresh ado-testforge).
+6. **Restart** — After changing credentials, restart the MCP server (Cursor Settings > MCP > refresh vortex-ado).
 
 ### Tools return "Resource not found" (404)
 
@@ -550,17 +550,17 @@ When `ado_story` or `confluence_read` returns "401 Unauthorized" when fetching S
 
 ## How Global Registration Works
 
-The installer adds **ado\-testforge** to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths pointing to `~/.ado-testforge-mcp`. That means:
+The installer adds **ado\-testforge** to your **global** Cursor config (`~/.cursor/mcp.json`) with absolute paths pointing to `~/.vortex-ado`. That means:
 
 * **ado\-testforge** is available in **any project folder** you open
-* Use `/ado-testforge` commands from any workspace
+* Use `/vortex-ado` commands from any workspace
 * To update, simply re\-run the curl installation command
 
 ---
 
 ## Credential Security
 
-Your credentials are stored at `~/.ado-testforge-mcp/credentials.json` in your **home directory**. This means:
+Your credentials are stored at `~/.vortex-ado/credentials.json` in your **home directory**. This means:
 
 * Your PAT is stored locally only \-\- never synced or shared
 * Your PAT never appears in Cursor's chat history
@@ -589,7 +589,7 @@ The installer will:
 
 ## Uninstalling
 
-To completely remove ADO TestForge MCP:
+To completely remove VortexADO MCP:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/uninstall.sh | bash
@@ -597,7 +597,7 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 This will:
 
-* Remove `~/.ado-testforge-mcp` directory
+* Remove `~/.vortex-ado` directory
 * Remove the MCP registration from Cursor
 
 **Note:** The uninstaller will ask if you want to keep or delete your credentials file.

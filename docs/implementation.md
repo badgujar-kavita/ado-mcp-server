@@ -818,7 +818,7 @@ The tool composes the title automatically:
 ## Project Structure
 
 ```
-ADO TestForge MCP/
+VortexADO MCP/
 ├── src/
 │   ├── index.ts                  # Entry point, MCP server setup + stdio transport
 │   ├── config.ts                 # Loads + validates conventions.config.json with Zod
@@ -949,7 +949,7 @@ Flow: `qa_draft` prompt → AI applies `.cursor/skills/qa-test-drafting/SKILL.md
   - API: `GET /rest/api/content/{pageId}?expand=body.storage`
   - Auth: Atlassian email + API token (Basic Auth)
   - Returns: Page title + body content (stripped HTML to readable text)
-  - Enabled only when `confluence_base_url`, `confluence_email`, and `confluence_api_token` are set in `~/.ado-testforge-mcp/credentials.json`
+  - Enabled only when `confluence_base_url`, `confluence_email`, and `confluence_api_token` are set in `~/.vortex-ado/credentials.json`
 
 **Note:** In most workflows, you don't need to call `confluence_read` directly. The `ado_story` tool auto-fetches Solution Design content from the "Technical Solution" field when a Confluence URL is present.
 
@@ -998,7 +998,7 @@ class ConfluenceClient {
 }
 ```
 
-Enabled only when all three credential fields are present: `confluence_base_url`, `confluence_email`, `confluence_api_token` in `~/.ado-testforge-mcp/credentials.json`.
+Enabled only when all three credential fields are present: `confluence_base_url`, `confluence_email`, `confluence_api_token` in `~/.vortex-ado/credentials.json`.
 
 **Required Atlassian permissions:** The user account needs "Can view" on the Confluence space(s) containing Solution Design pages. API tokens inherit the user's permissions -- no granular scope configuration needed.
 
@@ -1013,7 +1013,7 @@ The parser handles all three formats and returns the numeric page ID.
 
 ---
 
-## Credentials Configuration (`~/.ado-testforge-mcp/credentials.json`)
+## Credentials Configuration (`~/.vortex-ado/credentials.json`)
 
 ```json
 {
@@ -1034,10 +1034,10 @@ The parser handles all three formats and returns the numeric page ID.
 
 ## Setup Status Welcome Flow
 
-The `ado_check` tool now behaves as a lightweight orientation surface instead of a static checklist. It uses a flag file at `~/.ado-testforge-mcp/.ado-testforge-initialized` plus the current package version to decide what to show:
+The `ado_check` tool now behaves as a lightweight orientation surface instead of a static checklist. It uses a flag file at `~/.vortex-ado/.vortex-ado-initialized` plus the current package version to decide what to show:
 
 - **First successful run for a version** -- full welcome message, quick-start CTA, and setup status
-- **Returning user on same version** -- brief header only (`ADO TestForge MCP vX.Y.Z | Status: ✓ Ready`) plus component status
+- **Returning user on same version** -- brief header only (`VortexADO MCP vX.Y.Z | Status: ✓ Ready`) plus component status
 - **User after an update** -- one-time "What's New" summary derived from the latest changelog section, then status
 - **Setup incomplete** -- degraded message with install/setup guide guidance instead of the welcome
 
@@ -1063,10 +1063,10 @@ Add to `.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "ado-testforge": {
+    "vortex-ado": {
       "command": "npx",
       "args": ["tsx", "src/index.ts"],
-      "cwd": "/Users/kavita.badgujar/ADO TestForge MCP",
+      "cwd": "/Users/kavita.badgujar/VortexADO MCP",
       "env": {
         "ADO_PAT": "your-pat",
         "ADO_ORG": "your-org",

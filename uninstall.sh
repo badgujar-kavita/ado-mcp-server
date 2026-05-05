@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# ADO TestForge MCP Server - Uninstaller
+# VortexADO MCP Server - Uninstaller
 # Usage: curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/uninstall.sh | bash
 
 set -e
 
-INSTALL_DIR="$HOME/.ado-testforge-mcp"
-CREDS_DIR="$HOME/.ado-testforge-mcp"
+INSTALL_DIR="$HOME/.vortex-ado"
+CREDS_DIR="$HOME/.vortex-ado"
 MCP_CONFIG="$HOME/.cursor/mcp.json"
 
-echo "🗑️  Uninstalling ADO TestForge MCP Server..."
+echo "🗑️  Uninstalling VortexADO MCP Server..."
 echo ""
 
 # Remove from Cursor config
@@ -18,8 +18,8 @@ if [ -f "$MCP_CONFIG" ]; then
         const fs = require('fs');
         try {
             const config = JSON.parse(fs.readFileSync('$MCP_CONFIG', 'utf-8'));
-            if (config.mcpServers && config.mcpServers['ado-testforge']) {
-                delete config.mcpServers['ado-testforge'];
+            if (config.mcpServers && config.mcpServers['vortex-ado']) {
+                delete config.mcpServers['vortex-ado'];
                 fs.writeFileSync('$MCP_CONFIG', JSON.stringify(config, null, 2));
                 console.log('✅ Removed from Cursor MCP config');
             }

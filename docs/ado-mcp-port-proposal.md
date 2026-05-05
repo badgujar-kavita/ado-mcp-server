@@ -215,7 +215,7 @@ landed on jira-mcp, which adds 6 new AGENTS.md sections to port).
      examples already use user-intent language.
   5. **Forbidden file paths** — **ADAPT** per ado-mcp's layout.
      Swap `testcase-drafts/**` → `tc-drafts/**`. Drop `.jira-mcp/**`;
-     add `~/.ado-testforge-mcp/**` (credentials directory). Keep
+     add `~/.vortex-ado/**` (credentials directory). Keep
      the tool-read-vs-host-IDE-read distinction load-bearing:
      **ado-mcp has `qa_draft_read` and `qa_drafts_list` MCP tools
      that read these files** — the blacklist applies only to

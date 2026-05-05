@@ -21,7 +21,7 @@ async function main() {
   
   // ORIGINAL CODE (commented out for reference):
   // if (!credentials) {
-  //   console.error("No valid credentials found. Run /ado-testforge/install first.");
+  //   console.error("No valid credentials found. Run /vortex-ado/install first.");
   //   process.exit(1);
   // }
 
@@ -42,7 +42,7 @@ async function main() {
       : null;
 
   const server = new McpServer({
-    name: "ado-testforge",
+    name: "vortex-ado",
     version: getCurrentVersion(),
   });
 

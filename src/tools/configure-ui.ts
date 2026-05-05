@@ -6,7 +6,7 @@ import { exec } from "child_process";
 import { platform } from "os";
 import { basicAuthHeader } from "../helpers/basic-auth.ts";
 
-const CREDENTIALS_DIR = join(homedir(), ".ado-testforge-mcp");
+const CREDENTIALS_DIR = join(homedir(), ".vortex-ado");
 const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
 
 interface Credentials {
@@ -190,7 +190,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ADO TestForge MCP - Configure</title>
+  <title>VortexADO MCP - Configure</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1026,7 +1026,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
           </svg>
         </div>
       </div>
-      <h1>ADO TestForge MCP</h1>
+      <h1>VortexADO MCP</h1>
       <p class="subtitle">Configure your credentials <span>securely</span></p>
     </div>
 
@@ -1132,7 +1132,7 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
     </div>
 
     <div class="copyright">
-      &copy; ${currentYear} ADO TestForge MCP by <a href="#">Kavita Badgujar</a>. All rights reserved.
+      &copy; ${currentYear} VortexADO MCP by <a href="#">Kavita Badgujar</a>. All rights reserved.
     </div>
   </div>
 

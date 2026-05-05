@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ADO TestForge MCP Server - One-line installer
+# VortexADO MCP Server - One-line installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
 
 set -e
@@ -8,7 +8,7 @@ set -e
 # ══════════════════════════════════════════════════════════════
 # Configuration
 # ══════════════════════════════════════════════════════════════
-INSTALL_DIR="$HOME/.ado-testforge-mcp"
+INSTALL_DIR="$HOME/.vortex-ado"
 TARBALL_URL="https://github.com/badgujar-kavita/ado-mcp-server/archive/main.tar.gz"
 IS_UPGRADE=false
 CREDS_BACKED_UP=false
@@ -77,9 +77,9 @@ print_divider() {
 # Detect install vs upgrade
 if [ -d "$INSTALL_DIR" ]; then
     IS_UPGRADE=true
-    print_banner "${BOLD}🔄  Upgrading ADO TestForge MCP${NC}"
+    print_banner "${BOLD}🔄  Upgrading VortexADO MCP${NC}"
 else
-    print_banner "${BOLD}🚀  Installing ADO TestForge MCP${NC}"
+    print_banner "${BOLD}🚀  Installing VortexADO MCP${NC}"
 fi
 
 print_section "📋 Pre-flight Checks"
@@ -111,7 +111,7 @@ print_section "📥 Downloading"
 if [ "$IS_UPGRADE" = true ]; then
     if [ -f "$INSTALL_DIR/credentials.json" ]; then
         print_tree_item "Backing up credentials..."
-        cp "$INSTALL_DIR/credentials.json" "/tmp/ado-testforge-creds-backup.json"
+        cp "$INSTALL_DIR/credentials.json" "/tmp/vortex-ado-creds-backup.json"
         CREDS_BACKED_UP=true
     fi
     print_tree_item "Removing old installation..."
@@ -126,8 +126,8 @@ curl -sL "$TARBALL_URL" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
 # Restore credentials if backed up
 if [ "$CREDS_BACKED_UP" = true ]; then
     print_tree_item "Restoring credentials..."
-    cp "/tmp/ado-testforge-creds-backup.json" "$INSTALL_DIR/credentials.json"
-    rm -f "/tmp/ado-testforge-creds-backup.json"
+    cp "/tmp/vortex-ado-creds-backup.json" "$INSTALL_DIR/credentials.json"
+    rm -f "/tmp/vortex-ado-creds-backup.json"
 fi
 
 print_tree_last "$(print_success "Download complete")"
@@ -164,7 +164,7 @@ if [ -f "$MCP_CONFIG" ]; then
         const fs = require('fs');
         const config = JSON.parse(fs.readFileSync('$MCP_CONFIG', 'utf-8'));
         config.mcpServers = config.mcpServers || {};
-        config.mcpServers['ado-testforge'] = {
+        config.mcpServers['vortex-ado'] = {
             command: 'node',
             args: ['$BOOTSTRAP_PATH']
         };
@@ -173,7 +173,7 @@ if [ -f "$MCP_CONFIG" ]; then
 else
     echo '{
   "mcpServers": {
-    "ado-testforge": {
+    "vortex-ado": {
       "command": "node",
       "args": ["'"$BOOTSTRAP_PATH"'"]
     }
@@ -214,11 +214,11 @@ print_divider
 if [ "$IS_UPGRADE" = true ]; then
     echo ""
     echo -e "  ${GREEN}${BOLD}✨ Upgrade Complete!${NC}"
-    echo -e "  ${DIM}ADO TestForge MCP has been updated to the latest version.${NC}"
+    echo -e "  ${DIM}VortexADO MCP has been updated to the latest version.${NC}"
 else
     echo ""
     echo -e "  ${GREEN}${BOLD}✨ Installation Complete!${NC}"
-    echo -e "  ${DIM}ADO TestForge MCP has been installed successfully.${NC}"
+    echo -e "  ${DIM}VortexADO MCP has been installed successfully.${NC}"
 fi
 
 echo ""
@@ -233,7 +233,7 @@ if [ "$CREDS_CREATED" = true ]; then
     echo -e "  ${YELLOW}${BOLD}⚠  Configure Credentials${NC}"
     echo ""
     echo -e "  ${BOLD}Option 1: Use the Configuration UI ${DIM}(Recommended)${NC}"
-    echo -e "  ${DIM}└──${NC} Run ${CYAN}/ado-testforge/configure${NC} in Cursor's AI chat"
+    echo -e "  ${DIM}└──${NC} Run ${CYAN}/vortex-ado/configure${NC} in Cursor's AI chat"
     echo -e "  ${DIM}   Opens a beautiful web UI with connection testing${NC}"
     echo ""
     echo -e "  ${BOLD}Option 2: Edit manually${NC}"

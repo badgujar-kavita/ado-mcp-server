@@ -20,7 +20,7 @@
       ]
     },
     {
-      "source": "/ado-testforge.tar.gz",
+      "source": "/vortex-ado.tar.gz",
       "headers": [
         { "key": "Content-Type", "value": "application/gzip" },
         { "key": "Cache-Control", "value": "public, max-age=60" }

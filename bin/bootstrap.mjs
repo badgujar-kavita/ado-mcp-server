@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * ADO TestForge MCP Bootstrap
+ * VortexADO MCP Bootstrap
  *
  * Two modes based on system state:
  *
  *   (ready)    : Proxy stdio to the full MCP server (dist/index.js or npx tsx src/index.ts).
- *   (NOT ready): Run installer MCP server with /ado-testforge/install command.
+ *   (NOT ready): Run installer MCP server with /vortex-ado/install command.
  *                Checks prerequisites, creates credentials template, registers globally.
  */
 
@@ -21,7 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, "..");
 
-const CREDENTIALS_DIR = join(homedir(), ".ado-testforge-mcp");
+const CREDENTIALS_DIR = join(homedir(), ".vortex-ado");
 const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
 const CURSOR_MCP_CONFIG = join(homedir(), ".cursor", "mcp.json");
 const PACKAGE_JSON = join(PROJECT_ROOT, "package.json");
@@ -43,14 +43,14 @@ function getCurrentVersion() {
 
 function buildSetupIncompleteMessage(details) {
   return [
-    "ADO TestForge MCP — Setup Incomplete",
+    "VortexADO MCP — Setup Incomplete",
     "",
     "Your ADO credentials are missing or invalid, or installation is incomplete. Core ADO tools will not work until this is resolved.",
     "",
     "Details:",
     ...details.map((detail) => `- ${detail}`),
     "",
-    "Run /ado-testforge/install or follow the setup guide: docs/setup-guide.md",
+    "Run /vortex-ado/install or follow the setup guide: docs/setup-guide.md",
   ];
 }
 
@@ -107,7 +107,7 @@ function checkFolderStructure() {
 function addToGlobalMcpConfig() {
   const bootstrapPath = join(PROJECT_ROOT, "bin", "bootstrap.mjs");
   const adoTestforgeServers = {
-    "ado-testforge": {
+    "vortex-ado": {
       command: "node",
       args: [bootstrapPath],
     },
@@ -241,20 +241,20 @@ function runInstallerServer() {
     name: "install",
     description:
       "Check prerequisites (Node.js, folder structure), create credentials template, " +
-      "and register ADO TestForge MCP globally. Run this for first-time setup.",
+      "and register VortexADO MCP globally. Run this for first-time setup.",
     inputSchema: { type: "object", properties: {} },
   };
 
   const checkStatusTool = {
     name: "check_setup_status",
-    description: "Check what is needed to complete ADO TestForge MCP setup",
+    description: "Check what is needed to complete VortexADO MCP setup",
     inputSchema: { type: "object", properties: {} },
   };
 
   const installPrompt = {
     name: "install",
-    title: "Install ADO TestForge MCP",
-    description: "Check prerequisites, create credentials, and register ADO TestForge MCP globally",
+    title: "Install VortexADO MCP",
+    description: "Check prerequisites, create credentials, and register VortexADO MCP globally",
   };
 
   rl.on("line", (line) => {
@@ -274,7 +274,7 @@ function runInstallerServer() {
           tools: { listChanged: false },
           prompts: { listChanged: false },
         },
-        serverInfo: { name: "ado-testforge", version: getCurrentVersion() },
+        serverInfo: { name: "vortex-ado", version: getCurrentVersion() },
       }));
       return;
     }
@@ -400,12 +400,12 @@ function runInstallerServer() {
           try {
             const mcpPath = addToGlobalMcpConfig();
             steps.push("");
-            steps.push(`ADO TestForge MCP registered globally at: ${mcpPath}`);
-            steps.push("The ado-testforge server will now appear in all workspaces.");
+            steps.push(`VortexADO MCP registered globally at: ${mcpPath}`);
+            steps.push("The vortex-ado server will now appear in all workspaces.");
           } catch (err) {
             steps.push("");
             steps.push(`Warning: Could not update global MCP config: ${err.message}`);
-            steps.push("You may need to add ado-testforge manually to ~/.cursor/mcp.json");
+            steps.push("You may need to add vortex-ado manually to ~/.cursor/mcp.json");
           }
         }
 
@@ -442,13 +442,13 @@ function runInstallerServer() {
         return;
       }
       send(makeResponse(id, {
-        description: "Install and set up the ADO TestForge MCP server",
+        description: "Install and set up the VortexADO MCP server",
         messages: [{
           role: "user",
           content: {
             type: "text",
             text: [
-              "I want to install the ADO TestForge MCP server.",
+              "I want to install the VortexADO MCP server.",
               "",
               "Please call the install tool to check prerequisites and complete the setup.",
               "Then guide me through filling in my credentials.",

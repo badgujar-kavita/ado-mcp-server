@@ -1,6 +1,6 @@
-# Cursor Rules — Tenant Extension Bundle for ADO TestForge MCP
+# Cursor Rules — Tenant Extension Bundle for VortexADO MCP
 
-A self-contained folder with **the full guide + ready-to-copy `.mdc` examples** for customizing ADO TestForge behavior per team, without code changes.
+A self-contained folder with **the full guide + ready-to-copy `.mdc` examples** for customizing VortexADO behavior per team, without code changes.
 
 **Share this whole folder with tenants.** Everything they need is here:
 - **[GUIDE.md](./GUIDE.md)** — the full ~540-line guide (what rules are, precedence, TC title convention, gotchas)
@@ -13,8 +13,8 @@ A self-contained folder with **the full guide + ready-to-copy `.mdc` examples** 
 1. Pick the example(s) that match your team's needs from the list below.
 2. Copy the file into **your project's** `.cursor/rules/` directory.
 3. Edit the content — replace `[Team name]`, integration system names, persona labels, and priority criteria with your specifics.
-4. Restart Cursor (or reload the MCP: Settings → MCP → refresh `ado-testforge`).
-5. Run `/ado-testforge/qa-draft` on a known User Story and verify your rule shaped the output.
+4. Restart Cursor (or reload the MCP: Settings → MCP → refresh `vortex-ado`).
+5. Run `/vortex-ado/qa-draft` on a known User Story and verify your rule shaped the output.
 
 ## Copy from terminal
 

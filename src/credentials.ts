@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 
-const CREDENTIALS_DIR = join(homedir(), ".ado-testforge-mcp");
+const CREDENTIALS_DIR = join(homedir(), ".vortex-ado");
 const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
 
 const PLACEHOLDER_VALUES = [

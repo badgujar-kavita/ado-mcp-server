@@ -1,11 +1,11 @@
 #!/bin/bash
-# Version Check Hook for ADO TestForge MCP
+# Version Check Hook for VortexADO MCP
 # Shows update notification when new version is detected
 
 set -e
 
 # Paths
-CREDENTIALS_DIR="$HOME/.ado-testforge-mcp"
+CREDENTIALS_DIR="$HOME/.vortex-ado"
 FLAG_FILE="$CREDENTIALS_DIR/.version-check"
 PACKAGE_JSON="./package.json"
 
@@ -38,8 +38,8 @@ if [[ "$CURRENT_VERSION" != "$LAST_SEEN_VERSION" ]] && [[ "$CURRENT_VERSION" != 
   # Show notification
   cat <<EOF
 {
-  "user_message": "🎉 ADO TestForge MCP Updated to v${CURRENT_VERSION}\n\n📋 What's New:\n• Check the changelog: Run \`/ado-testforge/check_status\` or see docs/changelog.md\n• Full documentation: docs/README.md\n\n💡 Tip: All your existing drafts and configurations continue to work.",
-  "agent_message": "ADO TestForge MCP was updated from v${LAST_SEEN_VERSION} to v${CURRENT_VERSION}. The user has been notified."
+  "user_message": "🎉 VortexADO MCP Updated to v${CURRENT_VERSION}\n\n📋 What's New:\n• Check the changelog: Run \`/vortex-ado/check_status\` or see docs/changelog.md\n• Full documentation: docs/README.md\n\n💡 Tip: All your existing drafts and configurations continue to work.",
+  "agent_message": "VortexADO MCP was updated from v${LAST_SEEN_VERSION} to v${CURRENT_VERSION}. The user has been notified."
 }
 EOF
 else

@@ -1,6 +1,6 @@
 // Vercel Edge Middleware - Redirect browsers, serve CLI tools
 export const config = {
-  matcher: ['/install', '/uninstall', '/ado-testforge.tar.gz'],
+  matcher: ['/install', '/uninstall', '/vortex-ado.tar.gz'],
 };
 
 export default function middleware(request) {

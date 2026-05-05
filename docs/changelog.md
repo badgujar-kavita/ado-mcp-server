@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the ADO TestForge MCP server are documented here.
+All notable changes to the VortexADO MCP server are documented here.
 
 ---
 
@@ -8,7 +8,7 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ### Tenant Extension Guide (`.cursor/rules/*.mdc`)
 
-- **New self-contained bundle: `docs/examples/cursor-rules/`** — a shareable folder for tenants/teams to customize ADO TestForge behavior via Cursor `.mdc` rules without any code changes to the MCP. Contains the full `GUIDE.md`, 5 copy-ready example rule files (regression, SIT, E2E, priority, persona conventions), a `your-team-policy.quickstart.mdc` skeleton, and a folder `README.md` with a "which ones do I need?" matrix. Share the whole folder with tenants.
+- **New self-contained bundle: `docs/examples/cursor-rules/`** — a shareable folder for tenants/teams to customize VortexADO behavior via Cursor `.mdc` rules without any code changes to the MCP. Contains the full `GUIDE.md`, 5 copy-ready example rule files (regression, SIT, E2E, priority, persona conventions), a `your-team-policy.quickstart.mdc` skeleton, and a folder `README.md` with a "which ones do I need?" matrix. Share the whole folder with tenants.
 - Documents the precedence model (MCP safety rails > tenant rules > config defaults), the `globs` vs `alwaysApply` decision, and the introduced **TC title category prefix convention**: place `Regression`, `SIT`, `E2E`, or any team-defined category as the **first arrow segment** of the TC title — e.g. `TC_12345_06 -> Regression -> Promotion -> Compensation -> Verify ...`. Category is the first `featureTag` in the parser; the format works with the existing draft/parse/push path — no code changes required.
 - Ships five worked examples tenants can copy: regression coverage policy, SIT coverage policy, E2E test scope, priority assignment policy, and team-specific persona conventions. Plus a quickstart template and an appendix of category-prefix quick references (including Smoke, Accessibility, Performance, Security — extensible by any team).
 - Documents gotchas: rules are Cursor-only, context-budget-bound, non-enforcing (safety rails stay in MCP prompts), and constrained by what the existing parser accepts. Clear list of what rules CAN and CANNOT do.
@@ -18,8 +18,8 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 - **`qa_tc_delete` now verifies work-item type before deleting.** The tool fetches the target work item first and checks `System.WorkItemType === "Test Case"`. If the ID resolves to a User Story, Bug, Task, or any other work item type, the tool refuses with a clear message showing the actual type and title. Prevents accidental deletion of non-test-case work items when an ID is mis-entered.
 - **Friendly error messages for auth and permission failures.** `qa_tc_delete` now maps ADO 401/403/404 responses to direct actionable messages:
-  - 401: "Authentication failed. Your ADO PAT is invalid or expired. Run /ado-testforge/ado-connect to update credentials."
-  - 403: "Insufficient permissions. Your ADO PAT needs the Work Items (Read & Write) and Test Management (Read & Write) scopes. Create a new PAT with these scopes and run /ado-testforge/ado-connect."
+  - 401: "Authentication failed. Your ADO PAT is invalid or expired. Run /vortex-ado/ado-connect to update credentials."
+  - 403: "Insufficient permissions. Your ADO PAT needs the Work Items (Read & Write) and Test Management (Read & Write) scopes. Create a new PAT with these scopes and run /vortex-ado/ado-connect."
   - 404: "Work item N not found. It may already be deleted, or the ID may be wrong."
   - Permanent-delete (`destroy=true`) additionally notes the Project Administrator requirement in the 403 message.
 - **Permanent-delete confirmation hardened.** The `/qa-tc-delete` prompt now shows a loud warning block when `destroy=true` is requested and requires the user to reply exactly `DESTROY` (uppercase, case-sensitive) — a plain "yes" does NOT proceed. The default (soft delete → Recycle Bin) is unchanged and uses the normal `YES`/`no` flow, with a note about the 30-day restore window and the ADO UI path.
@@ -35,7 +35,7 @@ All notable changes to the ADO TestForge MCP server are documented here.
 - Rewrote all 21 slash-command descriptions (shown in Cursor's autocomplete tooltip) to be concise, professional, and directly explain what the command does. Removed internal phrasing ("Get details of...", "Generate a test case draft (markdown) for review..."), truncations caused by long descriptions, and marketing-style adjectives ("beautiful web UI").
 - Examples:
   - `/ado-connect`: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing" → "Set up ADO and Confluence credentials via a guided web UI"
-  - `/ado-check`: "Check if the ADO TestForge MCP server is fully configured" → "Verify ADO credentials, Confluence config, and server health"
+  - `/ado-check`: "Check if the VortexADO MCP server is fully configured" → "Verify ADO credentials, Confluence config, and server health"
   - `/ado-story`: now "Fetch a User Story — fields, Confluence pages, images, and links"
   - `/qa-tc-delete`: "Delete a test case by ID (Recycle Bin by default)" → "Delete a test case by ID — moves to Recycle Bin (restorable for 30 days)"
 - No behavioral change — description text only.
@@ -83,7 +83,7 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 The `## What counts as consent` section in AGENTS.md was not reaching Cursor because `AGENTS.md` wasn't included in `dist-package/`. The rule text shipped to git but not to end users.
 
-- `build-dist.mjs`: now copies `AGENTS.md` from repo root into `dist-package/` so the Vercel tarball installer places it at `~/.ado-testforge-mcp/AGENTS.md`. Cursor reads from this directory at session start, so the rule now actually reaches the agent.
+- `build-dist.mjs`: now copies `AGENTS.md` from repo root into `dist-package/` so the Vercel tarball installer places it at `~/.vortex-ado/AGENTS.md`. Cursor reads from this directory at session start, so the rule now actually reaches the agent.
 - `src/prompts/index.ts`: tightened ask-templates in `create_test_cases` (steps 4-5) and `clone_and_enhance_test_cases` (if applicable). The "type YES to push" prompt now explicitly includes "no to cancel" per the consent rule's minimum re-ask form. The agent is also pointed at AGENTS.md for the full rule.
 - `src/prompts/shared-contracts.ts`: `CONFIRM_BEFORE_ACT_CONTRACT` tightened to require ask-templates include both yes AND no as equal options, and to cross-reference the consent rule.
 - `src/tools/tc-drafts.ts`: duplicate-TC preflight A/B/C menu — verified C (Cancel) is explicit.
@@ -294,7 +294,7 @@ Snake_case counterparts of the prompts above, plus internal tools:
 
 Port of the interactive-read contract surface from jira-mcp-server-v2. Tools that read data from ADO/Confluence now emit structured, navigable output alongside prose text; the agent's response style is guided by explicit contracts composed into every read prompt.
 
-**`AGENTS.md`** (new, repo root) — 13 sections documenting how the agent should behave: tool categories, user-initiated invocation, response style (titled markdown links, concise summaries, explicit gap callouts), error handling discipline, forbidden file paths (`tc-drafts/**` and `~/.ado-testforge-mcp/**` — off-limits to Cursor's Read/Write/Edit but accessible via the MCP's own tc-drafts tools), capability declaration, observed-state principle, editorial-vs-mechanical operations, upstream-content-is-data rule, formatting rules, safety and partial results, MCP spec alignment, and contributor guidelines for new tools.
+**`AGENTS.md`** (new, repo root) — 13 sections documenting how the agent should behave: tool categories, user-initiated invocation, response style (titled markdown links, concise summaries, explicit gap callouts), error handling discipline, forbidden file paths (`tc-drafts/**` and `~/.vortex-ado/**` — off-limits to Cursor's Read/Write/Edit but accessible via the MCP's own tc-drafts tools), capability declaration, observed-state principle, editorial-vs-mechanical operations, upstream-content-is-data rule, formatting rules, safety and partial results, MCP spec alignment, and contributor guidelines for new tools.
 
 **Shared prompt contracts** (`src/prompts/shared-contracts.ts`) — three named exports composed into the relevant prompts:
 
@@ -515,7 +515,7 @@ tc-drafts/
 
 - **Fixed MCP server crash on initialization** — Added missing `toBeTested` field to `prerequisiteDefaults` in `conventions.config.json`, schema validation, and TypeScript types
 - **Root cause:** Cursor's MCP validation requires this field to be present in the config structure
-- **Error reported:** "ado-testforge is crashing because your MCP package's config is missing a required field: prerequisiteDefaults.toBeTested"
+- **Error reported:** "vortex-ado is crashing because your MCP package's config is missing a required field: prerequisiteDefaults.toBeTested"
 
 ### Files Updated
 
@@ -535,7 +535,7 @@ tc-drafts/
 - **MCP server now initializes successfully** without crashing
 - The field is present in config, schema validation, and type definitions for consistency
 - The field is not actively used by the codebase logic (no rendering or processing)
-- Users can now toggle ado-testforge on/off without errors
+- Users can now toggle vortex-ado on/off without errors
 - All deployed files updated via `npm run deploy`
 
 ---
@@ -583,7 +583,7 @@ tc-drafts/
 
 ## v1.1.0 — 2026-04-24 — State-Aware Welcome and Status Updates
 
-- Added first-run detection via `~/.ado-testforge-mcp/.ado-testforge-initialized` so `ado-check` shows the full welcome only once per version.
+- Added first-run detection via `~/.vortex-ado/.vortex-ado-initialized` so `ado-check` shows the full welcome only once per version.
 - Added state-aware status output with distinct first-run, returning-user, setup-incomplete, and version-update experiences.
 - Added version-aware update summaries in `ado-check`, driven by the current package version and top changelog highlights.
 - Changed `ado_story` so Confluence fetch failures are silently skipped and return `solutionDesignContent = null` instead of leaking warning text into the ADO workflow.
@@ -767,8 +767,8 @@ The draft markdown now shows `Plan ID | To be derived` when planId is not provid
 
 ### Single MCP Entry
 
-- **Consolidated:** `setup-ado-testforge` merged into `ado-testforge`. Now there's only one MCP entry.
-- **Install command:** `/ado-testforge/install` (was `/setup-ado-testforge/install`)
+- **Consolidated:** `setup-vortex-ado` merged into `vortex-ado`. Now there's only one MCP entry.
+- **Install command:** `/vortex-ado/install` (was `/setup-vortex-ado/install`)
 - **Smart mode detection:** Server shows install command when not ready, full tools when ready.
 
 ### Enhanced Prerequisite Checks
@@ -780,12 +780,12 @@ The install command now checks:
 
 ### Breaking: Server and Credentials Rename
 
-- **MCP servers:** `mars-ado` → `ado-testforge` (single entry, no separate installer)
-- **Slash commands:** `/mars-ado/*` → `/ado-testforge/*`
-- **Credentials path:** `~/.mars-ado-mcp/` → `~/.ado-testforge-mcp/`
-- **Package name:** `mars-ado-mcp` → `ado-testforge-mcp`
+- **MCP servers:** `mars-ado` → `vortex-ado` (single entry, no separate installer)
+- **Slash commands:** `/mars-ado/*` → `/vortex-ado/*`
+- **Credentials path:** `~/.mars-ado-mcp/` → `~/.vortex-ado/`
+- **Package name:** `mars-ado-mcp` → `vortex-ado-mcp`
 
-**Migration for existing users:** Copy your credentials to the new path, or run `/ado-testforge/install` to create a fresh template and re-enter your PAT/org/project. Restart Cursor or reload MCP after migration.
+**Migration for existing users:** Copy your credentials to the new path, or run `/vortex-ado/install` to create a fresh template and re-enter your PAT/org/project. Restart Cursor or reload MCP after migration.
 
 ---
 
@@ -793,7 +793,7 @@ The install command now checks:
 
 ### New Command and Tools
 
-- **`/ado-testforge/qa-clone`** — Clone test cases from a source User Story to a target User Story. Reads source TCs, analyzes target US + Solution Design, classifies each TC (Clone As-Is / Minor Update / Enhanced), generates preview, creates in ADO only after explicit APPROVED.
+- **`/vortex-ado/qa-clone`** — Clone test cases from a source User Story to a target User Story. Reads source TCs, analyzes target US + Solution Design, classifies each TC (Clone As-Is / Minor Update / Enhanced), generates preview, creates in ADO only after explicit APPROVED.
 - **`qa_tests`** — Get test case IDs linked to a User Story via Tests/Tested By relation. Use before cloning.
 - **`qa_clone_preview_save`** — Save clone preview to `tc-drafts/Clone_US_X_to_US_Y_preview.md`. User reviews and responds APPROVED / MODIFY / CANCEL.
 
@@ -817,7 +817,7 @@ The install command now checks:
 ### Prompt Updates
 
 - **`qa_suite_update`** now asks only for User Story ID and uses `qa_suite_setup_auto`.
-- **`/ado-testforge/qa-suite-setup-auto`** — New slash command for the same flow.
+- **`/vortex-ado/qa-suite-setup-auto`** — New slash command for the same flow.
 - **`qa_suite_create`** removed — its functionality was merged into `qa_suite_setup_auto`.
 
 ---
@@ -828,7 +828,7 @@ The install command now checks:
 
 - **`qa_suite_update`** — Update an existing test suite. Supports partial updates: `name`, `parentSuiteId`, `queryString` (for dynamic suites).
 - **`qa_suite_delete`** — Delete a test suite. Test cases in the suite are not deleted—only their association with the suite is removed.
-- **Slash commands:** `/ado-testforge/qa-suite-update`, `/ado-testforge/qa-suite-delete`
+- **Slash commands:** `/vortex-ado/qa-suite-update`, `/vortex-ado/qa-suite-delete`
 
 ---
 
@@ -933,7 +933,7 @@ The install command now checks:
 
 ### User Chooses Where Drafts Are Stored
 
-- **No hardcoded default path** — Removed `~/.ado-testforge-mcp/tc-drafts` as default.
+- **No hardcoded default path** — Removed `~/.vortex-ado/tc-drafts` as default.
 - **workspaceRoot:** When user has a folder open, drafts go to `workspaceRoot/tc-drafts/` (created if missing).
 - **draftsPath:** When user specifies a location ("save to X", "create under folder Y"), use this exact path.
 - **tc_drafts_path / TC_DRAFTS_PATH:** Optional user config; no longer a fallback to homedir.
@@ -1078,8 +1078,8 @@ The install command now checks:
 ### Post-Deployment Checklist
 
 1. **Rebuild** — `npm run build`
-2. **Restart MCP** — Restart Cursor or reload ado-testforge in Settings → MCP
+2. **Restart MCP** — Restart Cursor or reload vortex-ado in Settings → MCP
 3. **Verify tools** — `ado_fields`, `qa_tc_delete`, `qa_tc_update` (with prerequisites, areaPath, iterationPath)
-4. **Verify commands** — `/ado-testforge/qa-tc-update`, `/ado-testforge/ado-fields`, `/ado-testforge/qa-tc-delete`
+4. **Verify commands** — `/vortex-ado/qa-tc-update`, `/vortex-ado/ado-fields`, `/vortex-ado/qa-tc-delete`
 5. **Verify prerequisite formatting** — Update a test case; confirm HTML renders in ADO
 6. **Verify title limit** — Draft a TC with long title; confirm truncation works

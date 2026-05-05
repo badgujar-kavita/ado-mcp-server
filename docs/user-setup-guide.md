@@ -1,6 +1,6 @@
-# ADO TestForge MCP — User Setup Guide
+# VortexADO MCP — User Setup Guide
 
-**For organization\-wide use.** This guide helps you set up ADO TestForge MCP in Cursor IDE on your own—no in\-person guidance required. You can complete setup in about 5–10 minutes.
+**For organization\-wide use.** This guide helps you set up VortexADO MCP in Cursor IDE on your own—no in\-person guidance required. You can complete setup in about 5–10 minutes.
 
 ---
 
@@ -10,7 +10,7 @@
 |------|---------|
 | **What it does** | Lets you draft, review, and push test cases to Azure DevOps directly from Cursor's AI chat |
 | **Time to set up** | ~5–10 minutes |
-| **Where credentials go** | Your computer only (`~/.ado-testforge-mcp/`) — never shared or synced |
+| **Where credentials go** | Your computer only (`~/.vortex-ado/`) — never shared or synced |
 | **Works in** | Any project folder after setup (globally registered) |
 
 ---
@@ -32,7 +32,7 @@ Check that you have:
    curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
    ```
 2. **Create an ADO Personal Access Token (PAT)** — See [Step 1](#step-1-create-your-ado-personal-access-token) below.
-3. **Configure credentials** — Edit `~/.ado-testforge-mcp/credentials.json` with your PAT, org, and project.
+3. **Configure credentials** — Edit `~/.vortex-ado/credentials.json` with your PAT, org, and project.
 4. **Restart Cursor** — Close and reopen Cursor IDE (or go to **Settings → MCP** → refresh **ado\-testforge**).
 
 ---
@@ -52,7 +52,7 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
 2. Click **+ New Token**.
 
 3. Configure the token:
-   - **Name**: e.g., `ADO TestForge MCP` (any name you prefer)
+   - **Name**: e.g., `VortexADO MCP` (any name you prefer)
    - **Expiration**: 90 days recommended
    - **Scopes**: Select **Custom defined**, then enable:
      - **Work Items** — Read & Write
@@ -71,7 +71,7 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
 After restarting Cursor, run this in the AI chat:
 
 ```
-/ado-testforge/ado-connect
+/vortex-ado/ado-connect
 ```
 
 This opens a web interface where you can enter credentials and **test connections before saving**.
@@ -82,12 +82,12 @@ This opens a web interface where you can enter credentials and **test connection
 
    **Mac:**
    ```bash
-   open ~/.ado-testforge-mcp/credentials.json
+   open ~/.vortex-ado/credentials.json
    ```
 
    **Windows (PowerShell):**
    ```powershell
-   notepad "$env:USERPROFILE\.ado-testforge-mcp\credentials.json"
+   notepad "$env:USERPROFILE\.vortex-ado\credentials.json"
    ```
 
 2. Replace the placeholder values:
@@ -111,7 +111,7 @@ This opens a web interface where you can enter credentials and **test connection
 ### Step 3: Restart Cursor
 
 1. Go to **Cursor Settings → MCP**.
-2. Find **ado-testforge** in the list.
+2. Find **vortex-ado** in the list.
 3. Click the **refresh/restart** button next to it.
 4. Wait for the green status indicator.
 
@@ -119,10 +119,10 @@ This opens a web interface where you can enter credentials and **test connection
 
 ### Step 4: Verify Setup
 
-In Cursor's AI chat, type `/ado-testforge/ado-check` and run it.
+In Cursor's AI chat, type `/vortex-ado/ado-check` and run it.
 
 - On the **first successful run** for the current version, you will see a full welcome message plus setup status.
-- On **later runs**, you will see a brief `ADO TestForge MCP v1.1.0 | Status: ✓ Ready` header plus component status.
+- On **later runs**, you will see a brief `VortexADO MCP v1.1.0 | Status: ✓ Ready` header plus component status.
 - After a future deploy, `ado-check` will show a one-time **What's New** summary.
 
 If you see **READY**, setup is complete.
@@ -131,7 +131,7 @@ If you see **READY**, setup is complete.
 
 ## Advanced Configuration (Optional)
 
-The installer also creates `~/.ado-testforge-mcp/conventions.config.json` with default settings that control test-case naming, prerequisites, Solution Design usage, and (newer) how much work-item context `ado_story` returns to the AI. Most teams don't need to touch it.
+The installer also creates `~/.vortex-ado/conventions.config.json` with default settings that control test-case naming, prerequisites, Solution Design usage, and (newer) how much work-item context `ado_story` returns to the AI. Most teams don't need to touch it.
 
 If you do want to customize (e.g. enable image vision so the AI can see screenshots in ADO rich-text fields, or register extra custom fields as primary context), see [`setup-guide.md` → Step 2c](setup-guide.md#step-2c-tune-context-richness-optional) for the full options.
 
@@ -146,7 +146,7 @@ If you do want to customize (e.g. enable image vision so the AI can see screensh
 If your User Stories link to Solution Design documents in Confluence, you can configure the MCP to fetch that content automatically. This gives the AI richer context when drafting test cases.
 
 1. Create an Atlassian API token at [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens).
-2. Add these fields to `~/.ado-testforge-mcp/credentials.json`:
+2. Add these fields to `~/.vortex-ado/credentials.json`:
 
    | Field | What to Enter |
    |-------|---------------|
@@ -154,7 +154,7 @@ If your User Stories link to Solution Design documents in Confluence, you can co
    | `confluence_email` | Your Atlassian account email |
    | `confluence_api_token` | The API token you created |
 
-3. Restart the MCP server (Settings → MCP → refresh ado-testforge).
+3. Restart the MCP server (Settings → MCP → refresh vortex-ado).
 
 If Confluence is not configured, the MCP works normally—Solution Design content will simply be unavailable.
 
@@ -162,16 +162,16 @@ If Confluence is not configured, the MCP works normally—Solution Design conten
 
 ## What You Can Do After Setup
 
-Type `/ado-testforge` in the AI chat to see all commands. Common ones:
+Type `/vortex-ado` in the AI chat to see all commands. Common ones:
 
 | Command | Purpose |
 |---------|---------|
-| `/ado-testforge/ado-check` | Verify ADO credentials, Confluence config, and server health |
-| `/ado-testforge/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
-| `/ado-testforge/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
-| `/ado-testforge/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
-| `/ado-testforge/ado-plans` | List all test plans in the ADO project |
-| `/ado-testforge/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `/vortex-ado/ado-check` | Verify ADO credentials, Confluence config, and server health |
+| `/vortex-ado/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
+| `/vortex-ado/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
+| `/vortex-ado/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/vortex-ado/ado-plans` | List all test plans in the ADO project |
+| `/vortex-ado/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
 
 You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or *"Draft test cases for user story 12345"*.
 
@@ -191,7 +191,7 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ---
 
-### ADO TestForge doesn't appear in Cursor
+### VortexADO doesn't appear in Cursor
 
 **Fix:**
 
@@ -205,9 +205,9 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 **Fix:**
 
-1. Open `~/.ado-testforge-mcp/credentials.json`.
+1. Open `~/.vortex-ado/credentials.json`.
 2. Verify you replaced all placeholder values—`ado_pat`, `ado_org`, and `ado_project` must not be empty.
-3. Run `/ado-testforge/ado-check` to see which field is missing.
+3. Run `/vortex-ado/ado-check` to see which field is missing.
 
 ---
 
@@ -232,7 +232,7 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ## Security & Privacy
 
-* **Credentials are local.** They are stored at `~/.ado-testforge-mcp/credentials.json` on your machine—never shared or synced.
+* **Credentials are local.** They are stored at `~/.vortex-ado/credentials.json` on your machine—never shared or synced.
 * **Each user has their own.** Everyone creates their own PAT and configures their own credentials.
 * **Never share your PAT.** Don't paste it in chat, email, or shared documents.
 * **Re\-installing preserves credentials.** Your existing credentials are not overwritten when you update.
@@ -241,7 +241,7 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ## Need Help?
 
-* **Setup issues:** Re\-run the installation command and then `/ado-testforge/ado-check` to diagnose.
+* **Setup issues:** Re\-run the installation command and then `/vortex-ado/ado-check` to diagnose.
 * **Detailed technical guide:** See the full [Setup Guide](setup-guide.md).
 * **Team support:** Reach out to your QA lead or project administrator.
 

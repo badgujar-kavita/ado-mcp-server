@@ -29,7 +29,7 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "Check if the ADO TestForge MCP server is fully configured using the ado_check tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
+          "Check if the VortexADO MCP server is fully configured using the ado_check tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
           "",
           DIAGNOSTIC_CONTRACT,
         ].join("\n"),
@@ -279,7 +279,7 @@ export function registerAllPrompts(server: McpServer) {
           "   c. Generate qa_cheat_sheet content — CRITICAL: Keep scannable (40-60 lines max). Use Decision Logic TABLE (Use Case | Config/Fields | Conditions | Outcome) instead of separate positive/negative sections. Include Quick Maps for field/value lookups. Max 5 setup items. Single debug order (6 steps max). Favor tables over prose. Call qa_draft_doc_save with docType: 'qa_cheat_sheet'.",
           "   d. Regression tests: when explicitly requested, generate per the SKILL §Regression Test Case Preparation and call qa_draft_doc_save with docType: 'regression_tests'.",
           "9. After creating all files, present a concise summary with file links prominently displayed: test cases, solution summary, and QA cheat sheet. Include: version, test case count, and key highlights (coverage checklist, process flow type [Mermaid/Text], TC breakdown by category).",
-          "10. Remind the user: 'Plan ID will be auto-derived from the User Story when you push. Provide feedback for revisions, or run /ado-testforge/qa-publish when ready to push to ADO.'",
+          "10. Remind the user: 'Plan ID will be auto-derived from the User Story when you push. Provide feedback for revisions, or run /vortex-ado/qa-publish when ready to push to ADO.'",
           "11. On feedback, revise and call qa_draft_save again (increment version).",
           "12. NEVER call qa_publish_push from this prompt — that is only via qa-publish.",
           "",
@@ -443,7 +443,7 @@ export function registerAllPrompts(server: McpServer) {
           "",
           "5. Report results per ID:",
           "   - If the tool returns 'Refused to delete' (wrong work-item type), surface that error to the user immediately — do NOT continue with the remaining IDs silently. Ask whether to skip that ID and continue with the rest, or stop.",
-          "   - If the tool returns an auth/permission error (invalid PAT, missing scope), surface the error verbatim — it includes the actionable fix (e.g. 'run /ado-testforge/ado-connect to update credentials' or 'add Test Management (Read & Write) scope to your PAT'). Stop processing further IDs.",
+          "   - If the tool returns an auth/permission error (invalid PAT, missing scope), surface the error verbatim — it includes the actionable fix (e.g. 'run /vortex-ado/ado-connect to update credentials' or 'add Test Management (Read & Write) scope to your PAT'). Stop processing further IDs.",
           "   - On success, use a compact table for bulk: `| ID | Status | Notes |`.",
           "",
           CONFIRM_BEFORE_ACT_CONTRACT,

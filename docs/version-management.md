@@ -7,7 +7,7 @@
 
 ## Overview
 
-ADO TestForge MCP follows **Semantic Versioning (SemVer)** with the format `MAJOR.MINOR.PATCH`.
+VortexADO MCP follows **Semantic Versioning (SemVer)** with the format `MAJOR.MINOR.PATCH`.
 
 ---
 
@@ -25,7 +25,7 @@ Increment when making **breaking changes** that require user action or affect ex
 
 **Examples:**
 - `2.0.0` — Remove TO BE TESTED FOR section (breaking: users with old drafts)
-- `3.0.0` — Rename all `/ado-testforge/*` commands to `/testforge/*`
+- `3.0.0` — Rename all `/vortex-ado/*` commands to `/testforge/*`
 
 **User Impact:** May require users to update their workflows, documentation, or existing drafts.
 
@@ -95,7 +95,7 @@ Increment when making **bug fixes** or **documentation updates** that don't add 
 3. **Ensure runtime version stays in sync:**
    ```typescript
    const server = new McpServer({
-     name: "ado-testforge",
+     name: "vortex-ado",
      version: getCurrentVersion(),
    });
    ```
@@ -166,7 +166,7 @@ Use **version numbers + dates** in changelog headers:
 ## Current State
 
 - Runtime version metadata is sourced from `package.json`, so server metadata and `ado_check` stay aligned.
-- Version-aware onboarding uses `~/.ado-testforge-mcp/.ado-testforge-initialized` to track first run and last seen version.
+- Version-aware onboarding uses `~/.vortex-ado/.vortex-ado-initialized` to track first run and last seen version.
 - `docs/changelog.md` now uses versioned headers for current releases so update summaries can reuse the latest section.
 - Release tags are still created through the normal `npm version` workflow when used for a release.
 

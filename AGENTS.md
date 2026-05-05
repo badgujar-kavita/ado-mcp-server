@@ -1,4 +1,4 @@
-# Agent rules — ado-testforge-mcp
+# Agent rules — vortex-ado-mcp
 
 Repo-wide rules that apply to every MCP tool this server exposes.
 Per-tool overrides live in `src/prompts/index.ts`; this file covers
@@ -246,14 +246,14 @@ built-in Read / Write / Edit tools must not touch them unless the
 user explicitly asked in their most recent message:
 
 - `tc-drafts/**`
-- `~/.ado-testforge-mcp/**` (credentials + configuration directory,
+- `~/.vortex-ado/**` (credentials + configuration directory,
   managed via `/configure`, `/ado_connect_save`, and the MCP
   internals)
 - `confluence-snapshots/**` (if present in the workspace)
 
 **Critical distinction: this blacklist applies only to the host
 IDE's built-in `Read` / `Write` / `Edit` tools — NEVER to the
-MCP's own tools.** ado-testforge-mcp ships `qa_draft_read`,
+MCP's own tools.** vortex-ado-mcp ships `qa_draft_read`,
 `qa_drafts_list`, `qa_draft_save`, `qa_clone_preview_save`,
 `qa_draft_doc_save`, and `qa_publish_push` precisely so
 that the agent can read and write these paths through the
@@ -451,7 +451,7 @@ This server targets a recent MCP spec (`2025-06-18` or later) via
 3. Add prompt-composition tests alongside the tool. See
    `src/prompts/contracts.test.ts` for the pattern.
 4. If the tool reads or writes `tc-drafts/**` or
-   `~/.ado-testforge-mcp/**`, it is an MCP-internal path operator
+   `~/.vortex-ado/**`, it is an MCP-internal path operator
    and the blacklist in "Forbidden file paths" does NOT apply to
    it. Make this explicit in the tool description so the agent
    doesn't second-guess it.

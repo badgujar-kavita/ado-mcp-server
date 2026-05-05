@@ -222,13 +222,13 @@ export function registerTestCaseTools(
         if (err instanceof AdoClientError) {
           if (err.statusCode === 401) {
             return {
-              content: [{ type: "text" as const, text: `Cannot delete work item ${workItemId}: **Authentication failed.** Your ADO PAT is invalid or expired. Run /ado-testforge/ado-connect to update credentials.` }],
+              content: [{ type: "text" as const, text: `Cannot delete work item ${workItemId}: **Authentication failed.** Your ADO PAT is invalid or expired. Run /vortex-ado/ado-connect to update credentials.` }],
               isError: true,
             };
           }
           if (err.statusCode === 403) {
             return {
-              content: [{ type: "text" as const, text: `Cannot delete work item ${workItemId}: **Insufficient permissions.** Your ADO PAT needs the **Work Items (Read & Write)** scope (and **Test Management (Read & Write)** for test case mutations). Create a new PAT with these scopes and run /ado-testforge/ado-connect to update credentials.` }],
+              content: [{ type: "text" as const, text: `Cannot delete work item ${workItemId}: **Insufficient permissions.** Your ADO PAT needs the **Work Items (Read & Write)** scope (and **Test Management (Read & Write)** for test case mutations). Create a new PAT with these scopes and run /vortex-ado/ado-connect to update credentials.` }],
               isError: true,
             };
           }
@@ -271,7 +271,7 @@ export function registerTestCaseTools(
         if (err instanceof AdoClientError) {
           if (err.statusCode === 403) {
             return {
-              content: [{ type: "text" as const, text: `Cannot delete test case ${workItemId}: **Insufficient permissions.** Your ADO PAT needs the **Work Items (Read & Write)** and **Test Management (Read & Write)** scopes.${destroy ? " Permanent-delete (destroy=true) also requires Project Administrator permission in ADO." : ""} Create a new PAT with these scopes and run /ado-testforge/ado-connect.` }],
+              content: [{ type: "text" as const, text: `Cannot delete test case ${workItemId}: **Insufficient permissions.** Your ADO PAT needs the **Work Items (Read & Write)** and **Test Management (Read & Write)** scopes.${destroy ? " Permanent-delete (destroy=true) also requires Project Administrator permission in ADO." : ""} Create a new PAT with these scopes and run /vortex-ado/ado-connect.` }],
               isError: true,
             };
           }

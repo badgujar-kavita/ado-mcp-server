@@ -24,12 +24,12 @@ The MCP server reports its version in metadata (visible in Cursor's MCP settings
 ```typescript
 // src/index.ts
 const server = new McpServer({
-  name: "ado-testforge",
+  name: "vortex-ado",
   version: getCurrentVersion(),  // Visible in Cursor Settings → MCP
 });
 ```
 
-**User Action:** Settings → MCP → Hover over "ado-testforge" server
+**User Action:** Settings → MCP → Hover over "vortex-ado" server
 **Limitation:** Users rarely check this; not proactive
 
 ---
@@ -41,7 +41,7 @@ const server = new McpServer({
 When users run `ado_check` or when credentials are verified:
 
 ```
-ADO TestForge MCP v1.1.0 | Status: ✓ Ready
+VortexADO MCP v1.1.0 | Status: ✓ Ready
 
 ADO PAT: Configured
 ADO Org: <org>
@@ -56,7 +56,7 @@ TC Drafts: <path>
 - Returning users see brief status only
 - After version update, shows "What's New" summary
 
-**User Action:** Run `/ado-testforge/ado-check` anytime
+**User Action:** Run `/vortex-ado/ado-check` anytime
 **Benefit:** User-initiated, non-intrusive
 
 ---
@@ -111,13 +111,13 @@ Create a **`sessionStart` hook** that:
 
 ```bash
 #!/bin/bash
-# Version Check Hook for ADO TestForge MCP
+# Version Check Hook for VortexADO MCP
 # Shows update notification when new version is detected
 
 set -e
 
 # Paths
-CREDENTIALS_DIR="$HOME/.ado-testforge-mcp"
+CREDENTIALS_DIR="$HOME/.vortex-ado"
 FLAG_FILE="$CREDENTIALS_DIR/.version-check"
 PACKAGE_JSON="./package.json"
 
@@ -150,14 +150,14 @@ if [[ "$CURRENT_VERSION" != "$LAST_SEEN_VERSION" ]] && [[ "$CURRENT_VERSION" != 
   # Show notification
   cat <<EOF
 {
-  "user_message": "🎉 ADO TestForge MCP Updated to v${CURRENT_VERSION}
+  "user_message": "🎉 VortexADO MCP Updated to v${CURRENT_VERSION}
 
 📋 What's New:
-• Check the changelog: Run \`/ado-testforge/ado-check\` or see docs/changelog.md
+• Check the changelog: Run \`/vortex-ado/ado-check\` or see docs/changelog.md
 • Full documentation: docs/README.md
 
 💡 Tip: All your existing drafts and configurations continue to work.",
-  "agent_message": "ADO TestForge MCP was updated from v${LAST_SEEN_VERSION} to v${CURRENT_VERSION}. The user has been notified."
+  "agent_message": "VortexADO MCP was updated from v${LAST_SEEN_VERSION} to v${CURRENT_VERSION}. The user has been notified."
 }
 EOF
 else
@@ -181,10 +181,10 @@ chmod +x .cursor/hooks/version-check.sh
 3. Next time they start a Cursor session, they see:
 
 ```
-🎉 ADO TestForge MCP Updated to v1.1.0
+🎉 VortexADO MCP Updated to v1.1.0
 
 📋 What's New:
-• Check the changelog: Run `/ado-testforge/ado-check` or see docs/changelog.md
+• Check the changelog: Run `/vortex-ado/ado-check` or see docs/changelog.md
 • Full documentation: docs/README.md
 
 💡 Tip: All your existing drafts and configurations continue to work.
@@ -205,7 +205,7 @@ If you want notifications when users **first use any MCP tool** after an update:
     "preToolUse": [
       {
         "command": ".cursor/hooks/version-check.sh",
-        "matcher": "^MCP: ado-testforge",
+        "matcher": "^MCP: vortex-ado",
         "timeout": 5
       }
     ]
@@ -249,7 +249,7 @@ Add version to test case draft metadata:
 ### 2. Welcome Message (Implemented)
 
 ```
-Welcome to ADO TestForge MCP v1.1.0
+Welcome to VortexADO MCP v1.1.0
 
 ...
 ```
@@ -259,8 +259,8 @@ Welcome to ADO TestForge MCP v1.1.0
 Include version in error messages for support:
 
 ```
-[ADO TestForge MCP v1.1.0] Error: Could not connect to Azure DevOps
-Please check your credentials at ~/.ado-testforge-mcp/credentials.json
+[VortexADO MCP v1.1.0] Error: Could not connect to Azure DevOps
+Please check your credentials at ~/.vortex-ado/credentials.json
 ```
 
 ### 4. Slash Command Response
@@ -268,9 +268,9 @@ Please check your credentials at ~/.ado-testforge-mcp/credentials.json
 Add version to command help:
 
 ```
-/ado-testforge/ado-check
+/vortex-ado/ado-check
 
-ADO TestForge MCP v1.1.0
+VortexADO MCP v1.1.0
 Status: ✓ Ready
 ...
 ```
@@ -285,10 +285,10 @@ When a new version is deployed:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
    ```
-2. **Status Check Notification** — The next `/ado-testforge/ado-check` run shows a one\-time "What's New" summary for the new version
+2. **Status Check Notification** — The next `/vortex-ado/ado-check` run shows a one\-time "What's New" summary for the new version
 3. **User Action** — User can:
    * Continue working (no action needed, backward\-compatible)
-   * Run `/ado-testforge/ado-check` to see "What's New" details
+   * Run `/vortex-ado/ado-check` to see "What's New" details
    * Read `docs/changelog.md` for full changes
 4. **MCP Refresh** — Restart Cursor or refresh MCP in Settings → MCP
 
@@ -299,7 +299,7 @@ When a new version is deployed:
 ### Flag File Format
 
 ```
-~/.ado-testforge-mcp/.ado-testforge-initialized
+~/.vortex-ado/.vortex-ado-initialized
 ```
 
 **Contents:** JSON with first-run and last-seen version metadata
@@ -368,7 +368,7 @@ if (existsSync(join(ROOT, ".cursor", "hooks"))) {
 ## Testing the Hook
 
 ### Test Scenario 1: First Run
-1. Delete flag file: `rm ~/.ado-testforge-mcp/.version-check`
+1. Delete flag file: `rm ~/.vortex-ado/.version-check`
 2. Open Cursor workspace with MCP folder
 3. **Expected:** See update notification with current version
 
