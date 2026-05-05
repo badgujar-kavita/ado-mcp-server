@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VortexADO — Documentation</title>
+  <meta name="description" content="Setup guide, configuration reference, and user documentation for VortexADO MCP server." />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0B1220" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232684FF'/%3E%3Cstop offset='100%25' stop-color='%238777D9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M17 33l9 9 20-20' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0: #06090F;
+      --bg-1: #0B1220;
+      --bg-2: #111A2E;
+      --card: rgba(20, 31, 54, 0.65);
+      --line: rgba(148, 163, 196, 0.14);
+      --ink: #F1F5FD;
+      --ink-2: #D6DDEB;
+      --muted: #97A3BF;
+      --blue: #2684FF;
+      --blue-2: #4C9AFF;
+      --violet: #8777D9;
+      --violet-2: #B3A4F8;
+      --teal: #00B8D9;
+      --green: #36B37E;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --maxw: 860px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bg-0);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    a { color: var(--blue-2); text-decoration: none; }
+    a:hover { color: var(--violet-2); }
+
+    header {
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(6, 9, 15, 0.8);
+      border-bottom: 1px solid var(--line);
+    }
+    header .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    header .brand { font-weight: 700; color: var(--ink); font-size: 15px; }
+    header nav a { margin-left: 24px; color: var(--muted); font-size: 14px; font-weight: 500; }
+    header nav a:hover { color: var(--ink); }
+    header nav a.active { color: var(--blue-2); }
+
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+    main { padding: 56px 0 80px; }
+
+    h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.02em; }
+    h1 span { color: var(--blue-2); }
+    .subtitle { color: var(--muted); margin: 0 0 48px; font-size: 15px; }
+
+    h2 {
+      font-size: 20px; font-weight: 700; margin: 56px 0 16px;
+      padding-top: 24px; border-top: 1px solid var(--line);
+      letter-spacing: -0.01em;
+    }
+    h2:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+
+    h3 { font-size: 16px; font-weight: 600; margin: 32px 0 8px; color: var(--ink); }
+
+    p { margin: 0 0 16px; color: var(--ink-2); }
+    ul, ol { color: var(--ink-2); padding-left: 20px; margin: 0 0 16px; }
+    li { margin-bottom: 8px; }
+
+    code {
+      background: rgba(38, 132, 255, 0.08);
+      color: var(--blue-2);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 13px;
+    }
+    pre {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0 0 16px;
+    }
+    pre code { background: none; padding: 0; color: var(--ink-2); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin: 0 0 16px;
+    }
+    .card h3 { margin-top: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 16px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { color: var(--ink-2); }
+    td code { font-size: 12px; }
+
+    .tip {
+      background: rgba(38, 132, 255, 0.06);
+      border-left: 3px solid var(--blue);
+      padding: 12px 16px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      margin: 0 0 16px;
+      font-size: 14px;
+      color: var(--ink-2);
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 24px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <a href="/" class="brand">VortexADO</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/docs.html" class="active">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <h1>Documentation &amp; <span>Setup Guide</span></h1>
+      <p class="subtitle">Everything you need to install, configure, and start using VortexADO.</p>
+
+      <!-- PREREQUISITES -->
+      <h2>Prerequisites</h2>
+      <table>
+        <thead><tr><th>Requirement</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Node.js</td><td>Version 18 or higher</td></tr>
+          <tr><td>Operating System</td><td>macOS, Linux, or Windows (WSL)</td></tr>
+          <tr><td>Cursor IDE</td><td>Any recent version with MCP support</td></tr>
+          <tr><td>Azure DevOps</td><td>Personal Access Token with Work Items + Test Management scopes</td></tr>
+          <tr><td>Confluence (optional)</td><td>API token for Solution Design page fetching</td></tr>
+        </tbody>
+      </table>
+
+      <!-- INSTALL -->
+      <h2>Installation</h2>
+      <p>Run one command in your terminal. The installer downloads the server, installs dependencies, and registers with Cursor automatically.</p>
+      <pre><code>curl https://vortexado.vercel.app/install -fsS | bash</code></pre>
+      <p>After install, restart Cursor IDE. You'll see <strong>ado-testforge</strong> in your MCP server list.</p>
+
+      <h3>Uninstall</h3>
+      <p>To remove VortexADO completely (MCP config entry + installed files):</p>
+      <pre><code>curl https://vortexado.vercel.app/uninstall -fsS | bash</code></pre>
+
+      <!-- CREDENTIALS -->
+      <h2>Credentials Setup</h2>
+      <p>After install, configure your credentials. You have two options:</p>
+
+      <h3>Option 1: Configuration UI (recommended)</h3>
+      <p>Type <code>/ado-connect</code> in Cursor's chat. This opens a web interface where you can enter credentials and test connections in real time.</p>
+
+      <h3>Option 2: Manual edit</h3>
+      <p>Edit the credentials file directly:</p>
+      <pre><code>~/.ado-testforge-mcp/credentials.json</code></pre>
+
+      <div class="card">
+        <h3>Required fields</h3>
+        <table>
+          <thead><tr><th>Field</th><th>Description</th><th>Where to get it</th></tr></thead>
+          <tbody>
+            <tr><td><code>ado_pat</code></td><td>Azure DevOps Personal Access Token</td><td>ADO &rarr; User Settings &rarr; Personal Access Tokens</td></tr>
+            <tr><td><code>ado_org</code></td><td>Organization name</td><td>The part after <code>dev.azure.com/</code></td></tr>
+            <tr><td><code>ado_project</code></td><td>Project name</td><td>Your ADO project</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Optional fields (Confluence)</h3>
+        <table>
+          <thead><tr><th>Field</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>confluence_base_url</code></td><td>Your Confluence instance URL (e.g. <code>https://yourteam.atlassian.net/wiki</code>)</td></tr>
+            <tr><td><code>confluence_email</code></td><td>Atlassian account email</td></tr>
+            <tr><td><code>confluence_api_token</code></td><td>API token from <code>id.atlassian.com/manage-profile/security/api-tokens</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip">
+        Your PAT needs these scopes: <strong>Work Items</strong> (Read &amp; Write) and <strong>Test Management</strong> (Read &amp; Write). For permanent deletion, you also need Project Administrator permissions.
+      </div>
+
+      <!-- CONVENTIONS CONFIG -->
+      <h2>Team Configuration</h2>
+      <p>VortexADO adapts to your team's conventions via a single configuration file placed alongside the installation:</p>
+      <pre><code>~/.ado-testforge-mcp/conventions.config.json</code></pre>
+
+      <p>This file controls everything from test case title format to suite hierarchy rules. Here's what you can configure:</p>
+
+      <h3>Test case titles</h3>
+      <p>Define how test case titles are structured. Set a prefix (e.g. "TC"), separator, number padding, and maximum length. The template uses placeholders like user story ID, test case number, feature tags, and summary.</p>
+
+      <h3>Prerequisites format</h3>
+      <p>Configure the sections that appear in test case prerequisites: Persona, Pre-requisite conditions, and Test Data. You can set which are required and control the formatting style (technical condition-based format like <code>Object.Field = Value</code> or narrative style).</p>
+
+      <h3>Default personas</h3>
+      <p>Define your team's standard test personas — their labels, profiles, roles, and permission groups. These are automatically included in generated test cases. The column headings for roles and permission groups are customizable to match your organization's terminology.</p>
+
+      <h3>Suite hierarchy</h3>
+      <p>Control how the MCP organizes test suites in your test plan:</p>
+      <ul>
+        <li><strong>Sprint prefix</strong> — how sprint folders are named (e.g. "Sprint_", "Iteration_")</li>
+        <li><strong>Separator</strong> — between IDs and titles in folder names</li>
+        <li><strong>Non-epic folder</strong> — name for the catch-all folder for user stories without a parent epic</li>
+        <li><strong>Test plan mapping</strong> — which area paths route to which test plans (supports multiple plans)</li>
+        <li><strong>Title prefix</strong> — the prefix used in query-based suite WIQL queries (default "TC")</li>
+      </ul>
+
+      <h3>Solution Design integration</h3>
+      <p>Configure which ADO field contains Confluence links and define usage rules for how Solution Design content informs test case generation (what to use for business context, what to ignore like code snippets).</p>
+
+      <h3>Additional context fields</h3>
+      <p>Register custom ADO fields (like Impact Assessment or Reference Documentation) that should be fetched for rich content and links. Each field can independently enable or disable link/image extraction.</p>
+
+      <h3>Image handling</h3>
+      <p>Control embedded image behavior: enable/disable, size limits, downscale resolution, MIME type allowlist, whether to save locally or return as MCP content parts, and a total response budget to prevent context overflow.</p>
+
+      <div class="tip">
+        The configuration file is optional. Defaults work for most teams. Start without it and add customization as needed.
+      </div>
+
+      <!-- VERIFY -->
+      <h2>Verify Your Setup</h2>
+      <p>After configuring credentials, type <code>/ado-check</code> in Cursor's chat. This runs a diagnostic that tests:</p>
+      <ul>
+        <li>ADO connection and PAT validity</li>
+        <li>Project access and permissions</li>
+        <li>Confluence connectivity (if configured)</li>
+        <li>Configuration file presence and validity</li>
+      </ul>
+      <p>The result shows a clear verdict (ready / degraded / broken) with exact next steps for any issues.</p>
+
+      <!-- WORKFLOW -->
+      <h2>Your First Test Case</h2>
+      <p>Once <code>/ado-check</code> shows "ready", here's the workflow:</p>
+      <ol>
+        <li><strong>Draft</strong> — Type <code>/qa-draft</code> and provide a User Story ID. The MCP reads the full story context (fields, linked pages, images) and generates a test case draft with solution summary and QA cheat sheet in your workspace.</li>
+        <li><strong>Review</strong> — Open the generated files in your editor. Edit test cases, adjust coverage, fix any assumptions. The draft is yours to shape.</li>
+        <li><strong>Publish</strong> — Type <code>/qa-publish</code> with the same User Story ID. The MCP checks for duplicates, asks for confirmation, then creates the test cases in ADO and auto-organizes them into the correct suite hierarchy.</li>
+      </ol>
+
+      <!-- UPDATING -->
+      <h2>Updating</h2>
+      <p>Run the install command again — it detects the existing installation, backs up your credentials, downloads the latest version, and restores credentials automatically.</p>
+      <pre><code>curl https://vortexado.vercel.app/install -fsS | bash</code></pre>
+
+      <!-- TROUBLESHOOTING -->
+      <h2>Troubleshooting</h2>
+      <h3>MCP server not showing in Cursor</h3>
+      <p>Restart Cursor after install. Check that <code>~/.cursor/mcp.json</code> contains an <code>ado-testforge</code> entry.</p>
+
+      <h3>ADO connection fails</h3>
+      <p>Verify your PAT hasn't expired. Check that you have the correct org and project names. Run <code>/ado-check</code> for a detailed diagnostic.</p>
+
+      <h3>Confluence pages not loading</h3>
+      <p>Ensure your Confluence API token is valid and the email matches. The system tries the direct URL first, then falls back to the Atlassian Cloud API automatically.</p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <a href="/">VortexADO</a> &middot; <a href="/docs.html">Documentation</a>
+    </div>
+  </footer>
+</body>
+</html>

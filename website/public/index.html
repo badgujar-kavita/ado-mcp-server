@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ado-mcp — Cursor MCP for Azure DevOps + Confluence</title>
-  <meta name="description" content="A Cursor MCP that turns Azure DevOps user stories into reviewable test cases. Image vision, Confluence enrichment, duplicate-TC preflight. One command to install." />
+  <title>VortexADO — AI-Augmented QA Test Design via MCP</title>
+  <meta name="description" content="From reactive to AI-augmented QA. VortexADO connects Cursor IDE to Azure DevOps via Model Context Protocol for context-aware test design at scale." />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0B1220" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232684FF'/%3E%3Cstop offset='100%25' stop-color='%238777D9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M17 33l9 9 20-20' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
@@ -13,39 +13,29 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-0:       #06090F;
-      --bg-1:       #0B1220;
-      --bg-2:       #111A2E;
-      --card:       rgba(20, 31, 54, 0.65);
-      --card-solid: #141F36;
-      --line:       rgba(148, 163, 196, 0.14);
-      --line-2:     rgba(148, 163, 196, 0.25);
-      --ink:        #F1F5FD;
-      --ink-2:      #D6DDEB;
-      --muted:      #97A3BF;
-      --muted-2:    #6B7899;
-
-      --blue:       #2684FF;
-      --blue-2:     #4C9AFF;
-      --blue-deep:  #0052CC;
-      --violet:     #8777D9;
-      --violet-2:   #B3A4F8;
-      --teal:       #00B8D9;
-      --green:      #36B37E;
-      --pink:       #FF5EA3;
-
-      --grad-hero:  linear-gradient(135deg, #2684FF 0%, #8777D9 55%, #FF5EA3 100%);
-      --grad-soft:  linear-gradient(135deg, rgba(38, 132, 255, 0.9), rgba(135, 119, 217, 0.9));
-      --grad-line:  linear-gradient(90deg, transparent, rgba(148, 163, 196, 0.35), transparent);
-
-      --radius-sm:  10px;
-      --radius:     14px;
-      --radius-lg:  20px;
-      --maxw:       1120px;
-
-      --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.35);
-      --shadow:     0 10px 40px rgba(6, 9, 15, 0.45);
-      --shadow-lg:  0 30px 80px rgba(6, 9, 15, 0.55);
+      --bg-0: #06090F;
+      --bg-1: #0B1220;
+      --bg-2: #111A2E;
+      --card: rgba(20, 31, 54, 0.65);
+      --line: rgba(148, 163, 196, 0.14);
+      --line-2: rgba(148, 163, 196, 0.25);
+      --ink: #F1F5FD;
+      --ink-2: #D6DDEB;
+      --muted: #97A3BF;
+      --muted-2: #6B7899;
+      --blue: #2684FF;
+      --blue-2: #4C9AFF;
+      --violet: #8777D9;
+      --violet-2: #B3A4F8;
+      --teal: #00B8D9;
+      --green: #36B37E;
+      --pink: #FF5EA3;
+      --grad-hero: linear-gradient(135deg, #2684FF 0%, #8777D9 55%, #FF5EA3 100%);
+      --grad-soft: linear-gradient(135deg, rgba(38, 132, 255, 0.9), rgba(135, 119, 217, 0.9));
+      --radius: 14px;
+      --radius-lg: 20px;
+      --maxw: 1120px;
+      --shadow: 0 10px 40px rgba(6, 9, 15, 0.45);
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -63,11 +53,9 @@
     a { color: var(--blue-2); text-decoration: none; transition: color 150ms ease; }
     a:hover { color: var(--violet-2); }
 
-    /* Animated backdrop */
+    /* Pixel-grid overlay */
     .backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: -2;
+      position: fixed; inset: 0; z-index: -2;
       background:
         radial-gradient(1200px 800px at 10% -10%, rgba(38, 132, 255, 0.22), transparent 60%),
         radial-gradient(900px 700px at 100% 0%, rgba(135, 119, 217, 0.22), transparent 60%),
@@ -76,49 +64,47 @@
     }
     .backdrop::before {
       content: '';
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background-image:
-        linear-gradient(rgba(148, 163, 196, 0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 196, 0.045) 1px, transparent 1px);
-      background-size: 48px 48px;
+        radial-gradient(circle, rgba(148, 163, 196, 0.09) 1px, transparent 1px);
+      background-size: 16px 16px;
       mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 45%, transparent 100%);
       -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 45%, transparent 100%);
     }
+    .backdrop::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(148, 163, 196, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 196, 0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, #000 30%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, #000 30%, transparent 100%);
+    }
     .orb {
-      position: fixed;
-      z-index: -1;
-      width: 50vmax;
-      height: 50vmax;
-      border-radius: 50%;
-      filter: blur(100px);
-      opacity: 0.45;
-      pointer-events: none;
+      position: fixed; z-index: -1;
+      width: 50vmax; height: 50vmax;
+      border-radius: 50%; filter: blur(100px);
+      opacity: 0.4; pointer-events: none;
       will-change: transform;
       animation: drift 28s ease-in-out infinite;
     }
     .orb.a { top: -18vmax; left: -14vmax; background: radial-gradient(circle at 30% 30%, var(--blue), transparent 62%); }
     .orb.b { bottom: -22vmax; right: -18vmax; background: radial-gradient(circle at 70% 70%, var(--violet), transparent 62%); animation-delay: -10s; }
-    .orb.c { top: 30vh; left: 45%; width: 35vmax; height: 35vmax; background: radial-gradient(circle, rgba(255, 94, 163, 0.35), transparent 60%); opacity: 0.28; animation-delay: -20s; }
     @keyframes drift {
       0%, 100% { transform: translate(0, 0) scale(1); }
-      50%      { transform: translate(5vmax, -3vmax) scale(1.05); }
+      50% { transform: translate(5vmax, -3vmax) scale(1.05); }
     }
 
     /* Scroll-in reveal */
     [data-reveal] {
-      opacity: 0;
-      transform: translateY(24px);
+      opacity: 0; transform: translateY(24px);
       transition: opacity 700ms cubic-bezier(.2,.7,.2,1), transform 700ms cubic-bezier(.2,.7,.2,1);
     }
-    [data-reveal].in {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    [data-reveal].in { opacity: 1; transform: translateY(0); }
     [data-reveal][data-delay="1"].in { transition-delay: 80ms; }
     [data-reveal][data-delay="2"].in { transition-delay: 160ms; }
     [data-reveal][data-delay="3"].in { transition-delay: 240ms; }
-    [data-reveal][data-delay="4"].in { transition-delay: 320ms; }
 
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
@@ -127,26 +113,19 @@
       * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
 
-    /* Layout primitives */
+    /* Layout */
     .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
     section { padding: 88px 0; position: relative; }
     section h2 {
       font-size: clamp(28px, 3.2vw, 40px);
-      margin: 0 0 14px;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
-      font-weight: 700;
+      margin: 0 0 14px; letter-spacing: -0.02em;
+      line-height: 1.15; font-weight: 700;
     }
     section .kicker {
-      display: inline-block;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.22em;
-      color: var(--blue-2);
-      font-weight: 600;
-      margin-bottom: 14px;
-      padding: 4px 10px;
-      border-radius: 999px;
+      display: inline-block; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.22em;
+      color: var(--blue-2); font-weight: 600; margin-bottom: 14px;
+      padding: 4px 10px; border-radius: 999px;
       background: rgba(38, 132, 255, 0.08);
       border: 1px solid rgba(38, 132, 255, 0.25);
     }
@@ -159,32 +138,22 @@
       -webkit-backdrop-filter: saturate(160%) blur(14px);
       background: rgba(6, 9, 15, 0.55);
       border-bottom: 1px solid var(--line);
-      transition: background 200ms ease, border-color 200ms ease;
+      transition: background 200ms ease;
     }
     header.nav.scrolled { background: rgba(6, 9, 15, 0.82); }
-    .nav .wrap {
-      display: flex; align-items: center; justify-content: space-between;
-      height: 68px;
-    }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; }
     .brand {
       display: inline-flex; align-items: center; gap: 12px;
-      color: var(--ink); font-weight: 700; letter-spacing: -0.01em;
-      font-size: 15.5px;
+      color: var(--ink); font-weight: 700; font-size: 15.5px;
     }
     .brand .mark {
       display: inline-flex; align-items: center; justify-content: center;
       width: 32px; height: 32px; border-radius: 9px;
-      background: var(--grad-soft);
-      color: #fff; font-weight: 800;
+      background: var(--grad-soft); color: #fff; font-weight: 800;
       box-shadow: 0 6px 18px rgba(38, 132, 255, 0.4);
     }
-    nav.tabs {
-      display: flex; align-items: center; gap: 24px;
-    }
-    nav.tabs a {
-      color: var(--muted); font-weight: 500; font-size: 14.5px;
-      position: relative;
-    }
+    nav.tabs { display: flex; align-items: center; gap: 24px; }
+    nav.tabs a { color: var(--muted); font-weight: 500; font-size: 14.5px; position: relative; }
     nav.tabs a:hover { color: var(--ink); }
     nav.tabs a::after {
       content: ''; position: absolute; left: 0; right: 100%; bottom: -6px;
@@ -193,665 +162,201 @@
     }
     nav.tabs a:hover::after { right: 0; }
     nav.tabs .cta {
-      padding: 8px 16px;
-      background: var(--grad-hero); color: #fff;
+      padding: 8px 16px; background: var(--grad-hero); color: #fff;
       border-radius: 10px; font-weight: 600;
       box-shadow: 0 6px 18px rgba(38, 132, 255, 0.35);
     }
     nav.tabs .cta::after { display: none; }
     nav.tabs .cta:hover { color: #fff; transform: translateY(-1px); }
-
-    @media (max-width: 820px) {
-      nav.tabs a:not(.cta) { display: none; }
-    }
+    @media (max-width: 820px) { nav.tabs a:not(.cta) { display: none; } }
 
     /* Hero */
-    .hero { padding: 104px 0 80px; }
-    .hero .hero-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-      gap: 56px;
-      align-items: center;
-    }
-    @media (max-width: 960px) {
-      .hero .hero-grid { grid-template-columns: 1fr; gap: 64px; }
-    }
+    .hero { padding: 104px 0 80px; text-align: center; }
     .hero h1 {
-      font-size: clamp(40px, 5.6vw, 66px);
-      line-height: 1.05;
-      letter-spacing: -0.032em;
-      margin: 0 0 24px;
-      font-weight: 800;
+      font-size: clamp(38px, 5vw, 62px); line-height: 1.08;
+      letter-spacing: -0.032em; margin: 0 0 24px; font-weight: 800;
     }
     .hero h1 .grad {
       background: var(--grad-hero);
       -webkit-background-clip: text; background-clip: text; color: transparent;
-      background-size: 200% auto;
-      animation: shimmer 6s ease-in-out infinite;
+      background-size: 200% auto; animation: shimmer 6s ease-in-out infinite;
     }
     @keyframes shimmer {
       0%, 100% { background-position: 0% 50%; }
-      50%      { background-position: 100% 50%; }
+      50% { background-position: 100% 50%; }
     }
     .hero p.sub {
-      font-size: 18px; max-width: 58ch;
-      color: var(--ink-2); margin: 0 0 36px;
+      font-size: 18px; max-width: 62ch; margin: 0 auto 36px;
+      color: var(--ink-2);
     }
-    .hero .actions {
-      display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    .hero .actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; }
+    .hero .meta {
+      margin-top: 22px; display: flex; flex-wrap: wrap; gap: 24px;
+      color: var(--muted); font-size: 13.5px; justify-content: center;
     }
-
-    /* Hero art: orbiting integration nodes + mini terminal */
-    .hero-art {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      align-items: stretch;
-      max-width: 480px;
-      margin: 0 auto;
-      width: 100%;
-    }
-    .art-stage {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      max-width: 420px;
-      margin: 0 auto;
-    }
-
-    .ring {
-      position: absolute;
-      top: 50%; left: 50%;
-      border-radius: 50%;
-      border: 1px dashed rgba(148, 163, 196, 0.18);
-      transform: translate(-50%, -50%);
-      will-change: transform;
-    }
-    .ring-1 { width: 42%; height: 42%; animation: spin 28s linear infinite; }
-    .ring-2 { width: 68%; height: 68%; animation: spin 44s linear infinite reverse; border-color: rgba(38, 132, 255, 0.16); }
-    .ring-3 { width: 94%; height: 94%; animation: spin 60s linear infinite; border-color: rgba(135, 119, 217, 0.14); }
-
-    @keyframes spin {
-      to { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-
-    .hub {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 108px; height: 108px;
-      transform: translate(-50%, -50%);
-      border-radius: 50%;
-      background: var(--grad-hero);
-      display: grid; place-items: center;
-      box-shadow: 0 18px 60px rgba(38, 132, 255, 0.45);
-      z-index: 3;
-      animation: hub-float 8s ease-in-out infinite;
-    }
-    .hub-mark {
-      position: relative; z-index: 2;
-      filter: drop-shadow(0 2px 6px rgba(6, 9, 15, 0.25));
-    }
-    .hub-pulse {
-      position: absolute; inset: -2px; border-radius: 50%;
-      background: var(--grad-hero);
-      opacity: 0.55;
-      animation: hub-pulse 3s ease-out infinite;
-    }
-    @keyframes hub-float {
-      0%, 100% { transform: translate(-50%, -50%); }
-      50%      { transform: translate(-50%, calc(-50% - 4px)); }
-    }
-    @keyframes hub-pulse {
-      0%   { transform: scale(1);   opacity: 0.55; }
-      70%  { transform: scale(1.9); opacity: 0; }
-      100% { transform: scale(1.9); opacity: 0; }
-    }
-
-    .node {
-      position: absolute;
-      width: 64px; height: 64px;
-      border-radius: 50%;
-      background: rgba(20, 31, 54, 0.92);
-      border: 1px solid var(--line-2);
-      display: grid; place-items: center;
-      color: var(--ink);
-      font-size: 12px; font-weight: 600;
-      letter-spacing: -0.005em;
-      box-shadow: 0 10px 30px rgba(6, 9, 15, 0.5);
-      backdrop-filter: blur(10px);
-      z-index: 4;
-      animation: node-breathe 6s ease-in-out infinite;
-    }
-    .node-label {
-      background: var(--grad-hero);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-      font-weight: 700;
-    }
-    .node-ado        { top: 3%;    left: 50%;  transform: translate(-50%, 0);     animation-delay: 0s; }
-    .node-cursor     { top: 50%;   right: 3%;  transform: translate(0, -50%);     animation-delay: -1.5s; }
-    .node-confluence { bottom: 3%; left: 50%;  transform: translate(-50%, 0);     animation-delay: -3s; }
-    .node-files      { top: 50%;   left: 3%;   transform: translate(0, -50%);     animation-delay: -4.5s; }
-
-    @keyframes node-breathe {
-      0%, 100% { box-shadow: 0 10px 30px rgba(6, 9, 15, 0.5), 0 0 0 0 rgba(38, 132, 255, 0.0); }
-      50%      { box-shadow: 0 10px 30px rgba(6, 9, 15, 0.5), 0 0 0 10px rgba(38, 132, 255, 0.12); }
-    }
-
-    .particle {
-      position: absolute;
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--blue-2);
-      box-shadow: 0 0 12px var(--blue-2);
-      opacity: 0.7;
-    }
-    .p1 { top: 20%; left: 30%; animation: float-a 11s ease-in-out infinite; }
-    .p2 { top: 70%; left: 70%; animation: float-a 13s ease-in-out infinite -3s; background: var(--violet-2); box-shadow: 0 0 12px var(--violet-2); }
-    .p3 { top: 45%; left: 82%; animation: float-a 9s  ease-in-out infinite -5s; background: var(--pink); box-shadow: 0 0 12px var(--pink); }
-    .p4 { top: 82%; left: 25%; animation: float-a 14s ease-in-out infinite -7s; }
-
-    @keyframes float-a {
-      0%, 100% { transform: translate(0, 0);    opacity: 0.7; }
-      50%      { transform: translate(24px, -18px); opacity: 0.3; }
-    }
-
-    .art-term {
-      width: 100%;
-      background: linear-gradient(180deg, rgba(20, 31, 54, 0.98), rgba(11, 18, 32, 0.98));
-      border: 1px solid var(--line-2);
-      border-radius: 14px;
-      box-shadow: 0 24px 60px rgba(6, 9, 15, 0.6);
-      overflow: hidden;
-      backdrop-filter: blur(12px);
-      animation: term-float 9s ease-in-out infinite;
-    }
-    @keyframes term-float {
-      0%, 100% { transform: translateY(0); }
-      50%      { transform: translateY(-4px); }
-    }
-    .art-term .term-head {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; gap: 6px;
-    }
-    .art-term .term-head .light { width: 9px; height: 9px; border-radius: 50%; }
-    .art-term .term-head .light.r { background: #FF605C; }
-    .art-term .term-head .light.y { background: #FFBD44; }
-    .art-term .term-head .light.g { background: #00CA4E; }
-    .art-term .term-head .title {
-      margin-left: auto; color: var(--muted); font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .art-term .term-body {
-      padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
-      font-size: 12.5px; line-height: 1.75; color: var(--ink-2);
-    }
-    .art-term .term-body .p   { color: var(--muted); }
-    .art-term .term-body .cmd { color: var(--blue-2); font-weight: 600; }
-    .art-term .term-body .arg { color: var(--violet-2); }
-    .art-term .term-body .ok  { color: var(--green); }
-    .art-term .term-body .hi  { color: var(--ink); }
-    .art-term .term-body .cursor {
-      display: inline-block; width: 7px; height: 13px;
-      background: var(--blue-2); vertical-align: -2px; margin-left: 2px;
-      animation: blink 1.1s steps(1) infinite;
-    }
-    @keyframes blink { 50% { opacity: 0; } }
-
-    @media (max-width: 960px) {
-      .hero-art { max-width: 460px; }
-      .art-stage { max-width: 400px; }
-    }
-    @media (max-width: 560px) {
-      .hero-art { max-width: 340px; }
-      .art-stage { max-width: 300px; }
-    }
+    .hero .meta span { display: inline-flex; align-items: center; gap: 8px; }
+    .hero .meta .tick { color: var(--green); font-weight: 800; }
 
     /* Install block */
-    .install {
+    .install-block {
       display: inline-flex; align-items: center; gap: 12px;
       background: rgba(20, 31, 54, 0.8);
-      border: 1px solid var(--line-2);
-      border-radius: 12px;
+      border: 1px solid var(--line-2); border-radius: 12px;
       padding: 10px 10px 10px 18px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14.5px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-      max-width: 100%;
+      font-family: 'JetBrains Mono', monospace; font-size: 14px;
+      box-shadow: var(--shadow); backdrop-filter: blur(8px);
     }
-    .install .prompt { color: var(--muted); }
-    .install code {
-      color: var(--ink);
-      white-space: nowrap;
-      overflow-x: auto;
-      max-width: 52ch;
-    }
+    .install-block .prompt { color: var(--muted); }
+    .install-block code { color: var(--ink); white-space: nowrap; overflow-x: auto; }
     .btn {
       display: inline-flex; align-items: center; gap: 8px;
       cursor: pointer; font: inherit;
       border: 1px solid var(--line-2);
-      background: rgba(20, 31, 54, 0.65);
-      color: var(--ink);
-      padding: 10px 18px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: -0.005em;
-      transition: transform 120ms ease, background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+      background: rgba(20, 31, 54, 0.65); color: var(--ink);
+      padding: 10px 18px; border-radius: 10px;
+      font-size: 14px; font-weight: 600;
+      transition: transform 120ms ease, background 150ms ease, border-color 150ms ease;
     }
-    .btn:hover   { transform: translateY(-1px); background: rgba(32, 47, 78, 0.8); border-color: var(--blue); }
-    .btn:active  { transform: translateY(0); }
+    .btn:hover { transform: translateY(-1px); background: rgba(32, 47, 78, 0.8); border-color: var(--blue); }
     .btn.primary {
       background: var(--grad-hero); border-color: transparent;
-      box-shadow: 0 10px 30px rgba(38, 132, 255, 0.35);
-      color: #fff;
+      box-shadow: 0 10px 30px rgba(38, 132, 255, 0.35); color: #fff;
     }
     .btn.primary:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(38, 132, 255, 0.45); }
     .btn.copied { background: var(--green); color: #fff; border-color: var(--green); }
 
-    .hero .meta {
-      margin-top: 22px;
-      display: flex; flex-wrap: wrap; gap: 24px;
-      color: var(--muted); font-size: 13.5px;
-    }
-    .hero .meta span { display: inline-flex; align-items: center; gap: 8px; }
-    .hero .meta .tick {
-      color: var(--green); font-weight: 800;
-    }
-
-    /* Advantages grid */
-    .cards {
-      display: grid; gap: 20px;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    }
+    /* Cards grid */
+    .cards { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
     .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 26px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 28px;
       backdrop-filter: blur(8px);
       transition: transform 250ms cubic-bezier(.2,.7,.2,1), border-color 250ms ease, box-shadow 250ms ease;
-      position: relative;
-      overflow: hidden;
+      position: relative; overflow: hidden;
     }
     .card::before {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: var(--grad-hero);
-      transform: scaleX(0); transform-origin: left;
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--grad-hero); transform: scaleX(0); transform-origin: left;
       transition: transform 400ms cubic-bezier(.2,.7,.2,1);
     }
-    .card:hover {
-      transform: translateY(-4px);
-      border-color: var(--line-2);
-      box-shadow: var(--shadow);
-    }
+    .card:hover { transform: translateY(-4px); border-color: var(--line-2); box-shadow: var(--shadow); }
     .card:hover::before { transform: scaleX(1); }
     .card .ico {
       display: inline-flex; align-items: center; justify-content: center;
       width: 44px; height: 44px; border-radius: 12px;
       background: linear-gradient(135deg, rgba(38, 132, 255, 0.2), rgba(135, 119, 217, 0.2));
-      border: 1px solid var(--line-2);
-      color: var(--blue-2);
-      font-size: 22px;
-      margin-bottom: 16px;
+      border: 1px solid var(--line-2); color: var(--blue-2); font-size: 22px; margin-bottom: 16px;
     }
-    .card h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+    .card h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; }
     .card p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
-    .card p code {
-      color: var(--ink-2);
-      background: rgba(148, 163, 196, 0.08);
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 12.5px;
-    }
 
-    /* Features (command cards) */
-    .features {
-      display: grid; gap: 18px;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    }
-    .feature {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 24px;
-      position: relative;
-      backdrop-filter: blur(8px);
-      transition: transform 250ms cubic-bezier(.2,.7,.2,1), border-color 250ms ease, box-shadow 250ms ease;
-      overflow: hidden;
-    }
-    .feature:hover {
-      transform: translateY(-3px);
-      border-color: var(--blue);
-      box-shadow: 0 14px 40px rgba(38, 132, 255, 0.18);
-    }
-    .feature .tag {
-      position: absolute; top: 18px; right: 18px;
-      padding: 3px 10px;
-      font-size: 10.5px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      border-radius: 999px;
-      color: var(--blue-2);
-      background: rgba(38, 132, 255, 0.12);
-      border: 1px solid rgba(38, 132, 255, 0.3);
-    }
-    .feature .tag.action {
-      color: var(--violet-2);
-      background: rgba(135, 119, 217, 0.14);
-      border-color: rgba(135, 119, 217, 0.35);
-    }
-    .feature .tag.setup {
-      color: var(--teal);
-      background: rgba(0, 184, 217, 0.12);
-      border-color: rgba(0, 184, 217, 0.3);
-    }
-    .feature h4 {
-      margin: 0 0 10px;
-      font-size: 16px;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--ink);
-      letter-spacing: -0.01em;
-      padding-right: 70px;
-    }
-    .feature h4 .slash { color: var(--muted); }
-    .feature p {
-      margin: 0;
-      color: var(--ink-2);
-      font-size: 14px;
-      line-height: 1.6;
-    }
-    .feature p code {
-      color: var(--ink);
-      background: rgba(38, 132, 255, 0.08);
-      border: 1px solid rgba(38, 132, 255, 0.2);
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 12.5px;
-    }
-
-    /* Commands table */
-    .table-wrap {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      padding: 8px;
-      backdrop-filter: blur(10px);
-      box-shadow: var(--shadow);
-      overflow-x: auto;
-    }
-    table.cmds {
-      width: 100%;
-      min-width: 840px;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-    table.cmds thead th {
-      text-align: left;
-      padding: 18px 20px;
-      font-size: 11.5px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 700;
-      border-bottom: 1px solid var(--line);
-    }
-    table.cmds tbody td {
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--line);
-      vertical-align: top;
-      font-size: 14px;
-      color: var(--ink-2);
-    }
-    table.cmds tbody tr:last-child td { border-bottom: none; }
-    table.cmds tbody tr {
-      transition: background 180ms ease;
-    }
-    table.cmds tbody tr:hover {
-      background: rgba(38, 132, 255, 0.05);
-    }
-    table.cmds .cmd {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13.5px;
-      font-weight: 600;
-      color: var(--blue-2);
-      white-space: nowrap;
-    }
-    table.cmds .example {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12.5px;
-      color: var(--violet-2);
-      background: rgba(135, 119, 217, 0.08);
-      padding: 4px 8px;
-      border-radius: 6px;
-      display: inline-block;
-      border: 1px solid rgba(135, 119, 217, 0.2);
-    }
-    .pill {
-      display: inline-block;
-      padding: 2px 10px;
-      font-size: 11px;
-      border-radius: 999px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .pill.read   { color: var(--blue-2);    background: rgba(38, 132, 255, 0.12);    border: 1px solid rgba(38, 132, 255, 0.3); }
-    .pill.action { color: var(--violet-2);  background: rgba(135, 119, 217, 0.14);   border: 1px solid rgba(135, 119, 217, 0.35); }
-    .pill.setup  { color: var(--teal);      background: rgba(0, 184, 217, 0.12);     border: 1px solid rgba(0, 184, 217, 0.3); }
-
-    /* Workflow / 3-step */
+    /* Steps */
     .steps {
       display: grid; gap: 24px;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       counter-reset: step;
     }
     .steps .step {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 28px 26px;
-      position: relative;
-      backdrop-filter: blur(8px);
-      counter-increment: step;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 28px 26px;
+      position: relative; backdrop-filter: blur(8px); counter-increment: step;
     }
     .steps .step::before {
       content: counter(step, decimal-leading-zero);
-      position: absolute;
-      top: -10px; left: 24px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      padding: 4px 10px;
-      background: var(--grad-hero);
-      color: #fff;
-      border-radius: 999px;
-      box-shadow: 0 6px 18px rgba(38, 132, 255, 0.4);
+      position: absolute; top: -10px; left: 24px;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.1em; padding: 4px 10px;
+      background: var(--grad-hero); color: #fff;
+      border-radius: 999px; box-shadow: 0 6px 18px rgba(38, 132, 255, 0.4);
     }
-    .steps .step h3 { margin: 14px 0 10px; font-size: 18px; letter-spacing: -0.01em; font-weight: 700; }
-    .steps .step p  { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.6; }
-    .steps .step code {
-      background: rgba(38, 132, 255, 0.1);
-      border: 1px solid rgba(38, 132, 255, 0.25);
-      color: var(--blue-2);
-      padding: 1px 7px;
-      border-radius: 6px;
-      font-size: 13px;
+    .steps .step h3 { margin: 14px 0 10px; font-size: 18px; font-weight: 700; }
+    .steps .step p { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.6; }
+
+    /* Commands compact grid */
+    .cmd-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .cmd-item {
+      display: flex; align-items: baseline; gap: 12px;
+      padding: 14px 18px;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; backdrop-filter: blur(8px);
+      transition: border-color 200ms ease;
+    }
+    .cmd-item:hover { border-color: var(--line-2); }
+    .cmd-item .cmd-name {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      font-weight: 600; color: var(--blue-2); white-space: nowrap; min-width: 140px;
+    }
+    .cmd-item .cmd-desc { font-size: 13.5px; color: var(--muted); }
+    .cmd-item .cmd-tag {
+      margin-left: auto; padding: 2px 8px; font-size: 10px;
+      border-radius: 999px; font-weight: 600; text-transform: uppercase;
+      white-space: nowrap; letter-spacing: 0.05em;
+    }
+    .cmd-tag.read { color: var(--blue-2); background: rgba(38, 132, 255, 0.1); }
+    .cmd-tag.action { color: var(--violet-2); background: rgba(135, 119, 217, 0.12); }
+    .cmd-tag.setup { color: var(--teal); background: rgba(0, 184, 217, 0.1); }
+
+    /* Capabilities list */
+    .cap-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+    .cap-list li {
+      padding: 16px 20px; padding-left: 46px; position: relative;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; color: var(--ink-2); font-size: 15px; line-height: 1.55;
+    }
+    .cap-list li::before {
+      content: attr(data-icon); position: absolute; left: 16px; top: 16px; font-size: 18px;
     }
 
     /* Security */
-    .security {
-      display: grid; gap: 18px;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    }
+    .security-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
     .sec-item {
-      padding: 22px 24px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
+      padding: 22px 24px; background: var(--card);
+      border: 1px solid var(--line); border-radius: var(--radius);
       backdrop-filter: blur(8px);
-    }
-    .sec-item .ico {
-      width: 36px; height: 36px; border-radius: 10px;
-      display: inline-flex; align-items: center; justify-content: center;
-      background: rgba(54, 179, 126, 0.12);
-      border: 1px solid rgba(54, 179, 126, 0.3);
-      color: var(--green); font-size: 18px; margin-bottom: 12px;
     }
     .sec-item h4 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; }
-    .sec-item p  { margin: 0; font-size: 14px; color: var(--muted); }
-    .sec-item p code {
-      color: var(--ink-2);
-      background: rgba(148, 163, 196, 0.08);
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 12.5px;
-    }
+    .sec-item p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.55; }
 
-    /* Disclosure / details blocks */
-    details.reveal-block {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 0;
-      backdrop-filter: blur(8px);
-      overflow: hidden;
-      transition: border-color 200ms ease;
-    }
-    details.reveal-block[open] { border-color: var(--line-2); }
-    details.reveal-block > summary {
-      list-style: none;
-      cursor: pointer;
-      padding: 20px 24px;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      font-weight: 600;
-      font-size: 15px;
-      color: var(--ink);
-    }
-    details.reveal-block > summary::-webkit-details-marker { display: none; }
-    details.reveal-block > summary .chev {
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
-      transition: transform 180ms ease;
-    }
-    details.reveal-block[open] > summary .chev { transform: rotate(90deg); }
-    details.reveal-block .body {
-      padding: 0 24px 24px;
-    }
-    details.reveal-block pre {
-      margin: 0;
-      background: rgba(6, 9, 15, 0.6);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 18px 20px;
-      overflow-x: auto;
-      font-size: 12.5px;
-      line-height: 1.7;
-      color: var(--ink-2);
-    }
-    details.reveal-block pre .k   { color: var(--blue-2); }
-    details.reveal-block pre .s   { color: var(--pink); }
-    details.reveal-block pre .n   { color: var(--violet-2); }
-    details.reveal-block pre .c   { color: var(--muted-2); font-style: italic; }
-    details.reveal-block pre .b   { color: var(--green); }
-
-    .bullets {
-      margin: 20px 0 0;
-      padding: 0;
-      list-style: none;
-      display: grid; gap: 10px;
-    }
-    .bullets li {
-      padding-left: 22px;
-      position: relative;
-      color: var(--ink-2);
-      font-size: 14.5px;
-      line-height: 1.6;
-    }
-    .bullets li::before {
-      content: '›';
-      position: absolute; left: 0; top: 0;
-      color: var(--blue-2);
-      font-weight: 700;
-    }
-    .bullets li code {
-      color: var(--ink);
-      background: rgba(38, 132, 255, 0.08);
-      border: 1px solid rgba(38, 132, 255, 0.2);
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 12.5px;
-    }
-
-    /* Two-column layout for the config walkthrough */
-    .split {
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-      gap: 28px;
-      align-items: start;
-    }
-    @media (max-width: 880px) {
-      .split { grid-template-columns: 1fr; }
-    }
-
-    /* Final CTA */
+    /* CTA card */
     .cta-card {
       background: linear-gradient(135deg, rgba(38, 132, 255, 0.18), rgba(135, 119, 217, 0.18));
-      border: 1px solid var(--line-2);
-      border-radius: var(--radius-lg);
-      padding: 56px 48px;
-      text-align: center;
-      backdrop-filter: blur(12px);
-      position: relative;
-      overflow: hidden;
+      border: 1px solid var(--line-2); border-radius: var(--radius-lg);
+      padding: 56px 48px; text-align: center;
+      backdrop-filter: blur(12px); position: relative; overflow: hidden;
     }
     .cta-card::before {
-      content: '';
-      position: absolute; inset: -2px;
-      padding: 2px;
-      background: var(--grad-hero);
-      border-radius: inherit;
+      content: ''; position: absolute; inset: -2px; padding: 2px;
+      background: var(--grad-hero); border-radius: inherit;
       mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor; mask-composite: exclude;
-      opacity: 0.5;
-      pointer-events: none;
+      opacity: 0.5; pointer-events: none;
     }
     .cta-card h2 { font-size: clamp(26px, 3.5vw, 36px); margin: 0 0 14px; }
-    .cta-card p  { color: var(--ink-2); margin: 0 0 28px; font-size: 16px; }
+    .cta-card p { color: var(--ink-2); margin: 0 0 28px; font-size: 16px; }
+    .cta-actions { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: center; }
+    .cta-actions .install-block { margin: 0; }
 
     /* Footer */
     footer {
-      border-top: 1px solid var(--line);
-      padding: 40px 0 48px;
-      color: var(--muted);
-      font-size: 13.5px;
+      border-top: 1px solid var(--line); padding: 40px 0 48px;
+      color: var(--muted); font-size: 13.5px;
     }
     footer .wrap {
       display: flex; justify-content: space-between; align-items: center;
       flex-wrap: wrap; gap: 18px;
     }
-    footer .copy {
-      display: inline-flex; align-items: center; gap: 6px;
-      color: var(--ink-2); font-weight: 500;
-    }
-    footer .tagline {
-      color: var(--muted); font-style: italic;
-    }
-    @media (max-width: 560px) {
-      footer .tagline { font-size: 12.5px; }
-    }
+    footer .copy { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-weight: 500; }
+    footer .links { display: flex; gap: 20px; }
+    footer .links a { color: var(--muted); font-size: 13.5px; }
+    footer .links a:hover { color: var(--ink); }
 
-    /* Responsive tweaks */
+    /* Responsive */
     @media (max-width: 560px) {
       section { padding: 64px 0; }
       .hero { padding: 72px 0 40px; }
-      .install { flex-direction: column; align-items: stretch; }
-      .install code { white-space: normal; word-break: break-all; max-width: 100%; }
+      .install-block { flex-direction: column; align-items: stretch; }
+      .install-block code { white-space: normal; word-break: break-all; }
       .cta-card { padding: 40px 24px; }
     }
   </style>
@@ -860,22 +365,20 @@
   <div class="backdrop" aria-hidden="true"></div>
   <div class="orb a" aria-hidden="true"></div>
   <div class="orb b" aria-hidden="true"></div>
-  <div class="orb c" aria-hidden="true"></div>
 
   <header class="nav" id="nav">
     <div class="wrap">
       <a class="brand" href="#top">
-        <span class="mark" aria-hidden="true">A</span>
-        <span>ado-mcp</span>
+        <span class="mark" aria-hidden="true">V</span>
+        <span>VortexADO</span>
       </a>
       <nav class="tabs" aria-label="Primary">
-        <a href="#advantages">Why</a>
-        <a href="#features">Commands</a>
-        <a href="#reference">Reference</a>
-        <a href="#workflow">Flow</a>
-        <a href="#payload">Payload</a>
-        <a href="#config">Config</a>
-        <a href="#security">Trust</a>
+        <a href="#value">Why</a>
+        <a href="#how">How</a>
+        <a href="#capabilities">Capabilities</a>
+        <a href="#commands">Commands</a>
+        <a href="#trust">Trust</a>
+        <a href="/docs.html">Docs</a>
         <a class="cta" href="#install">Install</a>
       </nav>
     </div>
@@ -885,444 +388,84 @@
 
     <!-- HERO -->
     <section class="hero">
-      <div class="wrap hero-grid">
-        <div class="hero-copy">
-          <h1 data-reveal>
-            Draft, review, and push<br/>
-            <span class="grad">Azure DevOps test cases</span><br/>
-            from Cursor.
-          </h1>
-          <p data-reveal data-delay="1" class="sub">
-            A Cursor MCP server that reads your user story with full context —
-            rich-text fields, Confluence pages, and embedded images — drafts
-            reviewable test cases into your workspace, then pushes approved
-            drafts to Azure DevOps with a built-in duplicate guard.
-          </p>
+      <div class="wrap">
+        <h1 data-reveal>
+          From Reactive to<br/>
+          <span class="grad">AI-Augmented QA</span>
+        </h1>
+        <p data-reveal data-delay="1" class="sub">
+          Context-aware test design at scale using Model Context Protocol.
+          VortexADO connects your Cursor IDE to Azure DevOps — the AI agent reads your
+          user story with full context, drafts reviewable test cases, and publishes
+          approved results back to ADO. No transcription, no context-switching.
+        </p>
 
-          <div data-reveal data-delay="2" class="actions" id="install">
-            <div class="install" role="region" aria-label="Install command">
-              <span class="prompt">$</span>
-              <code id="install-cmd">curl https://vortexado.vercel.app/install -fsS | bash</code>
-              <button id="copy-btn" class="btn primary" type="button" aria-label="Copy install command">
-                <span id="copy-label">Copy</span>
-              </button>
-            </div>
-          </div>
-
-          <div data-reveal data-delay="3" class="meta">
-            <span><span class="tick">✓</span> Works on macOS · Installs in &lt; 30s · Zero cloud infrastructure</span>
+        <div data-reveal data-delay="2" class="actions" id="install">
+          <div class="install-block" role="region" aria-label="Install command">
+            <span class="prompt">$</span>
+            <code id="install-cmd">curl https://vortexado.vercel.app/install -fsS | bash</code>
+            <button id="copy-btn" class="btn primary" type="button" aria-label="Copy install command">
+              <span id="copy-label">Copy</span>
+            </button>
           </div>
         </div>
 
-        <div data-reveal data-delay="2" class="hero-art" aria-hidden="true">
-          <div class="art-stage">
-            <div class="ring ring-1"></div>
-            <div class="ring ring-2"></div>
-            <div class="ring ring-3"></div>
-
-            <div class="hub">
-              <svg class="hub-mark" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
-                <path d="M16 33 L27 44 L48 21"
-                      fill="none" stroke="#fff" stroke-width="7"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <div class="hub-pulse"></div>
-            </div>
-
-            <div class="node node-ado">
-              <span class="node-label">ADO</span>
-            </div>
-            <div class="node node-cursor">
-              <span class="node-label">Cursor</span>
-            </div>
-            <div class="node node-confluence">
-              <span class="node-label">Conflu.</span>
-            </div>
-            <div class="node node-files">
-              <span class="node-label">Files</span>
-            </div>
-
-            <div class="particle p1"></div>
-            <div class="particle p2"></div>
-            <div class="particle p3"></div>
-            <div class="particle p4"></div>
-          </div>
-
-          <div class="art-term" role="presentation">
-            <div class="term-head">
-              <span class="light r"></span><span class="light y"></span><span class="light g"></span>
-              <span class="title">cursor · chat</span>
-            </div>
-            <div class="term-body">
-              <div><span class="p">&gt;</span> <span class="cmd">/qa-draft</span> <span class="arg">1363798</span></div>
-              <div><span class="ok">✓</span> <span class="hi">Wrote 3 files · 4 images</span></div>
-              <div><span class="p">&gt;</span> <span class="cmd">/qa-publish</span> <span class="arg">1363798</span></div>
-              <div><span class="ok">✓</span> <span class="hi">6 CREATE · 0 duplicates</span><span class="cursor"></span></div>
-            </div>
-          </div>
+        <div data-reveal data-delay="3" class="meta">
+          <span><span class="tick">+</span> Node 18+</span>
+          <span><span class="tick">+</span> macOS, Linux, WSL</span>
+          <span><span class="tick">+</span> MCP-compatible (Cursor, Claude Desktop)</span>
+          <span><span class="tick">+</span> Zero cloud infrastructure</span>
         </div>
       </div>
     </section>
 
-    <!-- WHY / ADVANTAGES -->
-    <section id="advantages">
+    <!-- BUSINESS VALUE -->
+    <section id="value">
       <div class="wrap">
         <div data-reveal>
-          <span class="kicker">What makes ado-mcp different</span>
-          <h2>Context the agent can actually use.</h2>
+          <span class="kicker">Why VortexADO</span>
+          <h2>Your QA team deserves better than copy-paste.</h2>
           <p class="lede">
-            Most MCPs hand the agent a bare JSON blob and hope for the best.
-            ado-mcp walks the user story, fetches linked Confluence pages,
-            captures embedded images as pixel data, and returns a typed
-            payload — every field the agent needs to draft a test case, in
-            one structured response.
+            Traditional QA test design means reading user stories in one tab, Confluence
+            specs in another, and manually writing test cases in a third. VortexADO gives
+            your AI agent the complete picture — so it drafts test cases that actually
+            reflect the requirements.
           </p>
         </div>
 
         <div class="cards">
           <div data-reveal class="card">
-            <div class="ico">👁</div>
-            <h3>Vision into rich-text</h3>
-            <p>The agent actually <em>sees</em> images embedded in ADO work-item fields and Confluence attachment pages — wireframes, flow diagrams, Salesforce UI mocks. Not metadata, pixel data. Ship-dark behind <code>images.returnMcpImageParts</code>.</p>
+            <div class="ico">01</div>
+            <h3>Full-context awareness</h3>
+            <p>The agent sees everything relevant to a user story — every configured rich-text field, every populated ADO field (noise filtered), linked Confluence page content, and embedded images as pixel data. No more "can you also check the acceptance criteria?"</p>
           </div>
           <div data-reveal data-delay="1" class="card">
-            <div class="ico">🧭</div>
-            <h3>Full-context payload</h3>
-            <p><code>get_user_story</code> returns <code>namedFields</code> (every configured rich-text field), <code>allFields</code> (every populated ADO field with system-noise filter), <code>fetchedConfluencePages[]</code>, and <code>unfetchedLinks[]</code> — SharePoint / Figma surfaced before drafting, not discovered halfway through.</p>
+            <div class="ico">02</div>
+            <h3>Draft-review-publish workflow</h3>
+            <p>Test cases land as reviewable Markdown in your workspace before anything touches ADO. Your team reviews, edits, and approves locally — then publishes with a single command. No accidental test cases in production.</p>
           </div>
           <div data-reveal data-delay="2" class="card">
-            <div class="ico">🛡</div>
-            <h3>Duplicate-TC preflight</h3>
-            <p>When you <code>/qa-publish</code> to a US that already has linked test cases, the MCP shows a counts-based A/B/C prompt before doing anything. No more accidentally creating 8 duplicates.</p>
+            <div class="ico">03</div>
+            <h3>Duplicate prevention built in</h3>
+            <p>Before publishing, VortexADO checks for existing linked test cases and shows you what it found. You choose whether to add, replace, or cancel — the system never creates duplicates silently.</p>
           </div>
           <div data-reveal data-delay="3" class="card">
-            <div class="ico">🤝</div>
-            <h3>Consent rule built in</h3>
-            <p>Ambiguous replies (<em>"are you dumb"</em>, <em>"seriously?"</em>, emoji, silence) do not authorize tool calls. The agent re-asks with yes/no. Frustration isn't consent — the rule lives in <code>AGENTS.md</code>.</p>
-          </div>
-          <div data-reveal data-delay="1" class="card">
-            <div class="ico">🎛</div>
-            <h3>Per-team config</h3>
-            <p><code>conventions.config.json</code> customizes title format, persona labels, sprint prefix, test-plan mapping, image guardrails, and per-project custom fields. Your team's conventions, without code changes.</p>
-          </div>
-          <div data-reveal data-delay="2" class="card">
-            <div class="ico">🧱</div>
-            <h3><code>structuredContent</code> on every read</h3>
-            <p>All 12 read tools emit typed structured output alongside prose. MCP clients that support <code>structuredContent</code> render navigable trees; legacy clients see the exact same text as before. No regression, just upside.</p>
-          </div>
-          <div data-reveal data-delay="3" class="card">
-            <div class="ico">🔐</div>
-            <h3>PAT auth, credentials on-box</h3>
-            <p>ADO Personal Access Token, Confluence API token — stored in <code>~/.ado-testforge-mcp/credentials.json</code> on your machine. Nothing phones home.</p>
-          </div>
-          <div data-reveal data-delay="4" class="card">
-            <div class="ico">🧩</div>
-            <h3>20 slash commands, purpose-built</h3>
-            <p><code>ado-*</code> for ADO primitives, <code>qa-*</code> for the QA lifecycle, <code>confluence-*</code> for Confluence. Every command is a prompt with a contract; read tools never mutate, action tools gate on explicit yes.</p>
+            <div class="ico">04</div>
+            <h3>Team conventions, zero code changes</h3>
+            <p>Title format, persona labels, sprint prefixes, test-plan routing, image handling — all configurable per team. Your conventions propagate to every generated test case without touching source code.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ALL 20 COMMANDS -->
-    <section id="features">
+    <!-- HOW IT WORKS -->
+    <section id="how">
       <div class="wrap">
         <div data-reveal>
-          <span class="kicker">All 20 commands</span>
-          <h2>Everything this MCP does.</h2>
+          <span class="kicker">How it works</span>
+          <h2>Three steps per user story.</h2>
           <p class="lede">
-            Twenty slash commands, grouped into <strong>setup</strong>,
-            <strong>read</strong>, and <strong>action</strong> tools. Read
-            tools are safe to run any time — they never modify ADO,
-            Confluence, or your workspace. Action tools gate every mutation
-            behind an explicit affirmative.
-          </p>
-        </div>
-
-        <div class="features">
-
-          <div data-reveal class="feature">
-            <span class="tag setup">Setup</span>
-            <h4><span class="slash">/</span>ado-connect</h4>
-            <p>Open the config UI. Enter ADO PAT, org, project, and optional Confluence token with real-time connection testing. Writes to <code>~/.ado-testforge-mcp/credentials.json</code>.</p>
-          </div>
-
-          <div data-reveal data-delay="1" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-check</h4>
-            <p>Deterministic setup-status check. Renders a Markdown table, overall verdict (ready / degraded / broken), and exact next actions. No agent hallucination.</p>
-          </div>
-
-          <div data-reveal data-delay="2" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-story</h4>
-            <p>Fetch a User Story with full context: primary fields, <code>allFields</code>, <code>fetchedConfluencePages</code>, <code>embeddedImages</code>, <code>unfetchedLinks</code>. Emits structured output.</p>
-          </div>
-
-          <div data-reveal data-delay="3" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-plans</h4>
-            <p>List every test plan in the project. ID, name, area path, state, root suite.</p>
-          </div>
-
-          <div data-reveal data-delay="4" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-plan</h4>
-            <p>Get one test plan by ID. Area path, iteration, root suite — plus any attached query.</p>
-          </div>
-
-          <div data-reveal class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-suites</h4>
-            <p>List suites under a plan. Root vs child relationships surfaced so the agent sees the real tree.</p>
-          </div>
-
-          <div data-reveal data-delay="1" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-suite</h4>
-            <p>Get one suite by ID. The WIQL query string is surfaced as an artifact for query-based suites.</p>
-          </div>
-
-          <div data-reveal data-delay="2" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-suite-tests</h4>
-            <p>List test cases inside a suite. IDs, titles, and links ready for the agent to reason over.</p>
-          </div>
-
-          <div data-reveal data-delay="3" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>ado-fields</h4>
-            <p>List every work-item field definition the project has configured. Capped at 50 in structured output; the full list is in prose.</p>
-          </div>
-
-          <div data-reveal data-delay="4" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>qa-tests</h4>
-            <p>List test cases linked to a User Story via the <code>TestedBy</code> relation. Numbered list with clickable web URLs.</p>
-          </div>
-
-          <div data-reveal class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>qa-tc-read</h4>
-            <p>Get one test case by ID. Relations are split into children (work-items) and artifacts (attachments) so the agent can pick the right bucket.</p>
-          </div>
-
-          <div data-reveal data-delay="1" class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-draft</h4>
-            <p>Generate <code>US_&lt;id&gt;_test_cases.md</code>, solution summary, and QA cheat sheet under <code>tc-drafts/US_&lt;id&gt;/</code>. Asks to confirm before writing; reads the full US context first.</p>
-          </div>
-
-          <div data-reveal data-delay="2" class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-publish</h4>
-            <p>Push an approved draft to ADO. Runs the duplicate-TC preflight, shows an A/B/C menu if linked test cases already exist, waits for explicit <code>yes</code> before mutating.</p>
-          </div>
-
-          <div data-reveal data-delay="3" class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-tc-update</h4>
-            <p>Update fields on an existing test case — title, description, prerequisites, steps, priority. Structured input preferred over raw HTML.</p>
-          </div>
-
-          <div data-reveal data-delay="4" class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-tc-delete</h4>
-            <p>Delete one or more test cases by ID. Accepts a single ID or a comma-separated list. Sends to Recycle Bin by default; pass <code>destroy: true</code> for permanent removal. Confirmation-gated — the agent shows the full list and waits for <code>yes</code>.</p>
-          </div>
-
-          <div data-reveal data-delay="1" class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-clone</h4>
-            <p>Clone test cases from a source US to a target US. Analyzes target context, classifies each TC (clone-as-is / minor-update / enhanced), previews the plan before committing.</p>
-          </div>
-
-          <div data-reveal data-delay="2" class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-suite-update</h4>
-            <p>Update an existing test suite's name, parent, or query. Preview-then-confirm.</p>
-          </div>
-
-          <div data-reveal data-delay="4" class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-suite-delete</h4>
-            <p>Delete a test suite. The test cases themselves remain in ADO — only the suite association is removed.</p>
-          </div>
-
-          <div data-reveal class="feature">
-            <span class="tag action">Action</span>
-            <h4><span class="slash">/</span>qa-suite-setup</h4>
-            <p>Auto-derive plan + sprint from US AreaPath + Iteration and ensure the Sprint → Parent-US → US suite hierarchy. US ID only — optionally override planId or sprintNumber for manual control.</p>
-          </div>
-
-          <div data-reveal data-delay="1" class="feature">
-            <span class="tag">Read</span>
-            <h4><span class="slash">/</span>confluence-read</h4>
-            <p>Read a Confluence page by ID. Solution Design enrichment also auto-fetches when a US's Solution Notes field contains a Confluence URL.</p>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <!-- COMMANDS TABLE -->
-    <section id="reference">
-      <div class="wrap">
-        <div data-reveal>
-          <span class="kicker">Reference</span>
-          <h2>Commands at a glance.</h2>
-          <p class="lede">
-            Copy-paste these straight into Cursor's agent chat after install
-            and <code style="color:var(--blue-2); background: rgba(38,132,255,0.08); padding: 2px 8px; border-radius: 6px;">/ado-connect</code>. Replace placeholders
-            (<code style="color:var(--violet-2); background: rgba(135,119,217,0.08); padding: 2px 8px; border-radius: 6px;">1363798</code>, etc.) with your own work-item IDs.
-          </p>
-        </div>
-
-        <div data-reveal data-delay="1" class="table-wrap">
-          <table class="cmds">
-            <thead>
-              <tr>
-                <th>Command</th>
-                <th>Kind</th>
-                <th>Description</th>
-                <th>Example</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="cmd">/ado-connect</td>
-                <td><span class="pill setup">Setup</span></td>
-                <td>Open the config UI. Enter PAT, org, project, optional Confluence token with real-time connection test.</td>
-                <td><span class="example">/ado-connect</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-check</td>
-                <td><span class="pill read">Read</span></td>
-                <td>Deterministic setup-status check. Renders a table plus overall verdict and exact next actions.</td>
-                <td><span class="example">/ado-check</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-story &lt;ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>Fetch a User Story with primary fields, allFields, fetchedConfluencePages, embeddedImages, unfetchedLinks.</td>
-                <td><span class="example">/ado-story 1363798</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-plans</td>
-                <td><span class="pill read">Read</span></td>
-                <td>List every test plan in the project.</td>
-                <td><span class="example">/ado-plans</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-plan &lt;ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>Get one test plan by ID: area path, iteration, root suite.</td>
-                <td><span class="example">/ado-plan 1066479</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-suites &lt;PLAN-ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>List suites under a plan. Root vs child relationships surfaced.</td>
-                <td><span class="example">/ado-suites 1066479</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-suite &lt;SUITE-ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>Get one suite by ID. WIQL query string surfaced for query-based suites.</td>
-                <td><span class="example">/ado-suite 2145873</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-suite-tests &lt;SUITE-ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>List test cases inside a suite.</td>
-                <td><span class="example">/ado-suite-tests 2145873</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/ado-fields</td>
-                <td><span class="pill read">Read</span></td>
-                <td>List every work-item field definition configured on the project.</td>
-                <td><span class="example">/ado-fields</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-tests &lt;US-ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>List test cases linked to a User Story via TestedBy.</td>
-                <td><span class="example">/qa-tests 1363798</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-tc-read &lt;TC-ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>Get one test case by ID. Children vs artifacts split out.</td>
-                <td><span class="example">/qa-tc-read 1363812</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-draft &lt;US-ID&gt;</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Generate US_&lt;id&gt;_test_cases.md + solution summary + QA cheat sheet under tc-drafts/US_&lt;id&gt;/.</td>
-                <td><span class="example">/qa-draft 1363798</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-publish &lt;US-ID&gt;</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Push an approved draft to ADO. Runs duplicate-TC preflight; waits for explicit yes before mutating.</td>
-                <td><span class="example">/qa-publish 1363798</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-tc-update &lt;TC-ID&gt;</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Update fields of an existing test case — title, description, prerequisites, steps, priority.</td>
-                <td><span class="example">/qa-tc-update 1363812</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-tc-delete &lt;TC-ID&gt; | &lt;ID,ID,...&gt;</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Delete one or more test cases by ID. Accepts a single ID or a comma-separated list. Recycle Bin by default; destroy:true for permanent. Confirmation-gated with the full list shown.</td>
-                <td><span class="example">/qa-tc-delete 1363812,1363813</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-clone</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Clone test cases from a source US to a target US with per-TC classification and preview.</td>
-                <td><span class="example">/qa-clone <em>(prompts for source + target US ID)</em></span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-suite-update &lt;SUITE-ID&gt;</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Update an existing suite's name, parent, or query. Preview-then-confirm.</td>
-                <td><span class="example">/qa-suite-update 2145873</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-suite-delete &lt;SUITE-ID&gt;</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Delete a test suite. Test cases themselves remain in ADO; only the association is removed.</td>
-                <td><span class="example">/qa-suite-delete 2145873</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/qa-suite-setup &lt;US-ID&gt;</td>
-                <td><span class="pill action">Action</span></td>
-                <td>Auto-derive plan + sprint from the US, ensure Sprint → Parent-US → US suite hierarchy. Optional planId/sprintNumber overrides.</td>
-                <td><span class="example">/qa-suite-setup 1363798</span></td>
-              </tr>
-              <tr>
-                <td class="cmd">/confluence-read &lt;PAGE-ID&gt;</td>
-                <td><span class="pill read">Read</span></td>
-                <td>Read a Confluence page by ID. Solution Design also auto-fetches from US Solution Notes.</td>
-                <td><span class="example">/confluence-read 7084278127</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- WORKFLOW -->
-    <section id="workflow">
-      <div class="wrap">
-        <div data-reveal>
-          <span class="kicker">Per-story flow</span>
-          <h2>Three steps per story.</h2>
-          <p class="lede">
-            Once <code style="color:var(--blue-2); background: rgba(38,132,255,0.08); padding: 2px 8px; border-radius: 6px;">/ado-connect</code> is done, your per-story rhythm looks like this.
+            Once connected to your Azure DevOps organization, the per-story rhythm is simple.
           </p>
         </div>
 
@@ -1330,224 +473,208 @@
           <div data-reveal class="step">
             <h3>Draft</h3>
             <p>
-              Run <code>/qa-draft &lt;US-ID&gt;</code>. The MCP fetches the
-              user story (all fields, linked Confluence pages, embedded
-              images), then drafts test cases plus a solution summary and
-              QA cheat sheet into <code>tc-drafts/US_&lt;id&gt;/</code>.
+              Point the agent at a user story ID. It fetches the full context — requirements,
+              acceptance criteria, solution design, linked documentation, and embedded visuals —
+              then drafts comprehensive test cases into your local workspace.
             </p>
           </div>
           <div data-reveal data-delay="1" class="step">
             <h3>Review</h3>
             <p>
-              Open the draft Markdown in your editor. Tables,
-              prerequisites, and steps are all inline. Reviewers can click
-              straight through to the original ADO work item and Confluence
-              URLs without leaving the editor.
+              Open the generated Markdown in your editor. Test steps, prerequisites, and
+              expected results are all human-readable. Your team reviews and refines before
+              anything is committed to Azure DevOps.
             </p>
           </div>
           <div data-reveal data-delay="2" class="step">
             <h3>Publish</h3>
             <p>
-              Run <code>/qa-publish &lt;US-ID&gt;</code>. The MCP checks
-              for duplicates, shows a preflight if any are found, waits for
-              explicit <code>yes</code>, calls the Azure DevOps REST API,
-              and writes the new ADO IDs back into your draft.
+              One command pushes approved test cases to ADO. The system checks for duplicates,
+              asks for explicit confirmation, creates the work items, links them to the
+              user story, and writes the new IDs back into your draft for traceability.
             </p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- SEE WHAT THE AGENT SEES -->
-    <section id="payload">
+    <!-- CAPABILITIES -->
+    <section id="capabilities">
       <div class="wrap">
         <div data-reveal>
-          <span class="kicker">The payload</span>
-          <h2>See what the agent sees.</h2>
+          <span class="kicker">Capabilities</span>
+          <h2>What the agent has access to.</h2>
           <p class="lede">
-            Most MCPs return bare JSON blobs. ado-mcp gives you a typed
-            payload with every field the agent will use during drafting —
-            named rich-text fields, pass-through <code style="color:var(--ink); background: rgba(148,163,196,0.08); padding: 1px 6px; border-radius: 4px; font-size: 13px;">allFields</code>, fetched
-            Confluence pages with image bytes, and explicit <code style="color:var(--ink); background: rgba(148,163,196,0.08); padding: 1px 6px; border-radius: 4px; font-size: 13px;">unfetchedLinks</code>
-            for anything it couldn't reach.
+            VortexADO is not a thin wrapper around a REST API. It provides structured,
+            purpose-built context that lets the AI agent reason about your requirements
+            instead of parsing raw JSON.
           </p>
         </div>
 
-        <details data-reveal data-delay="1" class="reveal-block">
-          <summary>
-            <span>Sample <code style="color: var(--blue-2); background: rgba(38,132,255,0.08); padding: 1px 6px; border-radius: 4px; font-size: 13px;">get_user_story</code> response — click to expand</span>
-            <span class="chev">›</span>
-          </summary>
-          <div class="body">
-<pre><span class="c">// Truncated for brevity. Every read tool emits structuredContent like this.</span>
-{
-  <span class="k">"id"</span>: <span class="n">1234567</span>,
-  <span class="k">"title"</span>: <span class="s">"Case Creation and Assignment"</span>,
-  <span class="k">"state"</span>: <span class="s">"In QA Validation"</span>,
-  <span class="k">"namedFields"</span>: {
-    <span class="k">"System.Description"</span>: {
-      <span class="k">"label"</span>: <span class="s">"Description"</span>,
-      <span class="k">"plainText"</span>: <span class="s">"As a Service Agent..."</span>
-    },
-    <span class="k">"Microsoft.VSTS.Common.AcceptanceCriteria"</span>: {
-      <span class="k">"label"</span>: <span class="s">"Acceptance Criteria"</span>,
-      <span class="k">"plainText"</span>: <span class="s">"..."</span>
-    },
-    <span class="k">"Custom.TechnicalSolution"</span>: {
-      <span class="k">"label"</span>: <span class="s">"Solution Notes"</span>,
-      <span class="k">"plainText"</span>: <span class="s">"https://.../Solution+Design"</span>
-    },
-    <span class="k">"Custom.ImpactAssessment"</span>: {
-      <span class="k">"label"</span>: <span class="s">"Impact Assessment"</span>,
-      <span class="k">"plainText"</span>: <span class="s">"..."</span>
-    }
-  },
-  <span class="k">"allFields"</span>: {
-    <span class="k">"Custom.NonFunctional"</span>: <span class="b">true</span>,
-    <span class="k">"Microsoft.VSTS.Common.Priority"</span>: <span class="n">2</span>,
-    <span class="c">// ... every populated ADO field, system noise filtered</span>
-  },
-  <span class="k">"fetchedConfluencePages"</span>: [
-    {
-      <span class="k">"pageId"</span>: <span class="s">"7084278127"</span>,
-      <span class="k">"title"</span>: <span class="s">"Solution Design — Case Creation"</span>,
-      <span class="k">"images"</span>: [ <span class="c">/* bytes + mime */</span> ]
-    }
-  ],
-  <span class="k">"embeddedImages"</span>: [
-    {
-      <span class="k">"source"</span>: <span class="s">"ado"</span>,
-      <span class="k">"filename"</span>: <span class="s">"wireframe.png"</span>,
-      <span class="k">"mimeType"</span>: <span class="s">"image/png"</span>,
-      <span class="k">"bytes"</span>: <span class="n">230184</span>
-    }
-  ],
-  <span class="k">"unfetchedLinks"</span>: []
-}</pre>
-          </div>
-        </details>
+        <ul data-reveal data-delay="1" class="cap-list">
+          <li data-icon="/">Full-context payload — returns every configured rich-text field, every populated ADO field (noise filtered), linked Confluence page content, and surfaces unfetched links (SharePoint, Figma) before drafting starts.</li>
+          <li data-icon="/">Vision into embedded images — the agent sees wireframes, flow diagrams, and UI mocks embedded in ADO fields and Confluence pages as actual pixel data, not just metadata links.</li>
+          <li data-icon="/">Test plan and suite management — navigate your project's test plan hierarchy, create sprint-based suite structures, and organize test cases where your team expects them.</li>
+          <li data-icon="/">Clone and adapt — copy test cases from one user story to another with intelligent classification. Each case is marked as clone-as-is, minor-update, or enhanced based on target context.</li>
+          <li data-icon="/">Structured output for MCP clients — every read command emits typed structured data alongside prose. Modern MCP clients render navigable trees; older clients see clean text.</li>
+          <li data-icon="/">Confluence integration — linked solution design pages are automatically fetched and included in the context. The agent reads your documentation so you do not have to re-explain it.</li>
+        </ul>
       </div>
     </section>
 
-    <!-- CONFIGURE TEAM CONVENTIONS -->
-    <section id="config">
+    <!-- COMMANDS -->
+    <section id="commands">
       <div class="wrap">
         <div data-reveal>
-          <span class="kicker">Configure your team's conventions</span>
-          <h2>Opinionated defaults, overridable per team.</h2>
+          <span class="kicker">Commands</span>
+          <h2>20 purpose-built tools.</h2>
           <p class="lede">
-            Test-case title format, personas, sprint prefix, test-plan
-            mapping, image guardrails — all configurable in one file. Drop
-            <code style="color:var(--ink); background: rgba(148,163,196,0.08); padding: 1px 6px; border-radius: 4px; font-size: 13px;">conventions.config.json</code> into your workspace and every
-            command picks it up.
+            Read tools never modify anything. Action tools gate every mutation behind
+            explicit confirmation. Use them in Cursor's agent chat after connecting.
           </p>
         </div>
 
-        <div class="split">
-          <details data-reveal data-delay="1" class="reveal-block">
-            <summary>
-              <span><code style="color: var(--blue-2); background: rgba(38,132,255,0.08); padding: 1px 6px; border-radius: 4px; font-size: 13px;">conventions.config.json</code> — excerpt</span>
-              <span class="chev">›</span>
-            </summary>
-            <div class="body">
-<pre>{
-  <span class="k">"testCaseTitle"</span>: {
-    <span class="k">"prefix"</span>: <span class="s">"TC"</span>,
-    <span class="k">"separator"</span>: <span class="s">" -&gt; "</span>,
-    <span class="k">"template"</span>: <span class="s">"{prefix}_{usId}_{tcNumber}{separator}{featureTags}{separator}{summary}"</span>,
-    <span class="k">"maxLength"</span>: <span class="n">256</span>
-  },
-  <span class="k">"prerequisiteDefaults"</span>: {
-    <span class="k">"personas"</span>: {
-      <span class="k">"KAM"</span>: {
-        <span class="k">"label"</span>: <span class="s">"Key Account Manager (KAM) User"</span>,
-        <span class="k">"roles"</span>: <span class="s">"KAM"</span>,
-        <span class="k">"psg"</span>: <span class="s">"TPM Global KAM Users PSG"</span>
-      }
-    },
-    <span class="k">"personaRolesLabel"</span>: <span class="s">"TPM Roles"</span>,
-    <span class="k">"personaPsgLabel"</span>: <span class="s">"PSG"</span>
-  },
-  <span class="k">"suiteStructure"</span>: {
-    <span class="k">"sprintPrefix"</span>: <span class="s">"SFTPM_"</span>,
-    <span class="k">"testPlanMapping"</span>: [
-      { <span class="k">"planId"</span>: <span class="n">1066479</span>, <span class="k">"areaPathContains"</span>: [<span class="s">"DHub"</span>, <span class="s">"D-HUB"</span>] },
-      { <span class="k">"planId"</span>: <span class="n">1066480</span>, <span class="k">"areaPathContains"</span>: [<span class="s">"EHub"</span>, <span class="s">"E-HUB"</span>] }
-    ]
-  },
-  <span class="k">"additionalContextFields"</span>: [
-    { <span class="k">"adoFieldRef"</span>: <span class="s">"Custom.ImpactAssessment"</span>, <span class="k">"label"</span>: <span class="s">"Impact Assessment"</span>, <span class="k">"fetchLinks"</span>: <span class="b">true</span>, <span class="k">"fetchImages"</span>: <span class="b">true</span> }
-  ],
-  <span class="k">"images"</span>: {
-    <span class="k">"enabled"</span>: <span class="b">true</span>,
-    <span class="k">"maxPerUserStory"</span>: <span class="n">20</span>,
-    <span class="k">"returnMcpImageParts"</span>: <span class="b">false</span>,
-    <span class="k">"saveLocally"</span>: <span class="b">false</span>
-  }
-}</pre>
-            </div>
-          </details>
-
-          <div data-reveal data-delay="2">
-            <ul class="bullets">
-              <li><code>testCaseTitle</code> — format template plus length cap so every TC matches your naming convention.</li>
-              <li><code>prerequisiteDefaults.personas</code> + <code>personaRolesLabel</code> / <code>personaPsgLabel</code> — your team's role terminology baked into every draft.</li>
-              <li><code>suiteStructure.sprintPrefix</code> + <code>testPlanMapping</code> — your project's sprint pattern and the per-area-path plan routing.</li>
-              <li><code>additionalContextFields</code> — extra ADO fields passed through to the agent alongside the primary allowlist.</li>
-              <li><code>images.returnMcpImageParts</code> — the ship-dark vision flag. Off by default; flip it when you're ready.</li>
-            </ul>
-            <p style="margin-top: 22px; color: var(--muted); font-size: 14px;">
-              Full schema documented in <code style="color:var(--ink-2); background: rgba(148,163,196,0.08); padding: 1px 6px; border-radius: 4px; font-size: 12.5px;">docs/setup-guide.md</code>.
-            </p>
+        <div data-reveal data-delay="1" class="cmd-grid">
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-connect</span>
+            <span class="cmd-desc">Connect to your ADO organization</span>
+            <span class="cmd-tag setup">Setup</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-check</span>
+            <span class="cmd-desc">Verify connection status</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-story</span>
+            <span class="cmd-desc">Fetch user story with full context</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-plans</span>
+            <span class="cmd-desc">List all test plans</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-plan</span>
+            <span class="cmd-desc">Get test plan details</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-suites</span>
+            <span class="cmd-desc">List suites under a plan</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-suite</span>
+            <span class="cmd-desc">Get suite details</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-suite-tests</span>
+            <span class="cmd-desc">List test cases in a suite</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/ado-fields</span>
+            <span class="cmd-desc">List project field definitions</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-tests</span>
+            <span class="cmd-desc">List tests linked to a user story</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-tc-read</span>
+            <span class="cmd-desc">Read a test case by ID</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/confluence-read</span>
+            <span class="cmd-desc">Read a Confluence page</span>
+            <span class="cmd-tag read">Read</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-draft</span>
+            <span class="cmd-desc">Generate test case drafts locally</span>
+            <span class="cmd-tag action">Action</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-publish</span>
+            <span class="cmd-desc">Push approved drafts to ADO</span>
+            <span class="cmd-tag action">Action</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-tc-update</span>
+            <span class="cmd-desc">Update an existing test case</span>
+            <span class="cmd-tag action">Action</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-tc-delete</span>
+            <span class="cmd-desc">Delete test cases (confirmation-gated)</span>
+            <span class="cmd-tag action">Action</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-clone</span>
+            <span class="cmd-desc">Clone tests between user stories</span>
+            <span class="cmd-tag action">Action</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-suite-setup</span>
+            <span class="cmd-desc">Auto-create sprint suite hierarchy</span>
+            <span class="cmd-tag action">Action</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-suite-update</span>
+            <span class="cmd-desc">Update a test suite</span>
+            <span class="cmd-tag action">Action</span>
+          </div>
+          <div class="cmd-item">
+            <span class="cmd-name">/qa-suite-delete</span>
+            <span class="cmd-desc">Remove a suite (keeps test cases)</span>
+            <span class="cmd-tag action">Action</span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- BUILT FOR TRUST -->
-    <section id="security">
+    <!-- TRUST & SAFETY -->
+    <section id="trust">
       <div class="wrap">
         <div data-reveal>
-          <span class="kicker">Built for trust</span>
+          <span class="kicker">Trust and safety</span>
           <h2>Guardrails where they matter.</h2>
           <p class="lede">
-            Nothing about this MCP calls home, not even for version checks.
-            Every request hits Azure DevOps or Confluence — nothing else —
-            and every mutation waits for an affirmative token before it
-            fires.
+            VortexADO runs entirely on your machine. Nothing phones home — not even
+            version checks. Every request hits Azure DevOps or Confluence and nothing else.
           </p>
         </div>
 
-        <div class="security">
-          <div data-reveal class="sec-item">
-            <div class="ico">🤝</div>
-            <h4>Consent rule</h4>
-            <p><code>AGENTS.md § What counts as consent</code> gates every tool call on an affirmative token. Frustration, sarcasm, rhetorical questions do not authorize action — the agent re-asks.</p>
+        <div data-reveal data-delay="1" class="security-grid">
+          <div class="sec-item">
+            <h4>Explicit consent required</h4>
+            <p>Every action tool gates on an unambiguous "yes" before mutating. Frustration, sarcasm, and rhetorical questions are not treated as authorization — the agent re-asks with a clear yes/no prompt.</p>
           </div>
-          <div data-reveal data-delay="1" class="sec-item">
-            <div class="ico">🔑</div>
-            <h4>Local-only credentials</h4>
-            <p>ADO PAT and optional Confluence token live in <code>~/.ado-testforge-mcp/credentials.json</code>. Never committed, never synced, never sent anywhere except the respective Atlassian / Microsoft API endpoints.</p>
+          <div class="sec-item">
+            <h4>Credentials stay local</h4>
+            <p>Your ADO Personal Access Token and optional Confluence API token are stored on your machine only. They are never committed, never synced, and never sent anywhere except the respective API endpoints.</p>
           </div>
-          <div data-reveal data-delay="2" class="sec-item">
-            <div class="ico">🧱</div>
-            <h4>Path-traversal safe</h4>
-            <p>File writes use <code>path.join()</code> with Zod-validated inputs and a <code>sanitizeFilename()</code> guard. Every attachment download and draft save is verified against a known-safe workspace prefix.</p>
+          <div class="sec-item">
+            <h4>No telemetry, no analytics</h4>
+            <p>Zero tracking, zero phone-home, zero version pings. The server only communicates with Azure DevOps, Confluence, and your local filesystem.</p>
           </div>
-          <div data-reveal data-delay="3" class="sec-item">
-            <div class="ico">🌙</div>
-            <h4>Ship-dark defaults</h4>
-            <p>Big-delta features — image vision, saving images to disk — default OFF. Teammates installing the same tarball see zero behavior change until they flip the flag themselves.</p>
+          <div class="sec-item">
+            <h4>Path-traversal protection</h4>
+            <p>File writes use validated inputs with sanitized filenames. Every draft save and attachment download is verified against a known-safe workspace prefix.</p>
           </div>
-          <div data-reveal data-delay="4" class="sec-item">
-            <div class="ico">🚫</div>
-            <h4>No telemetry</h4>
-            <p>Zero analytics, zero phone-home, zero version pings. The MCP only talks to Azure DevOps, Confluence, and your local filesystem.</p>
+          <div class="sec-item">
+            <h4>Ship-dark by default</h4>
+            <p>Advanced capabilities like image vision and local image saving are off by default. Teams opt in explicitly — no surprise behavior changes on install.</p>
           </div>
-          <div data-reveal data-delay="4" class="sec-item">
-            <div class="ico">🧪</div>
-            <h4>Zod-validated responses</h4>
-            <p>Every ADO and Confluence response passes through a Zod schema. Unexpected shapes surface as typed errors — never silent data loss downstream.</p>
+          <div class="sec-item">
+            <h4>Schema-validated responses</h4>
+            <p>Every ADO and Confluence API response passes through strict schema validation. Unexpected shapes surface as typed errors — never silent data loss in your test cases.</p>
           </div>
         </div>
       </div>
@@ -1557,18 +684,20 @@
     <section>
       <div class="wrap">
         <div data-reveal class="cta-card">
-          <h2>Ready in under a minute.</h2>
-          <p>
-            Copy the command, paste into your terminal, restart Cursor, and
-            run <code style="color:var(--blue-2); background: rgba(38,132,255,0.1); padding: 2px 8px; border-radius: 6px;">/ado-connect</code>.
-          </p>
-          <div class="install" style="margin: 0 auto; display: inline-flex;">
-            <span class="prompt">$</span>
-            <code id="install-cmd-2">curl https://vortexado.vercel.app/install -fsS | bash</code>
-            <button id="copy-btn-2" class="btn primary" type="button" aria-label="Copy install command">
-              <span id="copy-label-2">Copy</span>
-            </button>
+          <h2>Start designing tests with context, not guesswork.</h2>
+          <p>Install in under 30 seconds. Connect to your ADO org. Draft your first test case.</p>
+          <div class="cta-actions">
+            <div class="install-block">
+              <span class="prompt">$</span>
+              <code id="install-cmd-2">curl https://vortexado.vercel.app/install -fsS | bash</code>
+              <button id="copy-btn-2" class="btn primary" type="button" aria-label="Copy install command">
+                <span id="copy-label-2">Copy</span>
+              </button>
+            </div>
           </div>
+          <p style="margin-top: 20px; font-size: 13.5px; color: var(--muted);">
+            To uninstall: <code style="color: var(--ink-2); font-size: 12.5px;">curl https://vortexado.vercel.app/uninstall -fsS | bash</code>
+          </p>
         </div>
       </div>
     </section>
@@ -1578,39 +707,34 @@
   <footer>
     <div class="wrap">
       <div class="copy">
-        <span>©</span>
+        <span>&copy;</span>
         <span id="year">2026</span>
         <span>Kavita Badgujar</span>
       </div>
-      <div class="tagline">Built for QA engineers who'd rather test than transcribe.</div>
+      <div class="links">
+        <a href="/docs.html">Documentation</a>
+        <a href="https://github.com/badgujar-kavita/ado-mcp-server" target="_blank" rel="noopener">GitHub</a>
+      </div>
     </div>
   </footer>
 
   <script>
-    // Footer year
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // Nav background on scroll
     const nav = document.getElementById('nav');
     const onScroll = () => {
-      if (window.scrollY > 12) nav.classList.add('scrolled');
-      else nav.classList.remove('scrolled');
+      nav.classList.toggle('scrolled', window.scrollY > 12);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
 
-    // Scroll-in reveals (IntersectionObserver)
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) {
-        if (e.isIntersecting) {
-          e.target.classList.add('in');
-          io.unobserve(e.target);
-        }
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       }
     }, { rootMargin: '0px 0px -60px 0px', threshold: 0.05 });
     document.querySelectorAll('[data-reveal]').forEach((el) => io.observe(el));
 
-    // Copy-to-clipboard (two buttons, one handler factory)
     function wireCopy(btnId, labelId, cmdId) {
       const btn = document.getElementById(btnId);
       const label = document.getElementById(labelId);
@@ -1619,26 +743,18 @@
       btn.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(cmd.textContent.trim());
-          const original = label.textContent;
           label.textContent = 'Copied!';
           btn.classList.add('copied');
-          setTimeout(() => {
-            label.textContent = original;
-            btn.classList.remove('copied');
-          }, 1600);
-        } catch (_e) {
-          const range = document.createRange();
-          range.selectNode(cmd);
-          const sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
+          setTimeout(() => { label.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        } catch (_) {
+          const r = document.createRange(); r.selectNode(cmd);
+          const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
         }
       });
     }
-    wireCopy('copy-btn',   'copy-label',   'install-cmd');
+    wireCopy('copy-btn', 'copy-label', 'install-cmd');
     wireCopy('copy-btn-2', 'copy-label-2', 'install-cmd-2');
 
-    // Smooth anchor scrolling (respect prefers-reduced-motion)
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     document.querySelectorAll('a[href^="#"]').forEach((a) => {
       a.addEventListener('click', (e) => {
