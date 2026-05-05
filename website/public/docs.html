@@ -177,10 +177,14 @@
       </table>
 
       <!-- INSTALL -->
-      <h2>Installation</h2>
+      <h2>Installation &amp; Upgrades</h2>
       <p>Run one command in your terminal. The installer downloads the server, installs dependencies, and registers with Cursor automatically.</p>
       <pre><code>curl https://vortexado.vercel.app/install -fsS | bash</code></pre>
       <p>After install, restart Cursor IDE. You'll see <strong>ado-testforge</strong> in your MCP server list.</p>
+
+      <div class="tip">
+        <strong>Same command for upgrades.</strong> Running the install command on an existing installation automatically detects the previous version, backs up your credentials, downloads the latest release, restores credentials, and re-installs dependencies. Your setup is preserved — just restart Cursor after the upgrade completes.
+      </div>
 
       <h3>Uninstall</h3>
       <p>To remove VortexADO completely (MCP config entry + installed files):</p>
@@ -202,7 +206,7 @@
         <table>
           <thead><tr><th>Field</th><th>Description</th><th>Where to get it</th></tr></thead>
           <tbody>
-            <tr><td><code>ado_pat</code></td><td>Azure DevOps Personal Access Token</td><td>ADO &rarr; User Settings &rarr; Personal Access Tokens</td></tr>
+            <tr><td><code>ado_pat</code></td><td>Azure DevOps Personal Access Token</td><td>See "Creating Your ADO PAT" below</td></tr>
             <tr><td><code>ado_org</code></td><td>Organization name</td><td>The part after <code>dev.azure.com/</code></td></tr>
             <tr><td><code>ado_project</code></td><td>Project name</td><td>Your ADO project</td></tr>
           </tbody>
@@ -214,14 +218,87 @@
           <tbody>
             <tr><td><code>confluence_base_url</code></td><td>Your Confluence instance URL (e.g. <code>https://yourteam.atlassian.net/wiki</code>)</td></tr>
             <tr><td><code>confluence_email</code></td><td>Atlassian account email</td></tr>
-            <tr><td><code>confluence_api_token</code></td><td>API token from <code>id.atlassian.com/manage-profile/security/api-tokens</code></td></tr>
+            <tr><td><code>confluence_api_token</code></td><td>See "Creating Your Confluence API Token" below</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ADO PAT GENERATION -->
+      <h2>Creating Your ADO Personal Access Token</h2>
+      <p>The MCP server connects to Azure DevOps on your behalf using a Personal Access Token (PAT). You can create one with <strong>Full access</strong> or with <strong>Custom defined</strong> scopes for tighter security.</p>
+
+      <h3>Steps</h3>
+      <ol>
+        <li>Open your browser and go to: <code>https://dev.azure.com/{your-org}/_usersSettings/tokens</code></li>
+        <li>Click <strong>+ New Token</strong></li>
+        <li>Set a name (e.g. "VortexADO MCP") and expiration (90 days recommended)</li>
+        <li>Choose <strong>Full access</strong> for simplicity, or <strong>Custom defined</strong> for minimum-privilege access (see table below)</li>
+        <li>Click <strong>Create</strong> and copy the token immediately — you won't see it again</li>
+      </ol>
+
+      <h3>Custom defined scopes (minimum required)</h3>
+      <p>If you prefer least-privilege access, select <strong>Custom defined</strong> and enable these scopes:</p>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Scope (UI Label)</th><th>Access Level</th><th>Why it's needed</th></tr></thead>
+          <tbody>
+            <tr><td>Work Items</td><td>Read &amp; Write</td><td>Read user stories, create/update/delete test cases</td></tr>
+            <tr><td>Test Management</td><td>Read &amp; Write</td><td>Manage test plans, suites, and test case associations</td></tr>
+            <tr><td>Project and Team</td><td>Read &amp; Write</td><td>Resolve project context, area paths, and iteration paths</td></tr>
+            <tr><td>Notifications</td><td>Read</td><td>Access user notification preferences for work item context</td></tr>
+            <tr><td>Service Connections</td><td>Read</td><td>Resolve service endpoints referenced in work items</td></tr>
+            <tr><td>Symbols</td><td>Read &amp; Write</td><td>Access symbol information for attachment handling</td></tr>
+            <tr><td>User Profile</td><td>Read &amp; Write</td><td>Resolve user identities for assigned-to fields</td></tr>
+            <tr><td>Secure Files</td><td>Read</td><td>Access secure file references in test configurations</td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="tip">
-        Your PAT needs these scopes: <strong>Work Items</strong> (Read &amp; Write) and <strong>Test Management</strong> (Read &amp; Write). For permanent deletion, you also need Project Administrator permissions.
+        <strong>Tip:</strong> If you only need basic test case drafting and publishing, the two essential scopes are <strong>Work Items (Read &amp; Write)</strong> and <strong>Test Management (Read &amp; Write)</strong>. The additional scopes enable full feature coverage including suite management, user resolution, and attachment handling.
       </div>
+
+      <div class="tip">
+        <strong>Security note:</strong> Never paste your PAT in Cursor's chat, email, or shared documents. Store it in a password manager. If compromised, revoke it immediately in ADO and create a new one.
+      </div>
+
+      <!-- CONFLUENCE TOKEN -->
+      <h2>Creating Your Confluence API Token</h2>
+      <p>If your User Stories link to Solution Design documents in Confluence, VortexADO can automatically fetch that content to enrich test case generation. This requires an Atlassian API token.</p>
+
+      <h3>Steps</h3>
+      <ol>
+        <li>Go to <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener">id.atlassian.com/manage-profile/security/api-tokens</a></li>
+        <li>Click <strong>Create API token</strong></li>
+        <li>Set a label (e.g. "VortexADO MCP") and click <strong>Create</strong></li>
+        <li>Copy the token immediately</li>
+      </ol>
+
+      <p>For <strong>Confluence Cloud</strong> with OAuth 2.0 apps or fine-grained tokens, these are the minimum scopes required:</p>
+
+      <div class="card">
+        <h3>Required Confluence scopes</h3>
+        <table>
+          <thead><tr><th>Scope</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>read:confluence-content.all</code></td><td>Read full page content (storage format HTML)</td></tr>
+            <tr><td><code>read:confluence-content.summary</code></td><td>Read page summaries and metadata</td></tr>
+            <tr><td><code>read:confluence-space.summary</code></td><td>List and resolve spaces</td></tr>
+            <tr><td><code>read:page:confluence</code></td><td>Read individual pages by ID</td></tr>
+            <tr><td><code>read:content:confluence</code></td><td>Read content objects (pages, blogs, comments)</td></tr>
+            <tr><td><code>read:content-details:confluence</code></td><td>Read expanded content details (body, version, ancestors)</td></tr>
+            <tr><td><code>read:space:confluence</code></td><td>Read space details and permissions context</td></tr>
+            <tr><td><code>read:attachment.download:confluence</code></td><td>Download page attachments (images, diagrams)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip">
+        <strong>Note:</strong> Standard Atlassian API tokens (email + token as basic auth) work out of the box for most Confluence Cloud instances without needing to configure individual scopes. The scopes above apply only if your organization uses OAuth 2.0 apps or Forge apps with fine-grained permission models.
+      </div>
+
+      <p>If Confluence is not configured, VortexADO works normally — Solution Design content will simply not be available during test case drafting, and you can paste relevant content manually when the agent asks.</p>
 
       <!-- CONVENTIONS CONFIG -->
       <h2>Team Configuration</h2>
@@ -281,11 +358,6 @@
         <li><strong>Review</strong> — Open the generated files in your editor. Edit test cases, adjust coverage, fix any assumptions. The draft is yours to shape.</li>
         <li><strong>Publish</strong> — Type <code>/qa-publish</code> with the same User Story ID. The MCP checks for duplicates, asks for confirmation, then creates the test cases in ADO and auto-organizes them into the correct suite hierarchy.</li>
       </ol>
-
-      <!-- UPDATING -->
-      <h2>Updating</h2>
-      <p>Run the install command again — it detects the existing installation, backs up your credentials, downloads the latest version, and restores credentials automatically.</p>
-      <pre><code>curl https://vortexado.vercel.app/install -fsS | bash</code></pre>
 
       <!-- TROUBLESHOOTING -->
       <h2>Troubleshooting</h2>
