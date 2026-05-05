@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdoClient } from "../ado-client.ts";
+import { AdoClientError } from "../ado-client.ts";
 import type { ConfluenceClient } from "../confluence-client.ts";
 import type { AdoWorkItem, JsonPatchOperation, TestCaseResult } from "../types.ts";
 import { loadConventionsConfig } from "../config.ts";
@@ -202,21 +203,85 @@ export function registerTestCaseTools(
     "qa_tc_delete",
     {
       title: "Delete Test Case",
-      description: "Delete a test case work item by ID. By default moves to Recycle Bin (restorable). Set destroy=true to permanently delete (not recommended).",
+      description: "Delete a test case work item by ID. Verifies the work item type is 'Test Case' before deleting — refuses to delete any other type (User Story, Bug, Task, etc.). By default moves to Recycle Bin (restorable within 30 days via ADO UI). Set destroy=true to permanently delete (cannot be recovered).",
       inputSchema: {
         workItemId: z.number().int().positive().describe("The test case work item ID to delete"),
-        destroy: z.boolean().optional().default(false).describe("If true, permanently delete. Default false (Recycle Bin)."),
+        destroy: z.boolean().optional().default(false).describe("If true, permanently delete (CANNOT be recovered). Default false (Recycle Bin, restorable within 30 days)."),
       },
     },
     async ({ workItemId, destroy }) => {
+      // Step 1: fetch the work item to verify type
+      let workItem: AdoWorkItem;
+      try {
+        workItem = await client.get<AdoWorkItem>(
+          `/_apis/wit/workitems/${workItemId}`,
+          "7.0",
+          { fields: "System.WorkItemType,System.Title,System.State" }
+        );
+      } catch (err) {
+        if (err instanceof AdoClientError) {
+          if (err.statusCode === 401) {
+            return {
+              content: [{ type: "text" as const, text: `Cannot delete work item ${workItemId}: **Authentication failed.** Your ADO PAT is invalid or expired. Run /ado-testforge/ado-connect to update credentials.` }],
+              isError: true,
+            };
+          }
+          if (err.statusCode === 403) {
+            return {
+              content: [{ type: "text" as const, text: `Cannot delete work item ${workItemId}: **Insufficient permissions.** Your ADO PAT needs the **Work Items (Read & Write)** scope (and **Test Management (Read & Write)** for test case mutations). Create a new PAT with these scopes and run /ado-testforge/ado-connect to update credentials.` }],
+              isError: true,
+            };
+          }
+          if (err.statusCode === 404) {
+            return {
+              content: [{ type: "text" as const, text: `Work item ${workItemId} not found. It may already be deleted, or the ID may be wrong. Verify the ID in ADO and try again.` }],
+              isError: true,
+            };
+          }
+        }
+        return {
+          content: [{ type: "text" as const, text: `Error fetching work item ${workItemId}: ${err}` }],
+          isError: true,
+        };
+      }
+
+      // Step 2: enforce type — this tool ONLY deletes Test Cases
+      const workItemType = (workItem.fields?.["System.WorkItemType"] as string) ?? "(unknown)";
+      if (workItemType !== "Test Case") {
+        const title = (workItem.fields?.["System.Title"] as string) ?? "(no title)";
+        return {
+          content: [{
+            type: "text" as const,
+            text: `**Refused to delete work item ${workItemId}.**\n\nThis tool only deletes **Test Cases**. The work item you referenced is a **${workItemType}**:\n\n- **Title:** ${title}\n- **Type:** ${workItemType}\n\nIf you intended to delete a test case, double-check the ID. If you intended to delete a ${workItemType}, do it directly in the ADO UI — this MCP server intentionally does not delete other work item types to prevent accidental data loss.`,
+          }],
+          isError: true,
+        };
+      }
+
+      // Step 3: perform the delete
       try {
         const queryParams = destroy ? { destroy: "true" } : undefined;
         await client.delete(`/_apis/wit/workitems/${workItemId}`, "7.1", queryParams);
+        const title = (workItem.fields?.["System.Title"] as string) ?? "";
         const msg = destroy
-          ? `Test case ${workItemId} permanently deleted.`
-          : `Test case ${workItemId} deleted (moved to Recycle Bin).`;
+          ? `🔴 Test case ${workItemId}${title ? ` (${title})` : ""} **PERMANENTLY DELETED.** This cannot be recovered.`
+          : `Test case ${workItemId}${title ? ` (${title})` : ""} deleted (moved to Recycle Bin — restorable within 30 days via ADO UI under Work Items → Recycle Bin).`;
         return { content: [{ type: "text" as const, text: msg }] };
       } catch (err) {
+        if (err instanceof AdoClientError) {
+          if (err.statusCode === 403) {
+            return {
+              content: [{ type: "text" as const, text: `Cannot delete test case ${workItemId}: **Insufficient permissions.** Your ADO PAT needs the **Work Items (Read & Write)** and **Test Management (Read & Write)** scopes.${destroy ? " Permanent-delete (destroy=true) also requires Project Administrator permission in ADO." : ""} Create a new PAT with these scopes and run /ado-testforge/ado-connect.` }],
+              isError: true,
+            };
+          }
+          if (err.statusCode === 401) {
+            return {
+              content: [{ type: "text" as const, text: `Cannot delete test case ${workItemId}: **Authentication failed.** Your ADO PAT is invalid or expired.` }],
+              isError: true,
+            };
+          }
+        }
         return {
           content: [{ type: "text" as const, text: `Error deleting test case ${workItemId}: ${err}` }],
           isError: true,

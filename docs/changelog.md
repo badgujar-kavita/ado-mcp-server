@@ -6,6 +6,17 @@ All notable changes to the ADO TestForge MCP server are documented here.
 
 ## Unreleased
 
+### Delete Safety — Type Enforcement + Permanent-Delete Gate
+
+- **`qa_tc_delete` now verifies work-item type before deleting.** The tool fetches the target work item first and checks `System.WorkItemType === "Test Case"`. If the ID resolves to a User Story, Bug, Task, or any other work item type, the tool refuses with a clear message showing the actual type and title. Prevents accidental deletion of non-test-case work items when an ID is mis-entered.
+- **Friendly error messages for auth and permission failures.** `qa_tc_delete` now maps ADO 401/403/404 responses to direct actionable messages:
+  - 401: "Authentication failed. Your ADO PAT is invalid or expired. Run /ado-testforge/ado-connect to update credentials."
+  - 403: "Insufficient permissions. Your ADO PAT needs the Work Items (Read & Write) and Test Management (Read & Write) scopes. Create a new PAT with these scopes and run /ado-testforge/ado-connect."
+  - 404: "Work item N not found. It may already be deleted, or the ID may be wrong."
+  - Permanent-delete (`destroy=true`) additionally notes the Project Administrator requirement in the 403 message.
+- **Permanent-delete confirmation hardened.** The `/qa-tc-delete` prompt now shows a loud warning block when `destroy=true` is requested and requires the user to reply exactly `DESTROY` (uppercase, case-sensitive) — a plain "yes" does NOT proceed. The default (soft delete → Recycle Bin) is unchanged and uses the normal `YES`/`no` flow, with a note about the 30-day restore window and the ADO UI path.
+- Success messages now include the test-case title (if available) and spell out recoverability: soft deletes say "moved to Recycle Bin — restorable within 30 days via ADO UI", permanent deletes say "PERMANENTLY DELETED. This cannot be recovered."
+
 ### Slash-Command Consolidation
 
 - **Merged `/qa-tc-bulk-delete` into `/qa-tc-delete`.** The single command now accepts either a single work-item ID or multiple IDs (comma/space-separated). Both paths route to the same `qa_tc_delete` backend tool. Removes one slash command (21 → 20) without losing capability.
