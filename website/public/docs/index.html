@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>VortexADO — Documentation</title>
-  <meta name="description" content="Setup guide, configuration reference, and user documentation for VortexADO MCP server." />
+  <title>Vortex ADO — Documentation</title>
+  <meta name="description" content="Setup guide, configuration reference, and user documentation for Vortex ADO MCP server." />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0B1220" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232684FF'/%3E%3Cstop offset='100%25' stop-color='%238777D9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M17 33l9 9 20-20' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
@@ -172,10 +172,15 @@
 <body>
   <header>
     <div class="wrap">
-      <a href="/" class="brand">VortexADO</a>
+      <a href="/" class="brand">Vortex ADO</a>
       <nav>
         <a href="/">Home</a>
-        <a href="/docs.html" class="active">Docs</a>
+        <a href="/docs" class="active">Docs</a>
+        <a href="#credentials">Credentials</a>
+        <a href="#ado-pat">ADO PAT</a>
+        <a href="#confluence-token">Confluence</a>
+        <a href="#team-config">Config</a>
+        <a href="#troubleshooting">Troubleshooting</a>
       </nav>
     </div>
   </header>
@@ -183,7 +188,7 @@
   <main>
     <div class="wrap">
       <h1>Documentation &amp; <span>Setup Guide</span></h1>
-      <p class="subtitle">Everything you need to install, configure, and start using VortexADO.</p>
+      <p class="subtitle">Everything you need to install, configure, and start using Vortex ADO.</p>
 
       <!-- PREREQUISITES -->
       <h2>Prerequisites</h2>
@@ -209,11 +214,11 @@
       </div>
 
       <h3>Uninstall</h3>
-      <p>To remove VortexADO completely (MCP config entry + installed files):</p>
+      <p>To remove Vortex ADO completely (MCP config entry + installed files):</p>
       <div class="copy-wrap"><pre><code>curl https://vortexado.vercel.app/uninstall -fsS | bash</code></pre><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
 
       <!-- CREDENTIALS -->
-      <h2>Credentials Setup</h2>
+      <h2 id="credentials">Credentials Setup</h2>
       <p>After install, configure your credentials. You have two options:</p>
 
       <h3>Option 1: Configuration UI (recommended)</h3>
@@ -246,14 +251,14 @@
       </div>
 
       <!-- ADO PAT GENERATION -->
-      <h2>Creating Your ADO Personal Access Token</h2>
+      <h2 id="ado-pat">Creating Your ADO Personal Access Token</h2>
       <p>The MCP server connects to Azure DevOps on your behalf using a Personal Access Token (PAT). You can create one with <strong>Full access</strong> or with <strong>Custom defined</strong> scopes for tighter security.</p>
 
       <h3>Steps</h3>
       <ol>
         <li>Open your browser and go to: <code>https://dev.azure.com/{your-org}/_usersSettings/tokens</code></li>
         <li>Click <strong>+ New Token</strong></li>
-        <li>Set a name (e.g. "VortexADO MCP") and expiration (90 days recommended)</li>
+        <li>Set a name (e.g. "Vortex ADO MCP") and expiration (90 days recommended)</li>
         <li>Choose <strong>Full access</strong> for simplicity, or <strong>Custom defined</strong> for minimum-privilege access (see table below)</li>
         <li>Click <strong>Create</strong> and copy the token immediately — you won't see it again</li>
       </ol>
@@ -286,14 +291,14 @@
       </div>
 
       <!-- CONFLUENCE TOKEN -->
-      <h2>Creating Your Confluence API Token</h2>
-      <p>If your User Stories link to Solution Design documents in Confluence, VortexADO can automatically fetch that content to enrich test case generation. This requires an Atlassian API token.</p>
+      <h2 id="confluence-token">Creating Your Confluence API Token</h2>
+      <p>If your User Stories link to Solution Design documents in Confluence, Vortex ADO can automatically fetch that content to enrich test case generation. This requires an Atlassian API token.</p>
 
       <h3>Steps</h3>
       <ol>
         <li>Go to <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener">id.atlassian.com/manage-profile/security/api-tokens</a></li>
         <li>Click <strong>Create API token</strong></li>
-        <li>Set a label (e.g. "VortexADO MCP") and click <strong>Create</strong></li>
+        <li>Set a label (e.g. "Vortex ADO MCP") and click <strong>Create</strong></li>
         <li>Copy the token immediately</li>
       </ol>
 
@@ -316,11 +321,11 @@
         </table>
       </div>
 
-      <p>If Confluence is not configured, VortexADO works normally — Solution Design content will simply not be available during test case drafting, and you can paste relevant content manually when the agent asks.</p>
+      <p>If Confluence is not configured, Vortex ADO works normally — Solution Design content will simply not be available during test case drafting, and you can paste relevant content manually when the agent asks.</p>
 
       <!-- CONVENTIONS CONFIG -->
-      <h2>Team Configuration</h2>
-      <p>VortexADO adapts to your team's conventions via a single configuration file placed alongside the installation:</p>
+      <h2 id="team-config">Team Configuration</h2>
+      <p>Vortex ADO adapts to your team's conventions via a single configuration file placed alongside the installation:</p>
       <pre><code>~/.vortex-ado/conventions.config.json</code></pre>
 
       <p>This file controls everything from test case title format to suite hierarchy rules. Settings are grouped into logical sections:</p>
@@ -364,7 +369,7 @@
         <h3>Fetching &amp; Image Processing</h3>
         <p>These settings live in the <code>images</code> and <code>context</code> sections of:</p>
         <pre><code>~/.vortex-ado/conventions.config.json</code></pre>
-        <p>VortexADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. The AI agent uses these images as visual reference when designing test cases, ensuring test scenarios accurately reflect the intended UI behavior, business flows, and acceptance criteria shown in diagrams.</p>
+        <p>Vortex ADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. The AI agent uses these images as visual reference when designing test cases, ensuring test scenarios accurately reflect the intended UI behavior, business flows, and acceptance criteria shown in diagrams.</p>
 
         <h3>Key settings</h3>
         <table>
@@ -425,7 +430,7 @@
       </ol>
 
       <!-- TROUBLESHOOTING -->
-      <h2>Troubleshooting</h2>
+      <h2 id="troubleshooting">Troubleshooting</h2>
       <h3>MCP server not showing in Cursor</h3>
       <p>Restart Cursor after install. Check that <code>~/.cursor/mcp.json</code> contains an <code>vortex-ado</code> entry.</p>
 
@@ -439,7 +444,7 @@
 
   <footer>
     <div class="wrap">
-      <a href="/">VortexADO</a> &middot; <a href="/docs.html">Documentation</a>
+      <a href="/">Vortex ADO</a> &middot; <a href="/docs">Docs</a>
     </div>
   </footer>
 
