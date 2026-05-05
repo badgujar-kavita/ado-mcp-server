@@ -138,6 +138,28 @@
       color: var(--ink-2);
     }
 
+    .copy-wrap {
+      position: relative;
+    }
+    .copy-wrap pre {
+      padding-right: 48px;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(38, 132, 255, 0.12);
+      border: 1px solid rgba(38, 132, 255, 0.3);
+      border-radius: 6px;
+      color: var(--blue-2);
+      font-size: 12px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: background 150ms;
+    }
+    .copy-btn:hover { background: rgba(38, 132, 255, 0.25); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
     footer {
       border-top: 1px solid var(--line);
       padding: 24px 0;
@@ -179,16 +201,16 @@
       <!-- INSTALL -->
       <h2>Installation &amp; Upgrades</h2>
       <p>Run one command in your terminal. The installer downloads the server, installs dependencies, and registers with Cursor automatically.</p>
-      <pre><code>curl https://vortexado.vercel.app/install -fsS | bash</code></pre>
+      <div class="copy-wrap"><pre><code>curl https://vortexado.vercel.app/install -fsS | bash</code></pre><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
       <p>After install, restart Cursor IDE. You'll see <strong>ado-testforge</strong> in your MCP server list.</p>
 
       <div class="tip">
-        <strong>Same command for upgrades.</strong> Running the install command on an existing installation automatically detects the previous version, backs up your credentials, downloads the latest release, restores credentials, and re-installs dependencies. Your setup is preserved — just restart Cursor after the upgrade completes.
+        <strong>Same command for upgrades.</strong> Running the install command on an existing installation automatically detects the previous version, backs up your credentials, downloads the latest release, restores credentials, and re-installs dependencies. Your setup is preserved — just restart the MCP server (Settings → MCP → refresh ado-testforge) after the upgrade completes.
       </div>
 
       <h3>Uninstall</h3>
       <p>To remove VortexADO completely (MCP config entry + installed files):</p>
-      <pre><code>curl https://vortexado.vercel.app/uninstall -fsS | bash</code></pre>
+      <div class="copy-wrap"><pre><code>curl https://vortexado.vercel.app/uninstall -fsS | bash</code></pre><button class="copy-btn" onclick="copyCmd(this)">Copy</button></div>
 
       <!-- CREDENTIALS -->
       <h2>Credentials Setup</h2>
@@ -275,10 +297,10 @@
         <li>Copy the token immediately</li>
       </ol>
 
-      <p>For <strong>Confluence Cloud</strong> with OAuth 2.0 apps or fine-grained tokens, these are the minimum scopes required:</p>
+      <h3>Minimum scopes (if creating a token with custom scopes)</h3>
+      <p>If your organization uses fine-grained access tokens, ensure at least these scopes are enabled:</p>
 
       <div class="card">
-        <h3>Required Confluence scopes</h3>
         <table>
           <thead><tr><th>Scope</th><th>Purpose</th></tr></thead>
           <tbody>
@@ -294,10 +316,6 @@
         </table>
       </div>
 
-      <div class="tip">
-        <strong>Note:</strong> Standard Atlassian API tokens (email + token as basic auth) work out of the box for most Confluence Cloud instances without needing to configure individual scopes. The scopes above apply only if your organization uses OAuth 2.0 apps or Forge apps with fine-grained permission models.
-      </div>
-
       <p>If Confluence is not configured, VortexADO works normally — Solution Design content will simply not be available during test case drafting, and you can paste relevant content manually when the agent asks.</p>
 
       <!-- CONVENTIONS CONFIG -->
@@ -305,92 +323,85 @@
       <p>VortexADO adapts to your team's conventions via a single configuration file placed alongside the installation:</p>
       <pre><code>~/.ado-testforge-mcp/conventions.config.json</code></pre>
 
-      <p>This file controls everything from test case title format to suite hierarchy rules. Here's what you can configure:</p>
+      <p>This file controls everything from test case title format to suite hierarchy rules. Settings are grouped into logical sections:</p>
 
-      <h3>Test case titles</h3>
-      <p>Define how test case titles are structured. Set a prefix (e.g. "TC"), separator, number padding, and maximum length. The template uses placeholders like user story ID, test case number, feature tags, and summary.</p>
-
-      <h3>Prerequisites format</h3>
-      <p>Configure the sections that appear in test case prerequisites: Persona, Pre-requisite conditions, and Test Data. You can set which are required and control the formatting style (technical condition-based format like <code>Object.Field = Value</code> or narrative style).</p>
-
-      <h3>Default personas</h3>
-      <p>Define your team's standard test personas — their labels, profiles, roles, and permission groups. These are automatically included in generated test cases. The column headings for roles and permission groups are customizable to match your organization's terminology.</p>
-
-      <h3>Suite hierarchy</h3>
-      <p>Control how the MCP organizes test suites in your test plan:</p>
-      <ul>
-        <li><strong>Sprint prefix</strong> — how sprint folders are named (e.g. "Sprint_", "Iteration_")</li>
-        <li><strong>Separator</strong> — between IDs and titles in folder names</li>
-        <li><strong>Non-epic folder</strong> — name for the catch-all folder for user stories without a parent epic</li>
-        <li><strong>Test plan mapping</strong> — which area paths route to which test plans (supports multiple plans)</li>
-        <li><strong>Title prefix</strong> — the prefix used in query-based suite WIQL queries (default "TC")</li>
-      </ul>
-
-      <h3>Solution Design integration</h3>
-      <p>Configure which ADO field contains Confluence links and define usage rules for how Solution Design content informs test case generation (what to use for business context, what to ignore like code snippets).</p>
-
-      <h3>Additional context fields</h3>
-      <p>Register custom ADO fields (like Impact Assessment or Reference Documentation) that should be fetched for rich content and links. Each field can independently enable or disable link/image extraction.</p>
-
-      <h3>Image handling</h3>
-      <p>VortexADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. This is controlled by the <code>images</code> section in your configuration.</p>
-
+      <!-- Test Case Format -->
       <div class="card">
-        <h3>ON/OFF toggles</h3>
+        <h3>Test Case Format</h3>
+        <p>Controls how generated test cases are structured and named.</p>
+        <ul>
+          <li><strong>Title template</strong> — define the prefix (e.g. "TC"), separator, number padding, and maximum length. The template uses placeholders like user story ID, test case number, feature tags, and summary.</li>
+          <li><strong>Prerequisites sections</strong> — configure which sections appear (Persona, Pre-requisite conditions, Test Data), which are required, and the formatting style (technical condition-based like <code>Object.Field = Value</code>, or narrative).</li>
+          <li><strong>Default personas</strong> — define your team's standard test personas with their labels, profiles, roles, and permission groups. These are automatically included in generated test cases. Column headings for roles and groups are customizable to match your organization's terminology.</li>
+        </ul>
+      </div>
+
+      <!-- Suite Hierarchy -->
+      <div class="card">
+        <h3>Suite Hierarchy</h3>
+        <p>Controls how the MCP organizes test suites within your test plans.</p>
+        <ul>
+          <li><strong>Sprint prefix</strong> — how sprint folders are named (e.g. "Sprint_", "Iteration_")</li>
+          <li><strong>Separator</strong> — character(s) between IDs and titles in folder names</li>
+          <li><strong>Non-epic folder</strong> — name for the catch-all folder for user stories without a parent epic</li>
+          <li><strong>Test plan mapping</strong> — which area paths route to which test plans (supports multiple plans per project)</li>
+          <li><strong>Title prefix</strong> — the prefix used in query-based suite queries (default "TC")</li>
+        </ul>
+      </div>
+
+      <!-- Context & Enrichment -->
+      <div class="card">
+        <h3>Context &amp; Enrichment</h3>
+        <p>Controls what information the MCP fetches when reading a User Story.</p>
+        <ul>
+          <li><strong>Solution Design integration</strong> — configure which ADO field contains Confluence links, and define usage rules for how Solution Design content informs test case generation (what to use for business context, what to ignore like code snippets).</li>
+          <li><strong>Additional context fields</strong> — register custom ADO fields (like Impact Assessment or Reference Documentation) that should be fetched for rich content and links. Each field can independently enable or disable link and image extraction.</li>
+        </ul>
+      </div>
+
+      <!-- Fetching & Images -->
+      <div class="card">
+        <h3>Fetching &amp; Image Processing</h3>
+        <p>These settings live in the <code>images</code> and <code>context</code> sections of:</p>
+        <pre><code>~/.ado-testforge-mcp/conventions.config.json</code></pre>
+        <p>VortexADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups.</p>
+
+        <h3>Key settings</h3>
         <table>
-          <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+          <thead><tr><th></th><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
           <tbody>
-            <tr><td><strong>enabled</strong></td><td>ON</td><td>Master switch. When OFF, no images are fetched or processed at all.</td></tr>
-            <tr><td><strong>returnMcpImageParts</strong></td><td>OFF</td><td>When ON, sends actual image pixel data to the AI agent (requires a vision-capable model). When OFF, only image metadata (URL, filename, alt text) is included — the agent can still reference images by link.</td></tr>
-            <tr><td><strong>saveLocally</strong></td><td>OFF</td><td>When ON, saves downloaded images to your workspace alongside the draft files. Useful for offline review or attaching images to documentation.</td></tr>
-            <tr><td><strong>inlineSvgAsText</strong></td><td>ON</td><td>When ON, SVG diagrams are delivered as both an image part and inline XML text, allowing agents to read element IDs, colors, and labels directly.</td></tr>
+            <tr><td>&#9733;</td><td><strong>enabled</strong></td><td>ON</td><td>Master switch. When OFF, no images are fetched or processed at all.</td></tr>
+            <tr><td>&#9733;</td><td><strong>returnMcpImageParts</strong></td><td>OFF</td><td>When ON, sends actual image pixel data to the AI agent (requires a vision-capable model). When OFF, only image metadata and URLs are included — the agent references images by link.</td></tr>
+            <tr><td></td><td><strong>saveLocally</strong></td><td>OFF</td><td>When ON, saves downloaded images to your workspace alongside the draft files.</td></tr>
+            <tr><td></td><td><strong>maxPerUserStory</strong></td><td>20</td><td>Maximum images processed per user story fetch.</td></tr>
+            <tr><td></td><td><strong>maxTotalBytesPerResponse</strong></td><td>4 MB</td><td>Aggregate budget — prevents context overflow.</td></tr>
+            <tr><td></td><td><strong>maxConfluencePagesPerUserStory</strong></td><td>10</td><td>Maximum linked Confluence pages to fetch. Excess are surfaced as links.</td></tr>
+            <tr><td></td><td><strong>maxTotalFetchSeconds</strong></td><td>45s</td><td>Time budget for all external fetches (pages + images).</td></tr>
           </tbody>
         </table>
+        <p style="font-size:13px; color:var(--muted);">&#9733; = most important settings to review</p>
 
-        <h3>Size and quality guardrails</h3>
-        <table>
-          <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
-          <tbody>
-            <tr><td><strong>maxPerUserStory</strong></td><td>20</td><td>Maximum number of images processed per user story fetch</td></tr>
-            <tr><td><strong>maxBytesPerImage</strong></td><td>2 MB</td><td>Images larger than this are downscaled before processing</td></tr>
-            <tr><td><strong>maxTotalBytesPerResponse</strong></td><td>4 MB</td><td>Aggregate budget — once reached, remaining images are listed as links only (prevents context overflow)</td></tr>
-            <tr><td><strong>minBytesToKeep</strong></td><td>4 KB</td><td>Images smaller than this are skipped (likely icons or tracking pixels)</td></tr>
-            <tr><td><strong>downscaleLongSidePx</strong></td><td>1600 px</td><td>Oversized images are downscaled so the longest side is this many pixels</td></tr>
-            <tr><td><strong>downscaleQuality</strong></td><td>85</td><td>JPEG quality after downscaling (1–100)</td></tr>
-            <tr><td><strong>mimeAllowlist</strong></td><td>PNG, JPEG, GIF, SVG</td><td>Only these image types are processed; others are skipped</td></tr>
-          </tbody>
-        </table>
-
-        <h3>Save path</h3>
-        <p>When <strong>saveLocally</strong> is ON, images are saved to a folder alongside the test case draft. The default path template is <code>tc-drafts/US_{usId}/attachments</code>. If the workspace is read-only, the tool falls back to MCP image parts without failing.</p>
+        <details style="margin-top:16px;">
+          <summary style="cursor:pointer; color:var(--blue-2); font-weight:500; font-size:14px;">Advanced image settings (usually fine as defaults)</summary>
+          <table style="margin-top:12px;">
+            <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td>maxBytesPerImage</td><td>2 MB</td><td>Images larger than this are downscaled before processing</td></tr>
+              <tr><td>minBytesToKeep</td><td>4 KB</td><td>Images smaller than this are skipped (likely icons or tracking pixels)</td></tr>
+              <tr><td>downscaleLongSidePx</td><td>1600 px</td><td>Oversized images are downscaled so the longest side fits this value</td></tr>
+              <tr><td>downscaleQuality</td><td>85</td><td>JPEG quality after downscaling (1–100)</td></tr>
+              <tr><td>mimeAllowlist</td><td>PNG, JPEG, GIF, SVG</td><td>Only these image types are processed; others are skipped</td></tr>
+              <tr><td>inlineSvgAsText</td><td>ON</td><td>SVG diagrams delivered as both image and inline XML text</td></tr>
+              <tr><td>savePathTemplate</td><td>tc-drafts/US_{usId}/attachments</td><td>Where local images are saved when saveLocally is ON</td></tr>
+              <tr><td>passThrough (allFields)</td><td>ON</td><td>Include all populated ADO fields beyond the primary ones</td></tr>
+              <tr><td>omitSystemNoise (allFields)</td><td>ON</td><td>Filter out revision metadata and internal tracking fields</td></tr>
+            </tbody>
+          </table>
+        </details>
       </div>
 
       <div class="tip">
-        <strong>Recommended for most teams:</strong> Leave <code>enabled: true</code> and <code>returnMcpImageParts: false</code> (the defaults). This way the agent receives image metadata and links without consuming vision-model tokens. Turn <code>returnMcpImageParts</code> ON only when you need the AI to interpret diagram content or screenshot details directly.
-      </div>
-
-      <h3>Context budgets</h3>
-      <p>Control how much external content is fetched per user story:</p>
-      <div class="card">
-        <table>
-          <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
-          <tbody>
-            <tr><td><strong>maxConfluencePagesPerUserStory</strong></td><td>10</td><td>Maximum number of linked Confluence pages to fetch. Excess links are surfaced as "unfetched" with clickable URLs.</td></tr>
-            <tr><td><strong>maxTotalFetchSeconds</strong></td><td>45s</td><td>Total time budget for all external fetches (Confluence pages + images). Prevents slow responses on user stories with many links.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>All-fields pass-through</h3>
-      <p>By default, VortexADO returns every populated field on a user story (with system noise filtered out). You can control this behavior:</p>
-      <ul>
-        <li><strong>passThrough</strong> (ON by default) — include all populated ADO fields beyond the primary ones</li>
-        <li><strong>omitSystemNoise</strong> (ON by default) — filter out revision metadata, watermarks, and internal tracking fields</li>
-        <li><strong>omitExtraRefs</strong> — list specific field reference names to exclude from the pass-through</li>
-      </ul>
-
-      <div class="tip">
-        The configuration file is optional. Defaults work for most teams. Start without it and add customization as needed. When upgrading, note that the installer overwrites this file — keep a backup of your customizations.
+        <strong>Recommended for most teams:</strong> Leave <strong>&#9733; enabled: true</strong> and <strong>&#9733; returnMcpImageParts: false</strong> (the defaults). The agent receives image metadata and links without consuming vision-model tokens. Turn <code>returnMcpImageParts</code> ON only when you need the AI to interpret diagram content or screenshot details directly.
       </div>
 
       <!-- VERIFY -->
@@ -431,5 +442,16 @@
       <a href="/">VortexADO</a> &middot; <a href="/docs.html">Documentation</a>
     </div>
   </footer>
+
+  <script>
+  function copyCmd(btn) {
+    const code = btn.parentElement.querySelector('code');
+    navigator.clipboard.writeText(code.textContent).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+  </script>
 </body>
 </html>
