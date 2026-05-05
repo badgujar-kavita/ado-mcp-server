@@ -1,7 +1,7 @@
 {
   "name": "vortex-mcp-ado",
   "version": "1.0.0",
-  "description": "MCP server for Azure DevOps QA test case management",
+  "description": "Vortex for ADO — Cursor MCP server for Azure DevOps + Confluence test-case lifecycle",
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
