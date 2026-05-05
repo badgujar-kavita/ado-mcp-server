@@ -333,10 +333,64 @@
       <p>Register custom ADO fields (like Impact Assessment or Reference Documentation) that should be fetched for rich content and links. Each field can independently enable or disable link/image extraction.</p>
 
       <h3>Image handling</h3>
-      <p>Control embedded image behavior: enable/disable, size limits, downscale resolution, MIME type allowlist, whether to save locally or return as MCP content parts, and a total response budget to prevent context overflow.</p>
+      <p>VortexADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. This is controlled by the <code>images</code> section in your configuration.</p>
+
+      <div class="card">
+        <h3>ON/OFF toggles</h3>
+        <table>
+          <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><strong>enabled</strong></td><td>ON</td><td>Master switch. When OFF, no images are fetched or processed at all.</td></tr>
+            <tr><td><strong>returnMcpImageParts</strong></td><td>OFF</td><td>When ON, sends actual image pixel data to the AI agent (requires a vision-capable model). When OFF, only image metadata (URL, filename, alt text) is included — the agent can still reference images by link.</td></tr>
+            <tr><td><strong>saveLocally</strong></td><td>OFF</td><td>When ON, saves downloaded images to your workspace alongside the draft files. Useful for offline review or attaching images to documentation.</td></tr>
+            <tr><td><strong>inlineSvgAsText</strong></td><td>ON</td><td>When ON, SVG diagrams are delivered as both an image part and inline XML text, allowing agents to read element IDs, colors, and labels directly.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Size and quality guardrails</h3>
+        <table>
+          <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><strong>maxPerUserStory</strong></td><td>20</td><td>Maximum number of images processed per user story fetch</td></tr>
+            <tr><td><strong>maxBytesPerImage</strong></td><td>2 MB</td><td>Images larger than this are downscaled before processing</td></tr>
+            <tr><td><strong>maxTotalBytesPerResponse</strong></td><td>4 MB</td><td>Aggregate budget — once reached, remaining images are listed as links only (prevents context overflow)</td></tr>
+            <tr><td><strong>minBytesToKeep</strong></td><td>4 KB</td><td>Images smaller than this are skipped (likely icons or tracking pixels)</td></tr>
+            <tr><td><strong>downscaleLongSidePx</strong></td><td>1600 px</td><td>Oversized images are downscaled so the longest side is this many pixels</td></tr>
+            <tr><td><strong>downscaleQuality</strong></td><td>85</td><td>JPEG quality after downscaling (1–100)</td></tr>
+            <tr><td><strong>mimeAllowlist</strong></td><td>PNG, JPEG, GIF, SVG</td><td>Only these image types are processed; others are skipped</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Save path</h3>
+        <p>When <strong>saveLocally</strong> is ON, images are saved to a folder alongside the test case draft. The default path template is <code>tc-drafts/US_{usId}/attachments</code>. If the workspace is read-only, the tool falls back to MCP image parts without failing.</p>
+      </div>
 
       <div class="tip">
-        The configuration file is optional. Defaults work for most teams. Start without it and add customization as needed.
+        <strong>Recommended for most teams:</strong> Leave <code>enabled: true</code> and <code>returnMcpImageParts: false</code> (the defaults). This way the agent receives image metadata and links without consuming vision-model tokens. Turn <code>returnMcpImageParts</code> ON only when you need the AI to interpret diagram content or screenshot details directly.
+      </div>
+
+      <h3>Context budgets</h3>
+      <p>Control how much external content is fetched per user story:</p>
+      <div class="card">
+        <table>
+          <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><strong>maxConfluencePagesPerUserStory</strong></td><td>10</td><td>Maximum number of linked Confluence pages to fetch. Excess links are surfaced as "unfetched" with clickable URLs.</td></tr>
+            <tr><td><strong>maxTotalFetchSeconds</strong></td><td>45s</td><td>Total time budget for all external fetches (Confluence pages + images). Prevents slow responses on user stories with many links.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>All-fields pass-through</h3>
+      <p>By default, VortexADO returns every populated field on a user story (with system noise filtered out). You can control this behavior:</p>
+      <ul>
+        <li><strong>passThrough</strong> (ON by default) — include all populated ADO fields beyond the primary ones</li>
+        <li><strong>omitSystemNoise</strong> (ON by default) — filter out revision metadata, watermarks, and internal tracking fields</li>
+        <li><strong>omitExtraRefs</strong> — list specific field reference names to exclude from the pass-through</li>
+      </ul>
+
+      <div class="tip">
+        The configuration file is optional. Defaults work for most teams. Start without it and add customization as needed. When upgrading, note that the installer overwrites this file — keep a backup of your customizations.
       </div>
 
       <!-- VERIFY -->
