@@ -9,7 +9,7 @@ This guide explains how to deploy ADO TestForge MCP to Vercel for distribution v
 Once deployed, users can install ADO TestForge MCP with:
 
 ```bash
-curl https://ado-mcp.vercel.app/install -fsS | bash
+curl https://vortexado.vercel.app/install -fsS | bash
 ```
 
 The setup includes:
@@ -53,7 +53,7 @@ On the configuration screen, set:
 | **Output Directory** | `website/public` |
 | **Install Command** | `npm install` |
 
-> **Important:** The project name determines your URL. Using `ado-mcp` gives you `ado-mcp.vercel.app`
+> **Important:** The project name determines your URL. Using `vortexado` gives you `vortexado.vercel.app`
 
 ### Step 3: Deploy
 
@@ -67,14 +67,14 @@ Test these URLs:
 
 | URL | Expected Behavior |
 |-----|-------------------|
-| `https://ado-mcp.vercel.app` | Landing page loads |
-| `https://ado-mcp.vercel.app/install` | Redirects to landing page (in browser) |
-| `curl https://ado-mcp.vercel.app/install` | Returns bash script (in terminal) |
+| `https://vortexado.vercel.app` | Landing page loads |
+| `https://vortexado.vercel.app/install` | Redirects to landing page (in browser) |
+| `curl https://vortexado.vercel.app/install` | Returns bash script (in terminal) |
 
 Test the full install:
 
 ```bash
-curl https://ado-mcp.vercel.app/install -fsS | bash
+curl https://vortexado.vercel.app/install -fsS | bash
 ```
 
 ---
@@ -126,7 +126,7 @@ git push
 
 ## Customizing the URL
 
-If `ado-mcp.vercel.app` is unavailable, you'll need to:
+If `vortexado.vercel.app` is unavailable, you'll need to:
 
 1. Choose a different project name (e.g., `ado-testforge`)
 2. Update these files with the new URL:

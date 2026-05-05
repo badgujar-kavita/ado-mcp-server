@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ADO TestForge MCP Server - One-line installer
-# Usage: curl https://ado-mcp.vercel.app/install -fsS | bash
+# Usage: curl https://vortexado.vercel.app/install -fsS | bash
 
 set -e
 
@@ -9,7 +9,7 @@ set -e
 # Configuration
 # ══════════════════════════════════════════════════════════════
 INSTALL_DIR="$HOME/.ado-testforge-mcp"
-TARBALL_URL="https://ado-mcp.vercel.app/ado-testforge.tar.gz"
+TARBALL_URL="https://vortexado.vercel.app/ado-testforge.tar.gz"
 IS_UPGRADE=false
 CREDS_BACKED_UP=false
 

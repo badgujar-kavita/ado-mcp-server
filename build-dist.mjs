@@ -3,7 +3,7 @@
  * Build a distribution package for the Vercel-hosted tarball.
  * Output: dist-package/ with compiled JS (no src/) — this is the folder
  * that `scripts/build-website.sh` tarballs and publishes as
- * https://ado-mcp.vercel.app/ado-testforge.tar.gz.
+ * https://vortexado.vercel.app/ado-testforge.tar.gz.
  */
 
 import { build } from "esbuild";
