@@ -6,6 +6,178 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### MD ↔ ADO Sync Gaps Closed
+
+Three targeted improvements that close gaps between draft markdown content and the resulting ADO test cases. Plan: `.cursor/plans/md_ado_sync_gaps.plan.md`.
+
+**Fixed — Per-TC Pre-requisite blocks now sync to ADO (additively)**
+
+- The parser now recognizes `### Pre-requisite (specific to this TC)` as the canonical heading for per-TC prereq blocks. Previously only the legacy `**Additional Pre-requisite (TC-specific):**` label was parsed, so drafts authored with the `###` heading (the more readable form) silently lost their per-TC setup on push.
+- On push, common + TC-specific pre-conditions merge **additively** — common rows first, then TC-specific rows — in a single HTML block on the ADO TC's prereq field.
+- `mergePrerequisites()` extended to also merge structured multi-column `preConditionsTable` when both sides have matching headers.
+- New tests in `src/helpers/tc-draft-parser-pertc-prereq.test.ts` (4 tests) covering canonical heading, legacy heading fallback, missing block → common-only, and both sides extracted for additive merge.
+
+**Added — `System.Tags` on test cases (match-only policy)**
+
+- On `qa_publish_push`, the MCP fetches the project's existing tag list once (`/_apis/wit/tags`) and matches draft-requested tags case-insensitively against it. **Only existing tags are applied; never creates new tags.** Matches the reality that QA typically can't create tags in regulated environments.
+- Tag sources (in current Phase 2):
+  - **Title-prefix category** — if the TC title's first featureTag is one of `Regression`, `SIT`, `E2E`, `Smoke`, `Accessibility`, `Performance`, `Security` (case-insensitive), it's requested as a tag.
+  - Explicit `**Tags**` metadata row on per-TC table — deferred to a future phase.
+- Unmatched tags are skipped with a warning (`[qa_publish_push] N tag(s) requested but not found in project tags; skipped.`). Title-prefix category in the TC title remains the WIQL-filterable carrier regardless of whether the tag exists.
+- Tag fetch failure is non-blocking — push proceeds without tags if the `/_apis/wit/tags` call fails.
+- Repush (`updateTestCaseFromParams`) now writes `System.Tags` as a `replace` op, consistent with how title/prereq/steps/priority are updated.
+- New helper module: `src/helpers/tag-resolver.ts` with `extractCategoryFromTitle()`, `resolveTagsMatchOnly()`, `formatAdoTags()`. 25 new tests in `src/helpers/tag-resolver.test.ts`.
+
+**Added — Functionality Process Flow authoring rules**
+
+- New `## Functionality Process Flow — Authoring Rules` section in `.cursor/skills/qa-test-drafting/SKILL.md` codifies the high-quality flow format demonstrated in the US #1370221 draft.
+- Explicit decision criteria for Mermaid vs numbered text blocks: **use Mermaid when** decision logic is clean and fits 5–8 nodes; **use numbered text blocks when** logic has multiple interacting paths, config-sensitive variations, or multi-persona handoffs.
+- Required elements every flow must include: actor / entry point, action chain with `→` arrows, bracketed variations (`[Variation A: ...]`), terminal observable state (e.g., `Status: X → Y`, `Record locks`), numbered `### Flow N —` headings.
+- Quality checks + anti-patterns documented (e.g., "Mermaid diagram that glosses over a documented variation — be faithful, not pretty").
+- Reinforced via a one-line reference in the `qa-draft` prompt so the agent reads the skill's flow rules every time it drafts.
+
+### Phase A — Publish Consent Gates
+
+`qa_publish_push` no longer silently creates or updates ADO test cases when draft status / ADO-ID state is ambiguous. All five branches below return **structured responses** that the agent must surface verbatim so the user can pick. Four are `isError: true` gates; the fifth is a successful in-place file rewrite that asks for a re-run.
+
+Builds on the existing [Publish Always Ensures Suite Hierarchy](#publish-always-ensures-suite-hierarchy) gates (`plan-resolution-failed` / `sprint-resolution-failed` / `missing-fields` / `override-mismatch`) — those still fire first; the new gates run after plan/sprint resolution and cover the DRAFT → APPROVED → repush state machine specifically.
+
+**Five structured response reasons:**
+
+| Reason | Emoji | `isError` | Meaning | User-visible options |
+|---|---|---|---|---|
+| `draft-status-draft` | ℹ️ INFO | true | File header shows `Status \| DRAFT`; draft hasn't been approved yet. | Reply **YES** to approve and push. Agent re-runs with `approveAndPush: true`, which flips DRAFT→APPROVED in place and pushes in one call. |
+| `approved-without-ids` | ⚠️ WARN | true | Status APPROVED but no `(ADO #N)` IDs anywhere — likely a first-push state that got mis-flagged APPROVED (e.g. manual edit) or a draft reset partway through. | **A.** Reset to DRAFT (agent re-runs with `resetToDraft: true`) so the file can be re-reviewed and re-pushed through the normal consent flow. **B.** Cancel. |
+| `approved-with-ids-no-repush` | ℹ️ INFO | true | Status APPROVED, every TC has an ADO ID, but `repush` flag was not set — user's intent is ambiguous (re-push changes? or nothing to do?). | **A.** Repush (agent re-runs with `repush: true`). **B.** Cancel. |
+| `repush-missing-ids` | 🚫 BLOCK | true | `repush: true` was requested but at least one TC in the draft has no `(ADO #N)` suffix. Repush requires a complete ID mapping — partial repush is not supported in Phase A. | User must fix the draft (add missing IDs, or run a fresh push without `repush`). No automated recovery. |
+| `reset-to-draft-complete` | ✅ SUCCESS | **false** | `resetToDraft: true` was passed and succeeded: the file's header was flipped APPROVED→DRAFT in place, no ADO calls made. | User re-reviews the draft and triggers `/qa-publish` again. |
+
+**New optional params on `qa_publish_push`:**
+
+- `approveAndPush: boolean` — only valid when current file status is DRAFT. Flips `| **Status** | DRAFT |` → `| **Status** | APPROVED |` in place (same anchored regex as the post-push Status flip), then proceeds with the push. Agent sets this after the user explicitly replies YES to the `draft-status-draft` gate.
+- `resetToDraft: boolean` — only valid when current file status is APPROVED and `approved-without-ids` was returned. Flips APPROVED→DRAFT in place and returns `reset-to-draft-complete` (non-error). Agent sets this after the user replies **A** to the `approved-without-ids` options.
+
+Existing params preserved: `repush`, `insertAnyway`, `planId`, `sprintNumber`, `confirmMismatch`.
+
+**What repush covers in Phase A:**
+
+`repush: true` performs a **full-field update** of every TC in the draft: title, prerequisites (personas / pre-conditions / test data), steps (action + expected result), and priority. There is no per-field selection — the whole TC is rewritten from the draft. Requires `data.status === "APPROVED"` and every TC to have `adoWorkItemId`; if any TC lacks an ID, the tool returns `repush-missing-ids`.
+
+**What Phase A does NOT cover:**
+
+Phase A is strictly a consent-gating layer. The following are **Phase B** and not yet implemented:
+
+- Field-level update selection (e.g. "update only steps, leave title alone").
+- Mixed drafts (some TCs with ADO IDs + some without, intending both update and create in one push) — today this routes through either the update path (`repush: true` → `repush-missing-ids`) or the create path (no `repush` → duplicate-TC preflight on the US-level `TestedBy` links). There is no "update some, create others" mode.
+- Agent-driven conflict resolution when ADO state has drifted since the last push (e.g. TC deleted in ADO but still in draft).
+
+Wording in user-facing prompts and docs should stay honest about this — do not advertise mixed updates.
+
+**Why this shape:**
+
+Two incidents pre-Phase-A:
+1. `/qa-tc-update` with a casually-worded request silently updated only TC titles because the prompt didn't have a bulk-update path — the agent fell back to updating whichever field the user mentioned first. Turned a partial-field edit into a footgun.
+2. `/qa-publish` accepted `repush: true` on APPROVED drafts without re-confirming the user actually wanted to write to ADO — one "sure" could cascade to 30 ADO PATCH calls.
+
+The fix for (1) is a bulk update path (Phase B). The fix for (2) is this gate: **approval and repush intent are two separate user consents, both required**, and the tool stops and asks when either is ambiguous rather than pattern-matching on state.
+
+### Phase B — Publish Mapping & Mixed Update/Create
+
+Phase B extends `qa_publish_push` so that every ambiguous DRAFT ⇄ ADO state picks up an explicit consent branch — no silent inserts, no silent updates, no silent overwrites. Phase A's five gates still fire first; the seven gates below run after plan/sprint resolution and after the Phase A DRAFT/APPROVED checks, covering the scenarios Phase A deferred: drafts that lost their `(ADO #N)` suffixes while ADO still has the TCs (scenario 3), drafts that are a strict subset of what's in ADO (scenario 5), mixed drafts with some ID'd TCs + some new TCs (scenarios 6/7), drafts whose IDs point at work items that aren't linked to the US (scenario 8), and drafts whose TC numbers don't match what's in ADO (scenario 9).
+
+**Seven new structured response reasons:**
+
+| Reason | Emoji | `isError` | Meaning | User-visible options |
+|---|---|---|---|---|
+| `draft-ids-not-linked` | ⚠️ WARN | true | Draft carries `(ADO #N)` IDs but one or more aren't linked to this US via `TestedBy` — most commonly a hand-edited ID or a draft copied from a different US. | **A.** Proceed anyway (agent re-runs with `proceedWithUnlinkedIds: true`). **B.** Cancel + fix draft. |
+| `existing-tcs-unmapped` | ⚠️ WARN | true | US has linked TCs in ADO but the draft has no ADO IDs. **Replaces the old A/B/C "existing-tcs-detected" flow** — there is now a third path (mapping). | **A.** Attempt mapping by TC number (re-runs with `attemptMapping: true`). **B.** Create new alongside (re-runs with `insertAnyway: true`). **C.** Cancel. |
+| `mapping-preview` | ℹ️ INFO | true | After `attemptMapping: true` — the system matched draft TC numbers to ADO TC IDs and returns a preview table (`tcNumber` → `adoId`). No ADO writes have happened yet. | **YES** confirm (re-runs with `acknowledgeMapping: true` AND `userConfirmedMapping: [{tcNumber, adoId}, …]`). **no** cancel. |
+| `mapping-drift` | ⚠️ WARN | true | Defensive guard on confirm — the `userConfirmedMapping` the agent sent back doesn't match the current analysis (draft changed between preview and confirm). | Re-run with `attemptMapping: true` to regenerate the preview, then re-confirm. |
+| `tc-number-mismatch` | 🚫 BLOCK | true | Mapping is impossible — ADO's linked TCs use TC numbers the draft doesn't have (e.g. ADO has `TC_1234_05` / `TC_1234_06` but draft is `TC_1234_01` / `TC_1234_02`). | **A.** Cancel + fix draft. **B.** Fall back to `insertAnyway: true` (creates new alongside). |
+| `extras-in-ado` | ℹ️ INFO | true | After a confirmed mapping or repush the system detects ADO has more TCs linked to this US than the draft contains. Orphan TCs are **never deleted** — just surfaced. | **YES** update only the draft TCs (re-runs with `acknowledgeExtras: true`, leaves orphans alone). **no** cancel. |
+| `mixed-update-create` | ℹ️ INFO | true | Draft contains some TCs with `(ADO #N)` + some without — the push will do both an update and a create in one call. | **YES** proceed (re-runs with `acknowledgeMixedOp: true`). **no** cancel. |
+
+**New params on `qa_publish_push`:** `attemptMapping`, `acknowledgeMapping`, `userConfirmedMapping`, `acknowledgeExtras`, `acknowledgeMixedOp`, `proceedWithUnlinkedIds`. All default `false` / empty. Each one is consumed by exactly one gate and is NOT valid until the matching structured response has been returned and shown to the user.
+
+**Behavior changes:**
+
+1. **Duplicate-TC preflight replaced.** Phase A's A/B/C "existing-tcs-detected" branch (TCs in ADO, no IDs in draft) is replaced by `existing-tcs-unmapped`, which now offers a third option — `attemptMapping`. Option **B.** (create new alongside with `insertAnyway: true`) and option **C.** (cancel) still work the same as before.
+2. **Per-TC update vs create, no `repush` required.** After a confirmed mapping (`acknowledgeMapping: true`) or a confirmed mixed op (`acknowledgeMixedOp: true`), each TC's update-vs-create decision is made in-memory based on whether that TC carries an `adoWorkItemId`. `repush: true` is **no longer required** for these authorized flows — the consent-gated YES is itself the authorization. `repush` still works for the pure-update case (all TCs have IDs, no mapping needed) documented in Phase A.
+3. **Orphan TCs are never deleted.** If ADO has TCs linked to the US that aren't in the draft, the system leaves them alone and surfaces them via `extras-in-ado`. Deletion is always explicit and always goes through `qa_tc_delete`.
+4. **Success summary breaks out Updated vs. Created.** When a single push does both (mixed op, or mapping + new TCs), the final success message has separate Updated and Created sections so the audit trail is unambiguous.
+
+**Scenarios covered (cross-reference design discussion):**
+
+- Scenario 3 (US has TCs, draft has none) → `existing-tcs-unmapped` → `mapping-preview` → confirmed push, OR `insertAnyway`, OR cancel.
+- Scenario 5 (draft ⊂ ADO) → `extras-in-ado` → update only the N TCs in draft; orphans untouched.
+- Scenario 6/7 (mixed update + create) → `mixed-update-create` → confirmed push updates IDs'd TCs and creates the rest in one call.
+- Scenario 8 (draft has IDs but they're not linked to this US) → `draft-ids-not-linked`.
+- Scenario 9 (TC number mismatch) → `tc-number-mismatch` → cancel + fix, or fall back to `insertAnyway`.
+
+**Why this shape:**
+
+Three themes came out of the design session that preceded Phase B, all anchored in real failure modes:
+
+1. **Silent overwrites are unacceptable.** Pre-Phase-B, a draft regenerated without `(ADO #N)` suffixes would cheerfully create duplicate TCs in ADO even when the exact same content already existed there. Every ambiguous branch must now surface its finding (counts, mapping preview, extras list) and wait for an explicit YES/no or A/B/C. No branch proceeds on a generic "okay" or "sure".
+2. **Mapping recovery is a real workflow, not an edge case.** Drafts regularly get regenerated from `ado_story` or hand-edited and lose their `(ADO #N)` suffixes while ADO still has the TCs. Before Phase B the only path was "delete in ADO and re-create" (Option B) or "hand-paste the IDs back in" — both destructive or error-prone. `attemptMapping` preserves the audit trail by matching on the stable TC number that's always in the title.
+3. **Mixed ops reflect how drafts actually evolve.** Drafts grow: a reviewer adds two new TCs to an approved draft and wants them pushed alongside the already-ID'd ones. Pre-Phase-B this required two round trips (push the ID'd ones with `repush`, then reset + repush the full draft). `mixed-update-create` makes it one consent and one push.
+
+### qa_tc_update — uniform bulk + type guard + cross-US safety
+
+`qa_tc_update` now accepts a batch of work-item IDs and applies the same field values uniformly across all of them, gated by a work-item-type precheck and a cross-User-Story confirmation. The single-ID response shape is unchanged — existing callers see no difference.
+
+**`workItemId` type widened: `number | number[]`.** Passing an array applies the same field values (title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath) **uniformly** to every ID in one call. There is no per-ID field variation — if the user needs different values per TC, the tool does not support that shape and the flow reroutes to `/qa-publish` + repush via an edited draft.
+
+**Precheck-before-mutation (all-or-nothing).** Before any PATCH is issued, the tool fetches every requested ID and verifies `System.WorkItemType === "Test Case"`. If ANY ID fails the check (wrong type, 404, 401, 403), the WHOLE batch is refused — no partial mutation. Response: `reason: "precheck-failed"` (status `needs-input`, 🚫 BLOCK) with two lists — `typeRefusals[]` (IDs whose `System.WorkItemType` is not `Test Case`, each with the actual type) and `fetchFailures[]` (IDs the tool couldn't reach, each with the error). No PATCH calls are attempted.
+
+**Cross-US bulk confirmation.** For bulk updates whose target IDs span more than one User Story (via the `Microsoft.VSTS.Common.TestedBy` relation), the tool returns `reason: "cross-us-bulk-update"` (status `needs-confirmation`, ⚠️ WARN) with a per-US breakdown (e.g. "US 1370221: 3 TCs, US 1371555: 2 TCs"). The user must explicitly confirm before the agent re-runs the same call with the new `acknowledgeCrossUs: true` param. Single-ID updates skip this check. Bulk updates contained within a single US also skip it.
+
+**Partial failure contract.** If the precheck passes but some PATCH calls fail mid-batch, the tool does **not** retry and does **not** abort. It continues the loop through every ID, then returns `isError: true` with a ⚠️ PARTIAL headline and a per-ID markdown table showing which succeeded (✅) and which failed (❌) along with the error message. The user/agent decides whether to re-run `qa_tc_update` for the failed IDs only.
+
+**Single-ID back-compat.** A scalar `workItemId: number` returns the same JSON response shape as before (`{ id, rev, url }`). No breaking change to any caller.
+
+**Prompt tightening (`qa-tc-update` slash command):**
+
+- The agent must **not** infer which fields to update from pasted context (drafts, markdown titles, tables, previous messages). It must ask the user explicitly which fields to update before calling the tool.
+- **Uniform intent → one bulk call.** Same values on all IDs → single `qa_tc_update` call with `workItemId: [...]`.
+- **Exactly two uniform groups → two back-to-back uniform calls + ONE upfront confirmation.** Example: "P2 on regression, P1 on SIT". Agent plans both calls, gets a single user confirmation covering both, then executes. If call 1 fails, call 2 is not attempted.
+- **Three or more distinct groups, or truly varying-per-TC values → STOP.** Agent reroutes the user to `/qa-publish` + repush via an edited draft. No exceptions.
+
+**Why this shipped:**
+
+Specific incident: a user pasted multiple ADO IDs plus a markdown draft into the chat. The agent silently inferred "update only titles" from the pasted context and quietly PATCHed every ID with only the title field — dropping the user's implicit intent to update priority / state / etc. The hardening above addresses three root causes at once:
+
+1. **No silent field inference from context.** The agent now asks explicitly which fields to update.
+2. **Per-ID type safety.** A precheck verifies every ID is actually a Test Case before any mutation — mistyped or wrong-link IDs surface as `precheck-failed` instead of silently mutating the wrong work items.
+3. **Cross-US span is explicit.** Bulk updates that reach across multiple User Stories require an upfront `acknowledgeCrossUs: true` so the user sees the spread before mass changes land.
+
+### Fixed — Draft Round-Trip Fidelity on Publish
+
+**Phase 1 — In-place write-back preserves custom draft content**
+
+- **Custom sections in drafts are now preserved on publish.** Previously, `qa_publish_push` re-serialized the draft file through parser → `TcDraftData` → formatter on every successful push. Any content the reviewer added outside the core schema — Test Data rows, per-TC `### Pre-requisite (specific to this TC)` blocks, Coverage Validation Checklists, Reviewer Notes, emoji tables, custom Markdown sections — was silently stripped because `TcDraftData` doesn't capture free-form content.
+- The publish path now uses **in-place write-back** via the new `applyPostPushEditsInPlace()` helper. Only two things mutate on successful push:
+  1. `| **Status** | DRAFT |` → `| **Status** | APPROVED |` in the header table (anchored regex; no false matches on prose mentions of DRAFT).
+  2. Each TC title line `**TC_<usid>_<nn> -> ...**` gets ` (ADO #<id>)` appended before the closing `**`.
+- Everything else is byte-identical to the original draft. Custom sections, reviewer notes, per-TC overrides — all preserved.
+- **Idempotent on repush.** Re-running publish produces identical file output — no duplicate `(ADO #N)` suffixes, no redundant Status flips. Supports the `repush: true` workflow.
+- Unmatched TC titles (unusual formatting) are logged via `titlesSkipped[]` rather than silently discarded. ADO push still succeeds; user is told which TCs didn't get local title updates.
+
+**Phase 2 — Multi-column Markdown tables → real ADO `<table>` HTML**
+
+- **Pre-requisite sections authored as 3+ column Markdown tables now render as HTML tables in ADO.** Previously, `buildPrerequisitesHtml` flattened every prereq into `<ol>/<li>`, so a draft table like `| # | Component | Required State |` lost columns 2 and 3 silently when pushed.
+- New `buildAdoTable()` helper in `src/helpers/format-html.ts` emits `<table>` HTML with inline styles (`border-collapse`, `border`, `padding`, `font-family`) verified against a manual paste on TC #1391478 — ADO preserves inline styles but strips `<style>` blocks, so inline is the only form that survives.
+- Parser extension in `src/helpers/tc-draft-parser.ts`: `parsePreReqTable()` detects multi-column tables in the Pre-requisite section and returns `{ headers, rows }`. 2-column `| # | Condition |` shape is intentionally left for the existing flat-list path (backward compat).
+- New optional `preConditionsTable?: PrereqTable` field on the `Prerequisites` type. When set on a TC with 3+ columns and ≥1 data row, the HTML builder emits the full table; otherwise falls back to `<ol>/<li>`. Existing drafts unaffected.
+- Added 12 new tests in `src/helpers/prerequisites-table.test.ts` + `src/helpers/tc-draft-parser-table.test.ts` covering HTML emission, escape handling, fallback, parser capture, backward compat. All 186/186 tests pass.
+
+### Publish Always Ensures Suite Hierarchy
+
+- **`qa_publish_push` now always calls `ensureSuiteHierarchyForUs`** before creating test cases, regardless of whether the draft carries a `planId`. Previously the hierarchy call was gated on `if (!planId)`, which meant drafts that already had a `planId` (e.g. from a prior push, or explicitly set) would skip the Sprint → Epic → US folder creation step entirely. Test cases would land in ADO without the expected suite structure.
+- **New optional params:** `planId`, `sprintNumber`, `confirmMismatch` — same semantics as on `qa_suite_setup`. Precedence for the effective plan: explicit `planId` arg > draft `planId` > auto-derive from US AreaPath.
+- **Structured responses propagated.** When plan or sprint can't be auto-derived, `qa_publish_push` now returns the same `needs-input` / `needs-confirmation` shapes that `qa_suite_setup` does (`plan-resolution-failed`, `sprint-resolution-failed`, `missing-fields`, `override-mismatch`). The `qa-publish` prompt has new branches that ask the user for the missing override and re-run, or surface the override mismatch with an explicit two-option pick.
+- **Why:** suite creation requires a plan ID — unlike test-case creation, which can succeed on AreaPath/Iteration alone. Silently skipping hierarchy setup left TCs orphaned from the suite tree users expected.
+
 ### Tenant Extension Guide (`.cursor/rules/*.mdc`)
 
 - **New self-contained bundle: `docs/examples/cursor-rules/`** — a shareable folder for tenants/teams to customize VortexADO behavior via Cursor `.mdc` rules without any code changes to the MCP. Contains the full `GUIDE.md`, 5 copy-ready example rule files (regression, SIT, E2E, priority, persona conventions), a `your-team-policy.quickstart.mdc` skeleton, and a folder `README.md` with a "which ones do I need?" matrix. Share the whole folder with tenants.

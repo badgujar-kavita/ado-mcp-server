@@ -1,6 +1,6 @@
 import { loadConventionsConfig } from "../config.ts";
 import type { Prerequisites, PersonaConfig } from "../types.ts";
-import { formatContentForHtml } from "./format-html.ts";
+import { formatContentForHtml, buildAdoTable } from "./format-html.ts";
 
 /**
  * Builds the HTML Description field content from prerequisites input,
@@ -46,7 +46,7 @@ function renderSection(
       return renderPersonas(label, input?.personas, defaults.personas, rolesLabel, psgLabel);
     case "preConditions":
       // Pre-requisite is ALWAYS unique per user story; never use config baseline.
-      return renderPreConditions(label, input?.preConditions, []);
+      return renderPreConditions(label, input?.preConditions, [], input?.preConditionsTable);
     case "testData":
       return renderTestData(label, input?.testData, defaults.testData, required);
     default:
@@ -80,8 +80,16 @@ function renderPersonas(
 function renderPreConditions(
   label: string,
   extras: string[] | null | undefined,
-  defaults: string[]
+  defaults: string[],
+  structured?: { headers: string[]; rows: string[][] } | null,
 ): string {
+  // When the draft source was a multi-column Markdown table, emit a real <table>
+  // in ADO (with inline styles verified against TC #1391478). Otherwise fall back
+  // to the legacy flat <ol> rendering.
+  if (structured && structured.rows.length > 0 && structured.headers.length >= 3) {
+    return `<div><strong>${label}:</strong> </div>${buildAdoTable(structured.headers, structured.rows)}<br>`;
+  }
+
   const rawLines = [...defaults, ...(extras || [])];
   if (rawLines.length === 0) return `<div><strong>${label}:</strong> </div><br>`;
   const allLines = expandListItems(rawLines);

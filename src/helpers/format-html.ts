@@ -55,6 +55,46 @@ export function formatContentForHtml(str: string): string {
 }
 
 /**
+ * Build an ADO-compatible HTML table with inline styles.
+ *
+ * Inline styles are verified against a manual paste on TC #1391478 — ADO's
+ * rich-text field preserves <table>, <thead>, <tbody>, <tr>, <th>, <td> with
+ * inline style attributes. <style> blocks and external CSS are stripped by
+ * ADO; only inline styles survive.
+ *
+ * Cells are passed through formatContentForHtml so **bold** and A./B. lists
+ * inside cells still render correctly.
+ */
+export function buildAdoTable(headers: string[], rows: string[][]): string {
+  const tableStyle =
+    "box-sizing:border-box;border-collapse:collapse;margin:1rem 0;" +
+    "border:0px solid;font-size:0.875rem;font-family:Inter, sans-serif;";
+  const theadStyle =
+    "box-sizing:border-box;border-width:0px 0px 2px;border-style:solid;" +
+    "background-color:rgb(248, 249, 250);";
+  const thStyle =
+    "box-sizing:border-box;border:1px solid rgb(209, 213, 219);" +
+    "padding:10px 14px;text-align:left;color:rgb(55, 65, 81);font-weight:600;";
+  const tdStyle =
+    "box-sizing:border-box;border:1px solid rgb(209, 213, 219);" +
+    "padding:8px 14px;color:rgb(75, 85, 99);";
+
+  let html = `<table style="${tableStyle}">`;
+  if (headers.length > 0) {
+    html += `<thead style="${theadStyle}"><tr>`;
+    for (const h of headers) html += `<th style="${thStyle}">${formatContentForHtml(h)}</th>`;
+    html += "</tr></thead>";
+  }
+  html += "<tbody>";
+  for (const row of rows) {
+    html += "<tr>";
+    for (const cell of row) html += `<td style="${tdStyle}">${formatContentForHtml(cell)}</td>`;
+    html += "</tr>";
+  }
+  return html + "</tbody></table>";
+}
+
+/**
  * Formats step action/expected result for ADO test steps XML.
  * Converts **bold** and A./B. list patterns. Result is passed to escapeXml.
  * Normalizes literal <br> from drafts to newlines so they trigger list conversion.

@@ -407,10 +407,10 @@ You can now use any of the available commands. Type `/vortex-ado` in the chat to
 | `/vortex-ado/qa-suite-update` | Update a test suite — rename, move, or change its query |
 | `/vortex-ado/qa-suite-delete` | Delete a test suite — test cases stay in ADO, only the suite link is removed |
 | `/vortex-ado/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
-| `/vortex-ado/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/vortex-ado/qa-publish` | Push a reviewed draft to ADO — agent guides you through confirmation at every step |
 | `/vortex-ado/ado-suite-tests` | List test cases within a specific test suite |
 | `/vortex-ado/qa-tc-read` | Read a test case — title, steps, prerequisites, priority, and state |
-| `/vortex-ado/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `/vortex-ado/qa-tc-update` | Update a test case, or apply the same fields uniformly to many |
 | `/vortex-ado/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
 | `/vortex-ado/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
 | `/vortex-ado/qa-clone` | Clone and adapt test cases from one User Story to another |

@@ -124,41 +124,7 @@ Add at the **beginning** of the test case draft:
 
 **IMPORTANT:** You are acting as BOTH QA Architect AND Solution Architect. Be precise and accurate.
 
-Mermaid diagrams are encouraged — they help visualize both business flows AND technical flows. The key rule is: **only diagram what is documented, never guess.**
-
-**Use Mermaid flowcharts for:**
-
-- **Business/functionality flows:** User actions → System checks → Decisions → Outcomes
-- **Status transitions:** State machines showing allowed transitions
-- **Decision trees:** Config-driven branching (enabled/disabled, present/missing)
-- **Process sequences:** Step-by-step business process from trigger to result
-
-**Example — Business Functionality Flow (Mermaid):**
-```mermaid
-flowchart TD
-    A[User moves record to Approved] --> B{Validation feature enabled?}
-    B -->|TRUE| C[Evaluate configured eligibility rules]
-    B -->|FALSE| D[Skip validation and continue]
-    C --> E{Rules satisfied?}
-    E -->|Yes| F[Complete transition]
-    E -->|No| G[Block transition and show validation message]
-```
-
-**DO NOT use Mermaid for:**
-
-- Object relationships / data model diagrams when relationships are NOT explicitly documented in Solution Design
-- Technical dependencies between classes, triggers, or components that you are inferring from code snippets
-- Any diagram where you would need to GUESS connections between objects or systems
-
-**When details are insufficient for a Mermaid diagram**, use a text-based flow instead:
-```
-1. User changes the record to the target status
-2. System checks whether the relevant validation/configuration is enabled
-3. If enabled -> system evaluates the documented business rules
-4. System either completes the transition or blocks it with the expected message
-```
-
-**Golden Rule:** Diagram what is documented. If you are unsure about any relationship or dependency, ask the user or fall back to text-based flow for that part.
+Follow the detailed rules in the dedicated section below (§ Functionality Process Flow — Authoring Rules) to decide between Mermaid and numbered text-block format, and to ensure every flow ends with a terminal observable state.
 
 ### 2. Test Coverage Insights
 
@@ -179,6 +145,57 @@ Pass these as the `testCoverageInsights` array to `qa_draft_save`. The formatter
 - Priority: 🔴 High / 🟡 Medium / 🟢 Low
 
 If any scenario has `covered: false` → generate an additional test case to cover it.
+
+---
+
+## Functionality Process Flow — Authoring Rules
+
+Every draft MUST include a `## Functionality Process Flow` section near the top. Choose the format based on the logic being documented:
+
+### Use Mermaid diagrams WHEN:
+- The decision logic is clean (single trigger → evaluation → outcome branches)
+- All decision points have documented (not inferred) criteria
+- The flow fits cleanly in 5–8 nodes (larger diagrams hurt readability)
+- Business flow with clear actor → action → system response
+
+### Use numbered text-block format WHEN:
+- Decision logic has multiple interacting paths (e.g., Path A + Path B with short-circuiting)
+- Variations within a flow matter (Variation A, Variation B, Variation C)
+- Mermaid would require too many branches to remain readable
+- Configuration-sensitive behavior (e.g., flag TRUE vs FALSE changes outcome)
+- Multi-persona handoffs with conditional state transitions
+
+### Required elements in EVERY flow block (Mermaid or text):
+
+1. **Actor / entry point** — who triggers it (KAM User, Admin, System, Scheduled Job, etc.)
+2. **Action chain** — sequential `→` arrows showing steps, indented under the actor
+3. **Bracketed variations** where applicable: `[Variation A: ...]` `[Variation B: ...]` — cover all documented paths
+4. **Terminal state** — every flow MUST end with an observable, documented state:
+   - `Status: X → Y` (status transition)
+   - `Record locks (read-only)` OR `Record stays unlocked (editable)`
+   - `Re-Approval fires` OR `Stays Adjusted`
+   - `Notification sent` / `Webhook delivered` / `Record created`
+5. **Numbered Flow headings** when there are multiple flows — `### Flow 1 — ...`, `### Flow 2 — ...`
+
+### Quality checks (self-review before saving):
+
+- [ ] Every flow ends with a TERMINAL observable state — not a "next step" placeholder
+- [ ] Bracketed variations cover ALL documented paths (not just the happy path)
+- [ ] No guessed transitions — if Solution Design doesn't document a step, label it `(to confirm)` or omit
+- [ ] Naming is consistent (same field names, same tool names as Solution Design)
+- [ ] If you used Mermaid, re-read it — does it faithfully represent all documented logic? If it simplifies too much, switch to numbered text blocks
+
+### Reference exemplar:
+
+The draft at `tc-drafts/US_1370221/US_1370221_test_cases.md` (Flows 1–5) demonstrates the correct numbered-text-block format for multi-path, config-sensitive behavior.
+
+### Anti-patterns to AVOID:
+
+- ❌ Flow ends mid-chain without a terminal state (reader left wondering "what happens next?")
+- ❌ Mermaid diagram that glosses over a documented variation (be faithful, not pretty)
+- ❌ Mixing Mermaid + text in the same flow (pick one per flow)
+- ❌ Using Mermaid when the Solution Design only loosely sketches behavior — write text-based flows when in doubt
+- ❌ Guessing an outcome — when unsure, write `→ (expected behavior to be confirmed with Solution Design author)`
 
 ---
 

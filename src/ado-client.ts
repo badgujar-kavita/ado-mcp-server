@@ -19,10 +19,45 @@ export interface BinaryResponse {
 export class AdoClient {
   readonly baseUrl: string;
   private authHeader: string;
+  /** Project-level tag cache, populated lazily by listProjectTags(). */
+  private _projectTagsCache: string[] | null = null;
 
   constructor(org: string, project: string, pat: string) {
     this.baseUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}`;
     this.authHeader = basicAuthHeader("", pat);
+  }
+
+  /**
+   * List all existing tags in the current project.
+   * Cached in-memory for the process lifetime; use `clearProjectTagsCache()`
+   * to force a refetch (e.g. between test runs).
+   *
+   * Match-only tag policy (per match_only_tags design): callers look up
+   * draft-requested tags against this set and apply ONLY existing matches.
+   * Never creates new tags via this MCP.
+   */
+  async listProjectTags(): Promise<string[]> {
+    if (this._projectTagsCache !== null) return this._projectTagsCache;
+    try {
+      const result = await this.get<{ value: Array<{ name: string }> }>(
+        `/_apis/wit/tags`,
+        "7.1-preview.1",
+      );
+      const tags = (result?.value ?? []).map((t) => t.name).filter((n): n is string => typeof n === "string");
+      this._projectTagsCache = tags;
+      return tags;
+    } catch (err) {
+      // Non-blocking per spec — push should proceed without tags if fetch fails
+      // eslint-disable-next-line no-console
+      console.warn(`[ado-client] listProjectTags failed; push will proceed without tag application: ${err}`);
+      this._projectTagsCache = [];
+      return [];
+    }
+  }
+
+  /** Clear the project tag cache (used by tests and explicit refresh). */
+  clearProjectTagsCache(): void {
+    this._projectTagsCache = null;
   }
 
   private buildUrl(path: string, apiVersion: string, queryParams?: Record<string, string>): string {

@@ -89,9 +89,22 @@ export interface TestStep {
   expectedResult: string;
 }
 
+export interface PrereqTable {
+  /** Column headers from the Markdown table header row. */
+  headers: string[];
+  /** Data rows, one array per row; cells are raw (non-HTML-escaped) text. */
+  rows: string[][];
+}
+
 export interface Prerequisites {
   personas?: string | string[] | null;
   preConditions?: string[] | null;
+  /**
+   * Multi-column structured Pre-requisite table. When present AND has more than
+   * 2 columns, the HTML builder emits a real `<table>` instead of a flat `<ol>`.
+   * The flat `preConditions[]` should still be populated for backward compat.
+   */
+  preConditionsTable?: PrereqTable | null;
   testData?: string | null;
 }
 

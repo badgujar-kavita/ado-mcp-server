@@ -7,11 +7,43 @@
 
 import { loadConventionsConfig } from "../config.ts";
 import type { TcDraftData, TcDraftTestCase, CoverageInsightRow } from "./tc-draft-formatter.ts";
+import type { PrereqTable } from "../types.ts";
 
 function unescape(s: string): string {
   return String(s)
     .replace(/&#124;/g, "|")
     .trim();
+}
+
+/**
+ * Extract a multi-column Markdown table from a Pre-requisite section block.
+ *
+ * Recognises Markdown tables of the shape:
+ *
+ *   | Col A | Col B | Col C |
+ *   |---|---|---|
+ *   | row1a | row1b | row1c |
+ *   | row2a | row2b | row2c |
+ *
+ * Returns `null` when the section has no table, only a 2-column `| # | Condition |`
+ * table (handled by the existing flat `preConditions[]` path), or fewer than 1 data row.
+ */
+function parsePreReqTable(section: string): PrereqTable | null {
+  if (!section) return null;
+  const lines = section.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("|"));
+  if (lines.length < 3) return null; // need header + separator + >=1 data row
+  const splitRow = (row: string): string[] => {
+    const cells = row.split("|").slice(1, -1).map((c) => unescape(c.trim()));
+    return cells;
+  };
+  const headers = splitRow(lines[0]!);
+  // Reject 2-column `# | Condition` shape — the flat preConditions[] path handles that.
+  if (headers.length <= 2) return null;
+  // Separator row must look like `|---|---|---|`
+  if (!/^\|[\s|:-]+\|$/.test(lines[1]!)) return null;
+  const rows = lines.slice(2).map(splitRow).filter((r) => r.length === headers.length);
+  if (rows.length === 0) return null;
+  return { headers, rows };
 }
 
 function parseTableValue(content: string, fieldName: string): string | null {
@@ -144,6 +176,13 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
     ? preCondRows.map((r) => unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim()))
     : [];
 
+  // Structured multi-column Pre-requisite table capture. When reviewers author a
+  // prereq section as a full Markdown table (3+ columns, e.g. `| # | Component | Required State |`),
+  // preserve headers + row cells so the HTML builder can emit a real <table> in ADO.
+  // For 2-column tables (`| # | Condition |`) the flat `preConditions[]` is sufficient; we
+  // intentionally leave preConditionsTable undefined so the builder falls back to the existing <ol>.
+  const preConditionsTable = parsePreReqTable(preReqSection);
+
   const testDataBlock = commonSection.match(/### Test Data\s*\n\s*\n([^\n#-]+)/);
   const testData = testDataBlock && testDataBlock[1].trim() && testDataBlock[1].trim() !== "N/A"
     ? unescape(testDataBlock[1].trim())
@@ -151,6 +190,7 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
 
   const commonPrerequisites = {
     preConditions: preConditions.length > 0 ? preConditions : undefined,
+    preConditionsTable: preConditionsTable ?? undefined,
     testData,
   };
 
@@ -174,19 +214,53 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
     const steps = parseStepsTable(section);
     if (steps.length === 0) continue;
 
-    const tcPreCondBlock = section.match(/\*\*Additional Pre-requisite \(TC-specific\):\*\*[\s\S]*?(\|\s*\d+\s*\|\s*[^|]+\|(?:\s*\n\s*\|\s*\d+\s*\|\s*[^|]+\|)*)/);
-    const tcPreConditions = tcPreCondBlock
-      ? tcPreCondBlock[1].match(/\|\s*\d+\s*\|\s*([^|]+)\|/g)?.map((r) => unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim())) ?? []
-      : [];
+    // Per-TC Pre-requisite extraction.
+    // Canonical heading: `### Pre-requisite (specific to this TC)` — cleaner and matches reviewer convention.
+    // Back-compat: also accept the old `**Additional Pre-requisite (TC-specific):**` inline label.
+    // Both paths extract flat (2-col) list and/or structured (3+ col) table.
+    let tcPreConditions: string[] = [];
+    let tcPreConditionsTable: PrereqTable | null = null;
+
+    // Try canonical ### heading first
+    const canonicalMatch = section.match(
+      /###\s+Pre-requisite\s*\(specific to this TC\)\s*\n([\s\S]*?)(?=\n###\s|\n\*\*Steps:\*\*|\n---\n|\n##\s|$)/i,
+    );
+    if (canonicalMatch) {
+      const block = canonicalMatch[1];
+      const rows = block.match(/\|\s*\d+\s*\|\s*([^|]+)\|/g);
+      if (rows) {
+        tcPreConditions = rows.map((r) =>
+          unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim()),
+        );
+      }
+      tcPreConditionsTable = parsePreReqTable(block);
+    } else {
+      // Back-compat fallback
+      const legacyMatch = section.match(
+        /\*\*Additional Pre-requisite \(TC-specific\):\*\*[\s\S]*?(\|\s*\d+\s*\|\s*[^|]+\|(?:\s*\n\s*\|\s*\d+\s*\|\s*[^|]+\|)*)/,
+      );
+      if (legacyMatch) {
+        tcPreConditions =
+          legacyMatch[1]
+            .match(/\|\s*\d+\s*\|\s*([^|]+)\|/g)
+            ?.map((r) => unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim())) ?? [];
+      }
+    }
 
     const featureTags = parsed?.featureTags ?? [useCaseSummary.split(" ").slice(0, 3).join(" ")];
 
+    const hasPerTcPrereq = tcPreConditions.length > 0 || tcPreConditionsTable !== null;
     testCases.push({
       tcNumber: tcNum,
       featureTags,
       useCaseSummary,
       priority,
-      prerequisites: tcPreConditions.length > 0 ? { preConditions: tcPreConditions } : undefined,
+      prerequisites: hasPerTcPrereq
+        ? {
+            preConditions: tcPreConditions.length > 0 ? tcPreConditions : undefined,
+            preConditionsTable: tcPreConditionsTable ?? undefined,
+          }
+        : undefined,
       steps,
       adoWorkItemId: adoIdMatch ? parseInt(adoIdMatch[1], 10) : undefined,
     });

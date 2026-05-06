@@ -169,9 +169,9 @@ Type `/vortex-ado` in the AI chat to see all commands. Common ones:
 | `/vortex-ado/ado-check` | Verify ADO credentials, Confluence config, and server health |
 | `/vortex-ado/ado-story` | Fetch a User Story — fields, Confluence pages, images, and links |
 | `/vortex-ado/qa-draft` | Draft test cases as reviewable markdown — never pushes to ADO |
-| `/vortex-ado/qa-publish` | Push a reviewed draft to ADO — creates test cases after explicit confirmation |
+| `/vortex-ado/qa-publish` | Push a reviewed draft to ADO — agent guides you through confirmation at every step |
 | `/vortex-ado/ado-plans` | List all test plans in the ADO project |
-| `/vortex-ado/qa-tc-update` | Update a test case — title, steps, prerequisites, priority, or assignment |
+| `/vortex-ado/qa-tc-update` | Update a test case, or apply the same fields uniformly to many |
 
 You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or *"Draft test cases for user story 12345"*.
 

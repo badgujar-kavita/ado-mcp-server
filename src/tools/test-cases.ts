@@ -113,57 +113,205 @@ export function registerTestCaseTools(
     "qa_tc_update",
     {
       title: "Update Test Case",
-      description: "Update fields or steps of an existing test case",
+      description:
+        "Update fields of one or more existing test cases. Accepts a single workItemId (number) or a bulk array (number[]) — when an array is given, the SAME field values are applied UNIFORMLY to every ID (this is intentional; for varying-per-TC updates, edit the draft and use /qa-publish). Before applying any patch, the tool verifies each ID is a Test Case (refuses User Story/Bug/Task/etc.) and surfaces cross-US span as a `needs-confirmation` response so the caller can get explicit user agreement. Set `acknowledgeCrossUs: true` only after the user has seen the per-US breakdown and explicitly confirmed. Returns a per-ID result table for bulk calls.",
       inputSchema: {
-        workItemId: z.number().int().positive().describe("The test case work item ID"),
-        title: z.string().optional().describe("Updated title"),
+        workItemId: z.union([
+          z.number().int().positive(),
+          z.array(z.number().int().positive()).min(1),
+        ]).describe("The test case work item ID, or an array of IDs for uniform bulk update"),
+        title: z.string().optional().describe("Updated title (applied uniformly to all IDs in bulk mode)"),
         description: z.string().optional().describe("Raw HTML for Prerequisite for Test (use when providing pre-built HTML)"),
         prerequisites: PrerequisitesSchema.describe("Structured prerequisites; when provided, builds HTML and writes to prerequisite field"),
-        steps: z.array(StepSchema).optional().describe("Updated test steps"),
+        steps: z.array(StepSchema).optional().describe("Updated test steps (applied uniformly to all IDs in bulk mode)"),
         priority: z.number().int().min(1).max(4).optional().describe("Updated priority"),
         state: z.string().optional().describe("Updated state"),
         assignedTo: z.string().optional().describe("Updated assigned to"),
         areaPath: z.string().optional().describe("Updated area path"),
         iterationPath: z.string().optional().describe("Updated iteration path"),
+        acknowledgeCrossUs: z.boolean().optional().describe("Set to true only when the user has seen the per-US breakdown of a cross-US bulk update and explicitly confirmed. Skipped for single-ID calls. Defaults to false."),
       },
     },
-    async ({ workItemId, title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath }) => {
-      try {
-        const config = loadConventionsConfig();
-        const ops: JsonPatchOperation[] = [];
-        if (title) ops.push({ op: "replace", path: "/fields/System.Title", value: title });
-        const prereqField = config.prerequisiteFieldRef ?? "System.Description";
-        // buildPrerequisitesHtml applies full formatting (bold, lists, persona sub-bullets, ;/• expansion)
-        const prereqHtml = prerequisites ? buildPrerequisitesHtml(prerequisites) : description;
-        if (prereqHtml) ops.push({ op: "replace", path: `/fields/${prereqField}`, value: prereqHtml });
-        // buildStepsXml applies formatStepContent (bold, A./B. lists) to action/expectedResult
-        if (steps) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: buildStepsXml(steps) });
-        if (priority) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority });
-        if (state) ops.push({ op: "replace", path: "/fields/System.State", value: state });
-        if (assignedTo) ops.push({ op: "replace", path: "/fields/System.AssignedTo", value: assignedTo });
-        if (areaPath) ops.push({ op: "replace", path: "/fields/System.AreaPath", value: areaPath });
-        if (iterationPath) ops.push({ op: "replace", path: "/fields/System.IterationPath", value: iterationPath });
+    async ({ workItemId, title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath, acknowledgeCrossUs }) => {
+      const config = loadConventionsConfig();
+      const prereqField = config.prerequisiteFieldRef ?? "System.Description";
 
-        if (ops.length === 0) {
-          return { content: [{ type: "text" as const, text: "No fields to update." }] };
+      // Build the JSON Patch ops once — identical for every ID in the batch (uniform semantics).
+      const ops: JsonPatchOperation[] = [];
+      if (title) ops.push({ op: "replace", path: "/fields/System.Title", value: title });
+      const prereqHtml = prerequisites ? buildPrerequisitesHtml(prerequisites) : description;
+      if (prereqHtml) ops.push({ op: "replace", path: `/fields/${prereqField}`, value: prereqHtml });
+      if (steps) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: buildStepsXml(steps) });
+      if (priority) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority });
+      if (state) ops.push({ op: "replace", path: "/fields/System.State", value: state });
+      if (assignedTo) ops.push({ op: "replace", path: "/fields/System.AssignedTo", value: assignedTo });
+      if (areaPath) ops.push({ op: "replace", path: "/fields/System.AreaPath", value: areaPath });
+      if (iterationPath) ops.push({ op: "replace", path: "/fields/System.IterationPath", value: iterationPath });
+
+      if (ops.length === 0) {
+        return { content: [{ type: "text" as const, text: "No fields to update." }] };
+      }
+
+      const ids = Array.isArray(workItemId) ? workItemId : [workItemId];
+      const isBulk = ids.length > 1;
+
+      // ── Step 1: type-verify every ID before touching anything ──
+      // Mirrors qa_tc_delete — refuse non-Test-Case work items so a typo'd ID
+      // can't silently mutate a User Story or Bug.
+      interface PrecheckRecord { id: number; type: string; title: string; parentUsId: number | null; }
+      const prechecks: PrecheckRecord[] = [];
+      const typeRefusals: Array<{ id: number; type: string; title: string }> = [];
+      const fetchFailures: Array<{ id: number; reason: string }> = [];
+
+      for (const id of ids) {
+        try {
+          const wi = await client.get<AdoWorkItem>(
+            `/_apis/wit/workitems/${id}`,
+            "7.0",
+            { "$expand": "relations" }
+          );
+          const type = (wi.fields?.["System.WorkItemType"] as string) ?? "(unknown)";
+          const wiTitle = (wi.fields?.["System.Title"] as string) ?? "(no title)";
+          if (type !== "Test Case") {
+            typeRefusals.push({ id, type, title: wiTitle });
+            continue;
+          }
+          // Find parent US via TestedBy relation (reverse direction on the TC).
+          const rels = wi.relations ?? [];
+          const testedBy = rels.find(
+            (r) => r.rel === "Microsoft.VSTS.Common.TestedBy-Reverse"
+          );
+          let parentUsId: number | null = null;
+          if (testedBy) {
+            const parts = testedBy.url.split("/");
+            const n = parseInt(parts[parts.length - 1], 10);
+            parentUsId = Number.isNaN(n) ? null : n;
+          }
+          prechecks.push({ id, type, title: wiTitle, parentUsId });
+        } catch (err) {
+          if (err instanceof AdoClientError && err.statusCode === 404) {
+            fetchFailures.push({ id, reason: "Work item not found — ID may be wrong or already deleted." });
+          } else if (err instanceof AdoClientError && err.statusCode === 401) {
+            fetchFailures.push({ id, reason: "Authentication failed. Run /vortex-ado/ado-connect to update credentials." });
+          } else if (err instanceof AdoClientError && err.statusCode === 403) {
+            fetchFailures.push({ id, reason: "Insufficient permissions. PAT needs Work Items (Read & Write)." });
+          } else {
+            fetchFailures.push({ id, reason: err instanceof Error ? err.message : String(err) });
+          }
         }
+      }
 
-        const item = await client.patch<AdoWorkItem>(
-          `/_apis/wit/workitems/${workItemId}`,
-          ops,
-          "application/json-patch+json",
-          "7.0"
-        );
-
+      // If any IDs failed precheck or were wrong type, refuse the whole batch — don't
+      // partially mutate when the caller's intent is clearly off (bad ID list).
+      if (typeRefusals.length > 0 || fetchFailures.length > 0) {
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ id: item.id, rev: item.rev, url: item.url }, null, 2) }],
-        };
-      } catch (err) {
-        return {
-          content: [{ type: "text" as const, text: `Error updating test case: ${err}` }],
+          content: [{ type: "text" as const, text: JSON.stringify({
+            status: "needs-input",
+            reason: "precheck-failed",
+            message:
+              `🚫 BLOCK: ${isBulk ? `Batch of ${ids.length} test case update(s)` : `Update for work item ${ids[0]}`} refused — ` +
+              `${typeRefusals.length} ID(s) are not Test Cases, ${fetchFailures.length} could not be fetched. ` +
+              `No changes were made. Review the lists below and re-run with the corrected IDs.`,
+            typeRefusals,
+            fetchFailures,
+            suggestion: isBulk
+              ? "Remove non-Test-Case IDs and unreachable IDs from the list, then re-run /qa-tc-update with the corrected array."
+              : "Double-check the ID. If you intended to update a different work item type, do it directly in the ADO UI — this tool only mutates Test Cases.",
+            resolvedSoFar: { requestedIds: ids, validTcIds: prechecks.map((p) => p.id) },
+          }, null, 2) }],
           isError: true,
         };
       }
+
+      // ── Step 2: cross-US span detection (bulk only) ──
+      if (isBulk) {
+        const byUs = new Map<number | "none", PrecheckRecord[]>();
+        for (const p of prechecks) {
+          const key = p.parentUsId ?? "none";
+          const bucket = byUs.get(key) ?? [];
+          bucket.push(p);
+          byUs.set(key, bucket);
+        }
+        const usCount = byUs.size;
+        if (usCount > 1 && !acknowledgeCrossUs) {
+          const breakdown = [...byUs.entries()].map(([us, items]) => ({
+            parentUsId: us === "none" ? null : us,
+            tcCount: items.length,
+            tcIds: items.map((i) => i.id),
+          }));
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({
+              status: "needs-confirmation",
+              reason: "cross-us-bulk-update",
+              message:
+                `⚠️ WARN: These ${ids.length} test case(s) belong to ${usCount} different User Stories (or are unlinked). ` +
+                `Applying the same field values across User Stories is valid but unusual — confirm this is intentional.`,
+              breakdown,
+              prompt: `Reply **YES** to apply the update to all ${ids.length} TC(s) across ${usCount} User Stor${usCount === 1 ? "y" : "ies"}, or **no** to cancel.`,
+              onYes: "Re-run qa_tc_update with the same args plus acknowledgeCrossUs: true.",
+              onNo: "Stop. No changes.",
+              resolvedSoFar: { requestedIds: ids, parentUsCount: usCount },
+            }, null, 2) }],
+            isError: true,
+          };
+        }
+      }
+
+      // ── Step 3: apply the patch — per-ID, collecting both successes and failures ──
+      // Continue on failure (user already confirmed; partial success is better than all-or-nothing
+      // because some TCs may have state conflicts even when the patch is valid for others).
+      const successes: Array<{ id: number; title: string; rev?: number; webUrl: string }> = [];
+      const failures: Array<{ id: number; error: string }> = [];
+
+      for (const id of ids) {
+        try {
+          const item = await client.patch<AdoWorkItem>(
+            `/_apis/wit/workitems/${id}`,
+            ops,
+            "application/json-patch+json",
+            "7.0"
+          );
+          const pre = prechecks.find((p) => p.id === id);
+          const updatedTitle = (item.fields?.["System.Title"] as string) ?? pre?.title ?? `TC #${id}`;
+          successes.push({ id: item.id, title: updatedTitle, rev: item.rev, webUrl: adoWorkItemUrl(client, item.id) });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          failures.push({ id, error: message });
+        }
+      }
+
+      // ── Step 4: report ──
+      if (!isBulk) {
+        // Single-ID path: preserve legacy JSON shape (back-compat with any caller parsing the response).
+        if (failures.length > 0) {
+          return {
+            content: [{ type: "text" as const, text: `Error updating test case: ${failures[0].error}` }],
+            isError: true,
+          };
+        }
+        const s = successes[0];
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ id: s.id, rev: s.rev, url: s.webUrl }, null, 2) }],
+        };
+      }
+
+      // Bulk: per-ID table summary. If any failures, mark isError but STILL return the partial-success summary
+      // so the caller can see which IDs were already committed and which still need attention.
+      const rows = [
+        "| ID | Status | Title |",
+        "| --- | --- | --- |",
+        ...successes.map((s) => `| [${s.id}](${s.webUrl}) | ✅ Updated | ${s.title} |`),
+        ...failures.map((f) => `| ${f.id} | ❌ Failed | ${f.error.replace(/\|/g, "\\|")} |`),
+      ].join("\n");
+
+      const headline = failures.length === 0
+        ? `✅ SUCCESS: Updated ${successes.length} test case(s) uniformly.`
+        : `⚠️ PARTIAL: ${successes.length}/${ids.length} updated, ${failures.length} failed. No retry was attempted — re-run qa_tc_update with the failed IDs only after investigating.`;
+
+      return {
+        content: [{ type: "text" as const, text: `${headline}\n\n${rows}` }],
+        isError: failures.length > 0,
+      };
     }
   );
 
@@ -396,12 +544,20 @@ export interface CreateTestCaseParams {
   prerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
+    /** Multi-column structured Pre-requisite table — merges common + per-TC additively. */
+    preConditionsTable?: { headers: string[]; rows: string[][] } | null;
     testData?: string | null;
   };
   steps: Array<{ action: string; expectedResult: string }>;
   areaPath?: string | null;
   iterationPath?: string | null;
   assignedTo?: string;
+  /**
+   * Tags to apply to System.Tags. Match-only policy — caller should have already
+   * resolved these against the project's existing tags; unmatched tags are NOT
+   * created. Pass resolved matches here; undefined/empty = no tag write op.
+   */
+  tags?: string[];
 }
 
 export async function createTestCase(client: AdoClient, params: CreateTestCaseParams): Promise<TestCaseResult> {
@@ -441,6 +597,12 @@ export async function createTestCase(client: AdoClient, params: CreateTestCasePa
 
   if (params.assignedTo) {
     ops.push({ op: "add", path: "/fields/System.AssignedTo", value: params.assignedTo });
+  }
+
+  // Apply pre-resolved tags (match-only policy — caller has already filtered
+  // against project's existing tags via resolveTagsMatchOnly()).
+  if (params.tags && params.tags.length > 0) {
+    ops.push({ op: "add", path: "/fields/System.Tags", value: params.tags.join("; ") });
   }
 
   // Link to User Story via "Tests / Tested By" relation
@@ -492,6 +654,11 @@ export async function updateTestCaseFromParams(
     { op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: stepsXml },
     { op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority },
   ];
+
+  // Tags are overwritten (not appended) on repush, matching title/prereq/steps/priority semantics.
+  if (params.tags && params.tags.length > 0) {
+    ops.push({ op: "replace", path: "/fields/System.Tags", value: params.tags.join("; ") });
+  }
 
   const item = await client.patch<AdoWorkItem>(
     `/_apis/wit/workitems/${workItemId}`,

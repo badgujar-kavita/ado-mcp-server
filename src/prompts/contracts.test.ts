@@ -139,6 +139,50 @@ test("AGENTS.md pins 'Re-ask, don't proceed' phrase", () => {
   );
 });
 
+test("qa-tc-update prompt pins no-field-inference + reroute-at-3-groups rules", async () => {
+  const texts = await capturePromptTexts();
+  const text = texts.get("qa-tc-update");
+  assert.ok(text, "qa-tc-update prompt should be registered");
+  // No-inference rule — agent must not guess fields from pasted context.
+  assert.ok(
+    /NO FIELD INFERENCE/i.test(text),
+    "qa-tc-update must include explicit NO FIELD INFERENCE clause",
+  );
+  // Reroute-to-draft rule at 3+ groups.
+  assert.ok(
+    /three or more distinct value groups/i.test(text),
+    "qa-tc-update must tell the agent to reroute when 3+ distinct value groups are requested",
+  );
+  assert.ok(
+    /\/qa-publish/.test(text),
+    "qa-tc-update reroute must point at /qa-publish",
+  );
+  // Single-upfront-confirmation clause (no sequential YES fatigue).
+  assert.ok(
+    /ONE upfront confirmation/i.test(text),
+    "qa-tc-update must require a single upfront confirmation covering the full batch plan",
+  );
+  // Cross-US branch handler + ack flag.
+  assert.ok(
+    /acknowledgeCrossUs/.test(text),
+    "qa-tc-update must document the acknowledgeCrossUs flag",
+  );
+  assert.ok(
+    /cross-us-bulk-update/.test(text),
+    "qa-tc-update must document the cross-us-bulk-update response reason",
+  );
+  // Precheck failed branch.
+  assert.ok(
+    /precheck-failed/.test(text),
+    "qa-tc-update must document the precheck-failed response reason",
+  );
+  // No auto-retry on partial failure.
+  assert.ok(
+    /NEVER retry/i.test(text),
+    "qa-tc-update must forbid auto-retry on partial failure",
+  );
+});
+
 test("shared contracts are non-empty and distinct", () => {
   assert.ok(
     INTERACTIVE_READ_CONTRACT.length > 0,
