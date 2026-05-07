@@ -187,10 +187,17 @@ const StepSchema = z.object({
   expectedResult: z.string(),
 });
 
+const TableSchema = z.object({
+  headers: z.array(z.string()).min(1),
+  rows: z.array(z.array(z.string())).min(1),
+}).nullable();
+
 const PrerequisitesSchema = z.object({
   personas: z.union([z.string(), z.array(z.string()), z.null()]).optional(),
   preConditions: z.array(z.string()).nullable().optional(),
+  preConditionsTable: TableSchema.optional().describe("Multi-column structured Pre-requisite table (3+ columns). When present, ADO renderer emits a real <table>."),
   testData: z.string().nullable().optional(),
+  testDataTable: TableSchema.optional().describe("Structured Test Data table — typically `| Data | Value |` rows. When present, the formatter writes a real markdown table in the draft AND the ADO renderer emits an HTML <table>. Strongly preferred over passing a multi-line string with embedded \\n."),
 }).optional();
 
 const SaveTcDraftShape = {
@@ -1272,11 +1279,35 @@ function mergePrerequisites(
     mergedTable = tc.preConditionsTable;
   }
 
+  // Same merge strategy for testDataTable: when both sides present + headers match, append.
+  // Otherwise prefer the side that has a table; if headers disagree, common wins.
+  let mergedTestDataTable: { headers: string[]; rows: string[][] } | undefined;
+  if (common?.testDataTable && tc?.testDataTable) {
+    const headersMatch =
+      common.testDataTable.headers.length === tc.testDataTable.headers.length &&
+      common.testDataTable.headers.every(
+        (h, i) => h.toLowerCase() === tc.testDataTable!.headers[i]?.toLowerCase(),
+      );
+    if (headersMatch) {
+      mergedTestDataTable = {
+        headers: common.testDataTable.headers,
+        rows: [...common.testDataTable.rows, ...tc.testDataTable.rows],
+      };
+    } else {
+      mergedTestDataTable = common.testDataTable;
+    }
+  } else if (common?.testDataTable) {
+    mergedTestDataTable = common.testDataTable;
+  } else if (tc?.testDataTable) {
+    mergedTestDataTable = tc.testDataTable;
+  }
+
   return {
     personas: undefined, // Always use config defaults (all three); no override
     preConditions: [...(common?.preConditions ?? []), ...(tc?.preConditions ?? [])],
     preConditionsTable: mergedTable,
     testData: tc?.testData ?? common?.testData,
+    testDataTable: mergedTestDataTable,
   };
 }
 

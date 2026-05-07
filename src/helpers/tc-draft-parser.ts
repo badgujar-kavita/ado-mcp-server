@@ -46,6 +46,35 @@ function parsePreReqTable(section: string): PrereqTable | null {
   return { headers, rows };
 }
 
+/**
+ * Extract a Markdown table from a `### Test Data` block.
+ *
+ * Test Data is conventionally a 2-column `| Data | Value |` table — unlike
+ * prerequisites where 2-column is the flat `# | Condition` shape. So we accept
+ * any column count >= 2 here, and we also tolerate literal `\n` substrings
+ * (the two-character escape sequence) between rows because some agent paths
+ * have historically passed multi-row tables as a single string with `\n`
+ * escaped instead of real newlines.
+ */
+function parseTestDataTable(section: string): PrereqTable | null {
+  if (!section) return null;
+  // Defensive: convert literal `\n` substrings to real newlines before splitting.
+  // This rescues drafts where a previous push wrote `| Data | Value |\n|---|---|\n...` as one line.
+  const normalized = section.replace(/\\n/g, "\n");
+  const lines = normalized.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("|"));
+  if (lines.length < 3) return null;
+  const splitRow = (row: string): string[] => {
+    const cells = row.split("|").slice(1, -1).map((c) => unescape(c.trim()));
+    return cells;
+  };
+  const headers = splitRow(lines[0]!);
+  if (headers.length < 2) return null;
+  if (!/^\|[\s|:-]+\|$/.test(lines[1]!)) return null;
+  const rows = lines.slice(2).map(splitRow).filter((r) => r.length === headers.length);
+  if (rows.length === 0) return null;
+  return { headers, rows };
+}
+
 function parseTableValue(content: string, fieldName: string): string | null {
   const re = new RegExp(
     `\\|\\s*\\*\\*${fieldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\*\\*\\s*\\|\\s*([^|]*)\\|`,
@@ -183,15 +212,24 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
   // intentionally leave preConditionsTable undefined so the builder falls back to the existing <ol>.
   const preConditionsTable = parsePreReqTable(preReqSection);
 
-  const testDataBlock = commonSection.match(/### Test Data\s*\n\s*\n([^\n#-]+)/);
-  const testData = testDataBlock && testDataBlock[1].trim() && testDataBlock[1].trim() !== "N/A"
-    ? unescape(testDataBlock[1].trim())
-    : "N/A";
+  // Capture the full ### Test Data block — everything from the heading to the next
+  // section boundary (next `### `, `## `, `---` block, or end of common section).
+  // The previous regex `[^\n#-]+` stopped at the first newline, truncating multi-line
+  // markdown tables to just their header row.
+  const testDataBlockMatch = commonSection.match(/### Test Data\s*\n\s*\n([\s\S]*?)(?=\n\s*###\s|\n\s*##\s|\n\s*---\s|$)/);
+  const rawTestDataBlock = testDataBlockMatch ? testDataBlockMatch[1].trim() : "";
+  const testDataTable = parseTestDataTable(rawTestDataBlock);
+  // If a structured table was parsed, also keep a string fallback for back-compat
+  // (older renderers / agent flows that read .testData directly).
+  const testData = testDataTable
+    ? rawTestDataBlock // preserve the raw multi-line markdown so round-trip stays lossless
+    : (rawTestDataBlock && rawTestDataBlock !== "N/A" ? unescape(rawTestDataBlock) : "N/A");
 
   const commonPrerequisites = {
     preConditions: preConditions.length > 0 ? preConditions : undefined,
     preConditionsTable: preConditionsTable ?? undefined,
     testData,
+    testDataTable: testDataTable ?? undefined,
   };
 
   const testCases: TcDraftTestCase[] = [];

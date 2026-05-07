@@ -20,6 +20,8 @@ export interface TcDraftTestCase {
     /** Per-TC multi-column structured Pre-requisite table (3+ columns). Merges with common table additively. */
     preConditionsTable?: { headers: string[]; rows: string[][] } | null;
     testData?: string | null;
+    /** Per-TC structured Test Data table. When present, the formatter emits a real markdown table in the draft and the renderer emits an HTML <table> in ADO. */
+    testDataTable?: { headers: string[]; rows: string[][] } | null;
   };
   steps: Array<{ action: string; expectedResult: string }>;
   adoWorkItemId?: number;
@@ -61,6 +63,8 @@ export interface TcDraftData {
      */
     preConditionsTable?: { headers: string[]; rows: string[][] } | null;
     testData?: string | null;
+    /** Common-level structured Test Data table (markdown table parsed from the `### Test Data` block). Used by both the formatter and the ADO renderer. */
+    testDataTable?: { headers: string[]; rows: string[][] } | null;
   };
 }
 
@@ -200,7 +204,18 @@ export function formatTcDraftToMarkdown(data: TcDraftData): string {
   // Test Data
   lines.push("### Test Data");
   lines.push("");
-  lines.push(common.testData ?? defaults.testData ?? "N/A");
+  // Prefer structured table when present — emit a real multi-line markdown table.
+  // Fall back to the raw string (back-compat for older drafts) or the config default.
+  if (common.testDataTable && common.testDataTable.rows.length > 0) {
+    const t = common.testDataTable;
+    lines.push("| " + t.headers.map(escape).join(" | ") + " |");
+    lines.push("|" + t.headers.map(() => "---").join("|") + "|");
+    for (const row of t.rows) {
+      lines.push("| " + row.map(escape).join(" | ") + " |");
+    }
+  } else {
+    lines.push(common.testData ?? defaults.testData ?? "N/A");
+  }
   lines.push("");
   lines.push("---");
   lines.push("");

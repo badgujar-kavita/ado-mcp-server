@@ -106,6 +106,12 @@ export interface Prerequisites {
    */
   preConditionsTable?: PrereqTable | null;
   testData?: string | null;
+  /**
+   * Multi-row structured Test Data table. When present AND has at least 1 data row,
+   * the HTML builder emits a real `<table>` in ADO and the markdown formatter writes
+   * a proper multi-line table in the draft. Mirrors `preConditionsTable` semantics.
+   */
+  testDataTable?: PrereqTable | null;
 }
 
 export interface CreateTestCaseInput {

@@ -48,7 +48,7 @@ function renderSection(
       // Pre-requisite is ALWAYS unique per user story; never use config baseline.
       return renderPreConditions(label, input?.preConditions, [], input?.preConditionsTable);
     case "testData":
-      return renderTestData(label, input?.testData, defaults.testData, required);
+      return renderTestData(label, input?.testData, input?.testDataTable, defaults.testData, required);
     default:
       return null;
   }
@@ -162,11 +162,20 @@ function renderOptionalList(
 function renderTestData(
   label: string,
   override: string | null | undefined,
+  structured: { headers: string[]; rows: string[][] } | null | undefined,
   defaultValue: string,
   required: boolean
 ): string | null {
+  // Prefer a structured table when present — emits a real ADO <table> with inline styles.
+  // Mirrors renderPreConditions semantics. Same buildAdoTable used for prerequisites.
+  if (structured && structured.rows.length > 0) {
+    return `<div><strong>${label}:</strong> </div>${buildAdoTable(structured.headers, structured.rows)}<br>`;
+  }
+
   const value = override ?? defaultValue;
   if (!value && !required) return null;
+  // formatContentForHtml normalizes literal `\n` substrings → real <br>s, so even
+  // a string-form Test Data with embedded escape sequences renders cleanly.
   return `<div><strong>${label}:</strong> </div><div>${formatContentForHtml(value || "N/A")}</div><br>`;
 }
 

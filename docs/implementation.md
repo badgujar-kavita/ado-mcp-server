@@ -671,7 +671,7 @@ All naming patterns, formats, and labels are externalized into a single JSON con
 - **Persona**: The consistent part across all test cases comes from the active project's configured defaults. The current project config includes System Administrator, ADMIN User, and KAM, but the drafting methodology should treat these as project-configured defaults rather than universal assumptions.
 - **Pre-requisite**: **Always unique per user story.** Never from config. The AI/draft must generate pre-conditions from the User Story and Solution Design every time. Use technical format per `preConditionFormat` (Object.Field = Value). `commonPreConditions` in config is unused; pre-conditions come only from the draft.
 - **TO BE TESTED FOR**: Optional. Omitted from the output entirely when `null` / not provided. Only rendered when the caller supplies specific validation scenarios.
-- **Test Data**: Optional. Defaults to `"N/A"` from config. Only overridden when the test case needs specific data.
+- **Test Data**: Optional. Defaults to `"N/A"` from config. Accepts either a single string OR a structured `testDataTable: { headers, rows }` for multi-row data — the structured form is strongly preferred and renders as a real `<table>` in ADO (same `buildAdoTable` helper as `preConditionsTable`). Single-string Test Data falls back to legacy `<div>` rendering for back-compat. The renderer also normalizes literal `\n` substrings (the two-character escape sequence) to real `<br>`s, so older drafts that mis-escaped multi-row content recover automatically on next push.
 
 **Default personas** (added automatically when none specified): come from `prerequisiteDefaults.personas`. In the current project that is System Administrator, "ADMIN User" User, and Key Account Manager (KAM) User. To add a new persona (e.g., a Customer Manager role), add a new key to `prerequisiteDefaults.personas` with `label`, `profile`, `roles`, `psg` (and optional `user`). Order in the JSON determines display order. No code changes needed.
 
@@ -968,7 +968,7 @@ Flow: `qa_draft` prompt → AI applies `.cursor/skills/qa-test-drafting/SKILL.md
 
 **Distribution packaging:** `build-dist.mjs` copies the full `.cursor/skills` directory tree into `dist-package`, including nested assets inside skill folders, so deployed skills remain complete.
 
-**Update Prerequisites Skill:** `.cursor/skills/qa-tc-prerequisites/SKILL.md` guides updating test case prerequisites via `qa_tc_update`: always pass structured `{ personas?, preConditions, testData }`, source from draft (not ADO HTML), restart MCP after formatting changes.
+**Update Prerequisites Skill:** `.cursor/skills/qa-tc-prerequisites/SKILL.md` guides updating test case prerequisites via `qa_tc_update`: always pass structured `{ personas?, preConditions, preConditionsTable?, testData, testDataTable? }`, source from draft (not ADO HTML), restart MCP after formatting changes. Prefer `testDataTable: { headers, rows }` over a multi-line `testData` string when the data has multiple rows — the structured form renders as a real `<table>` in ADO.
 
 ### Confluence (Optional)
 

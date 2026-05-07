@@ -547,6 +547,8 @@ export interface CreateTestCaseParams {
     /** Multi-column structured Pre-requisite table — merges common + per-TC additively. */
     preConditionsTable?: { headers: string[]; rows: string[][] } | null;
     testData?: string | null;
+    /** Structured Test Data table — when present, ADO renderer emits a real <table>. */
+    testDataTable?: { headers: string[]; rows: string[][] } | null;
   };
   steps: Array<{ action: string; expectedResult: string }>;
   areaPath?: string | null;

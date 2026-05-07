@@ -6,6 +6,28 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### Test Data — Structured Table + Literal-`\n` Recovery
+
+Test Data now flows through the same draft → ADO render path as the multi-column Pre-requisite table — symmetric behavior across both prereq sections.
+
+**Fixed — Test Data renders as a real `<table>` in ADO instead of raw markdown text.** Previously `### Test Data` content was parsed by a regex (`[^\n#-]+`) that stopped at the first newline, so multi-row markdown tables were truncated to just the header row. The remaining text leaked through `formatContentForHtml` as a single `<div>` and ADO showed it as visible `| Data | Value |\n|---|---|\n| ... |` text (see screenshot in incident report). Two fixes:
+
+1. **Parser:** widened the `### Test Data` block regex to capture multi-line content up to the next `###` / `##` / `---` boundary. New helper `parseTestDataTable()` extracts the markdown table — accepts ≥2 columns (Test Data is conventionally `| Data | Value |`, unlike prereqs where 2-column means flat `# | Condition`).
+2. **Renderer:** `renderTestData` now uses `buildAdoTable` (same helper as `renderPreConditions`) when a structured `testDataTable` is present, emitting an inline-styled `<table>` that ADO preserves. Falls back to the legacy `<div>` rendering when only a string is provided.
+
+**Fixed — Defensive recovery of literal `\n` substrings.** When an agent path passes multi-row content as a single string with `\n` escape sequences (the two-character backslash + `n`) instead of real newlines — exactly the bug shown in the screenshot — `formatContentForHtml` and `formatStepContent` now normalize them to real `<br>`s before the rest of the formatting pipeline runs. The parser's `parseTestDataTable` does the same normalization on the raw block before splitting on lines, so even drafts already on disk with the buggy one-line state recover into a proper structured table on next push.
+
+**Added — `testDataTable` accepted on `qa_draft_save` schema.** Agents can now pass `prerequisites.testDataTable: { headers, rows }` directly — strongly preferred over passing a multi-line string. Same input shape as `preConditionsTable`.
+
+**Added — `mergePrerequisites` now merges `testDataTable` additively** between common and per-TC prereq blocks (mirrors the existing `preConditionsTable` merge logic — when headers match, rows are concatenated; otherwise the common side wins).
+
+**Tests** — three new files, 19 new tests:
+- `src/helpers/tc-draft-parser-testdata.test.ts` — multi-row parse, literal-`\n` recovery, N/A handling, single-line legacy preservation, section-boundary respect
+- `src/helpers/testdata-render.test.ts` — `<table>` emission, fallback to `<div>`, `\n`-string normalization in `formatContentForHtml` + `formatStepContent`, mixed real/literal newline resilience
+- `src/helpers/tc-draft-formatter-testdata.test.ts` — multi-line markdown table emission, single-line legacy fallback, parser↔formatter round-trip fidelity
+
+**Why:** users reported pushed test cases displaying `| Data | Value |\n|------|-------|\n| Support Email | support@... |\n...` as visible literal text in ADO instead of a rendered table. The bug had three origins (parser truncation, renderer with no table support, no `\n`-string normalization) — all three are now closed defense-in-depth.
+
 ### MD ↔ ADO Sync Gaps Closed
 
 Three targeted improvements that close gaps between draft markdown content and the resulting ADO test cases. Plan: `.cursor/plans/md_ado_sync_gaps.plan.md`.

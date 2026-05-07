@@ -26,7 +26,8 @@ This document defines how to format the **Prerequisite for Test** (`Custom.Prere
 - **Persona:** `<div><strong>Persona:</strong> </div><ul><li>Label<ul><li>{personaRolesLabel} = x</li><li>Profile = y</li><li>{personaPsgLabel} = z</li></ul></li></ul>` — `{personaRolesLabel}` and `{personaPsgLabel}` are placeholders for the labels configured under `prerequisiteDefaults` (defaults: `Roles`, `Permission Set Group`; this project overrides to `TPM Roles`, `PSG`).
 - **Pre-requisite:** `<div><strong>Pre-requisite:</strong> </div><ol><li>...</li></ol>`
 - **TO BE TESTED FOR:** `<div><strong>TO BE TESTED FOR:</strong> </div><ul><li>...</li></ul>`
-- **Test Data:** `<div><strong>Test Data:</strong> </div><div>N/A</div>`
+- **Test Data (string form):** `<div><strong>Test Data:</strong> </div><div>N/A</div>`
+- **Test Data (structured `testDataTable`):** `<div><strong>Test Data:</strong> </div><table>...</table>` — same `buildAdoTable` helper as `preConditionsTable`. Preferred for multi-row data.`
 
 Use `<br>` (not `<br/>`) for line breaks. Space after colon in section labels.
 

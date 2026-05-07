@@ -44,10 +44,17 @@ function convertListPatterns(str: string): string {
  * Escapes HTML and converts markdown-style formatting to ADO-compatible HTML.
  * Used for Prerequisite for Test, TO BE TESTED FOR, and similar fields.
  * Normalizes literal <br> from drafts so convertListPatterns can detect "A. X<br>B. Y".
+ *
+ * Also normalizes literal `\n` substrings — the two-character escape sequence
+ * (backslash + n) — to real newlines. Some agent paths historically passed
+ * multi-row content as a single string with `\n` escaped, which used to render
+ * as visible `\n` in ADO. This defensive normalization rescues those inputs.
  */
 export function formatContentForHtml(str: string): string {
-  // Normalize literal <br> or <br/> so list conversion works (same as formatStepContent)
-  const normalized = str.replace(/<br\s*\/?>/gi, "\n");
+  // Normalize literal `\n` (escape sequence) AND literal <br> so downstream list
+  // conversion + newline-to-<br> mapping works regardless of how the agent sent it.
+  const normalizedEscapes = str.replace(/\\n/g, "\n");
+  const normalized = normalizedEscapes.replace(/<br\s*\/?>/gi, "\n");
   const escaped = escapeHtml(normalized);
   const withBold = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   const withNewlines = withBold.replace(/\n/g, "<br>");
@@ -100,8 +107,9 @@ export function buildAdoTable(headers: string[], rows: string[][]): string {
  * Normalizes literal <br> from drafts to newlines so they trigger list conversion.
  */
 export function formatStepContent(str: string): string {
-  // Normalize literal <br> or <br/> from drafts so convertListPatterns can detect "A. X<br>B. Y"
-  const normalized = str.replace(/<br\s*\/?>/gi, "\n");
+  // Same normalization as formatContentForHtml — see its docstring for rationale.
+  const normalizedEscapes = str.replace(/\\n/g, "\n");
+  const normalized = normalizedEscapes.replace(/<br\s*\/?>/gi, "\n");
   const escaped = escapeHtml(normalized);
   const withBold = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   const withNewlines = withBold.replace(/\n/g, "<br>");

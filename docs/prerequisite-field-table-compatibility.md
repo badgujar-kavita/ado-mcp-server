@@ -38,7 +38,9 @@ The MCP currently renders Pre-requisite as **numbered lists** (`<ol>`).
 ```
 
 - **preConditions:** `string[]` — each string becomes one `<li>` in an `<ol>`
-- **testData:** `string` — single value
+- **preConditionsTable:** optional `{ headers, rows }` — multi-column structured table; renders as `<table>` in ADO when present (≥3 columns).
+- **testData:** `string` — single value (legacy single-line form)
+- **testDataTable:** optional `{ headers, rows }` — multi-row structured table; renders as `<table>` in ADO when present (≥2 columns). Strongly preferred over a multi-line `testData` string.
 
 ---
 
