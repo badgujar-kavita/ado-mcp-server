@@ -46,7 +46,13 @@ function renderSection(
       return renderPersonas(label, input?.personas, defaults.personas, rolesLabel, psgLabel);
     case "preConditions":
       // Pre-requisite is ALWAYS unique per user story; never use config baseline.
-      return renderPreConditions(label, input?.preConditions, [], input?.preConditionsTable);
+      return renderPreConditions(
+        label,
+        input?.preConditions,
+        [],
+        input?.preConditionsTable,
+        input?.preConditionsHierarchy,
+      );
     case "testData":
       return renderTestData(label, input?.testData, input?.testDataTable, defaults.testData, required);
     default:
@@ -82,15 +88,25 @@ function renderPreConditions(
   extras: string[] | null | undefined,
   defaults: string[],
   structured?: { headers: string[]; rows: string[][] } | null,
+  hierarchy?: Array<{ text: string; isChild: boolean }> | null,
 ): string {
-  // When the draft source was a multi-column Markdown table, emit a real <table>
-  // in ADO (with inline styles verified against TC #1391478). Otherwise fall back
-  // to the legacy flat <ol> rendering.
+  // Highest priority: structured 3+ column table. Emit <table> with inline styles.
   if (structured && structured.rows.length > 0 && structured.headers.length >= 3) {
     return `<div><strong>${label}:</strong> </div>${buildAdoTable(structured.headers, structured.rows)}<br>`;
   }
 
-  const rawLines = [...defaults, ...(extras || [])];
+  // Second priority: hierarchical 2-column input where some rows are children
+  // (authored as `- ...` or `• ...` under a parent). Emits proper nested
+  // <ol><li>parent<ul><li>child</li></ul></li></ol> structure. Without this
+  // path, child rows would render as broken sibling top-level numbered items.
+  if (hierarchy && hierarchy.length > 0 && hierarchy.some((h) => h.isChild)) {
+    return `<div><strong>${label}:</strong> </div>${renderHierarchicalList(hierarchy)}<br>`;
+  }
+
+  // Fallback: flat <ol> from preConditions[] OR from hierarchy when all rows
+  // are non-child (parser may emit hierarchy as the canonical flat carrier).
+  const hierarchyAsFlat = hierarchy?.map((h) => h.text) ?? [];
+  const rawLines = [...defaults, ...(extras || []), ...(extras ? [] : hierarchyAsFlat)];
   if (rawLines.length === 0) return `<div><strong>${label}:</strong> </div><br>`;
   const allLines = expandListItems(rawLines);
   let html = `<div><strong>${label}:</strong> </div><ol>`;
@@ -98,6 +114,47 @@ function renderPreConditions(
     html += `<li>${formatContentForHtml(line)}</li>`;
   }
   return html + "</ol><br>";
+}
+
+/**
+ * Render a flat array of `{ text, isChild }` rows as a properly nested
+ * `<ol><li>...<ul><li>...</li></ul></li></ol>` structure.
+ *
+ * Algorithm: walk the array; non-child rows open a new top-level <li>;
+ * consecutive child rows fold into a <ul> nested inside the prior parent's
+ * <li>. Orphan child rows at the start (no preceding parent) are promoted
+ * to parents — defensive against malformed input.
+ */
+function renderHierarchicalList(rows: Array<{ text: string; isChild: boolean }>): string {
+  let html = "<ol>";
+  let openParent = false;
+  let openChildList = false;
+
+  for (const row of rows) {
+    if (row.isChild && openParent) {
+      if (!openChildList) {
+        html += "<ul>";
+        openChildList = true;
+      }
+      html += `<li>${formatContentForHtml(row.text)}</li>`;
+    } else {
+      // Close any open child list, then close the prior parent <li>
+      if (openChildList) {
+        html += "</ul>";
+        openChildList = false;
+      }
+      if (openParent) {
+        html += "</li>";
+      }
+      // Open a new parent <li>
+      html += `<li>${formatContentForHtml(row.text)}`;
+      openParent = true;
+    }
+  }
+  // Close any trailing open list/li
+  if (openChildList) html += "</ul>";
+  if (openParent) html += "</li>";
+  return html + "</ol>";
 }
 
 /**

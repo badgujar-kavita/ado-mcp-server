@@ -544,6 +544,8 @@ export interface CreateTestCaseParams {
   prerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
+    /** Hierarchical pre-requisite rows (parent + child markers) — drives proper nested <ol>/<ul> in ADO HTML. */
+    preConditionsHierarchy?: Array<{ text: string; isChild: boolean }> | null;
     /** Multi-column structured Pre-requisite table — merges common + per-TC additively. */
     preConditionsTable?: { headers: string[]; rows: string[][] } | null;
     testData?: string | null;

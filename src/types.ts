@@ -96,9 +96,27 @@ export interface PrereqTable {
   rows: string[][];
 }
 
+/**
+ * Pre-requisite row with optional child marker. When `isChild: true`, the row
+ * was authored as a nested bullet (`- ...` or `• ...`) under the previous
+ * non-child row in the source markdown table. Drives proper `<ol><li>...<ul><li>`
+ * nesting in the ADO HTML output instead of broken sibling-list rendering.
+ */
+export interface PrereqHierarchyRow {
+  text: string;
+  isChild: boolean;
+}
+
 export interface Prerequisites {
   personas?: string | string[] | null;
   preConditions?: string[] | null;
+  /**
+   * Hierarchical pre-requisite list capturing parent/child relationships.
+   * When present AND any row has `isChild: true`, the HTML builder emits
+   * properly nested `<ol><li>...<ul><li>...</li></ul></li></ol>`. Otherwise
+   * the builder falls back to the flat `preConditions[]` (existing behavior).
+   */
+  preConditionsHierarchy?: PrereqHierarchyRow[] | null;
   /**
    * Multi-column structured Pre-requisite table. When present AND has more than
    * 2 columns, the HTML builder emits a real `<table>` instead of a flat `<ol>`.

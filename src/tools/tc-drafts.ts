@@ -1302,9 +1302,18 @@ function mergePrerequisites(
     mergedTestDataTable = tc.testDataTable;
   }
 
+  // Merge hierarchy additively (common's parents+children first, then TC-specific).
+  // Both sides may be absent; if neither has hierarchy markers, leave undefined so
+  // the renderer falls back to the flat preConditions[] path.
+  const mergedHierarchy =
+    common?.preConditionsHierarchy || tc?.preConditionsHierarchy
+      ? [...(common?.preConditionsHierarchy ?? []), ...(tc?.preConditionsHierarchy ?? [])]
+      : undefined;
+
   return {
     personas: undefined, // Always use config defaults (all three); no override
     preConditions: [...(common?.preConditions ?? []), ...(tc?.preConditions ?? [])],
+    preConditionsHierarchy: mergedHierarchy,
     preConditionsTable: mergedTable,
     testData: tc?.testData ?? common?.testData,
     testDataTable: mergedTestDataTable,

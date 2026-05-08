@@ -201,9 +201,23 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
       : 0;
   const preReqSection = preReqStart >= 0 ? commonSection.slice(preReqStart, preReqEnd) : "";
   const preCondRows = preReqSection.match(/\|\s*\d+\s*\|\s*([^|]+)\|/g);
-  const preConditions = preCondRows
-    ? preCondRows.map((r) => unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim()))
+  const preConditionsHierarchy = preCondRows
+    ? preCondRows.map((r) => {
+        const raw = unescape(r.replace(/\|\s*\d+\s*\|\s*([^|]+)\|/, "$1").trim());
+        // Detect bullet-prefix child rows. Claude often authors hierarchical
+        // prereqs as `- Enabled = TRUE` rows nested under a parent label row;
+        // without this detection the row becomes a sibling top-level numbered
+        // item, which renders broken in ADO (numbered list with surprise
+        // <ul><li> wrappers). Strip the leading bullet and mark as child.
+        const childMatch = raw.match(/^[-•·*]\s+(.+)$/);
+        if (childMatch) return { text: childMatch[1], isChild: true };
+        return { text: raw, isChild: false };
+      })
     : [];
+  // Backward-compat flat array for any consumer that still reads preConditions[].
+  // Note: this flattens parents+children into a single list — use
+  // preConditionsHierarchy for proper nesting on render.
+  const preConditions = preConditionsHierarchy.map((p) => p.text);
 
   // Structured multi-column Pre-requisite table capture. When reviewers author a
   // prereq section as a full Markdown table (3+ columns, e.g. `| # | Component | Required State |`),
@@ -227,6 +241,10 @@ export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null 
 
   const commonPrerequisites = {
     preConditions: preConditions.length > 0 ? preConditions : undefined,
+    preConditionsHierarchy:
+      preConditionsHierarchy.length > 0 && preConditionsHierarchy.some((p) => p.isChild)
+        ? preConditionsHierarchy
+        : undefined,
     preConditionsTable: preConditionsTable ?? undefined,
     testData,
     testDataTable: testDataTable ?? undefined,

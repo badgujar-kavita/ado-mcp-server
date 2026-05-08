@@ -17,6 +17,8 @@ export interface TcDraftTestCase {
   prerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
+    /** Per-TC hierarchical pre-requisite rows (parent + child markers). Merges with common hierarchy additively. */
+    preConditionsHierarchy?: Array<{ text: string; isChild: boolean }> | null;
     /** Per-TC multi-column structured Pre-requisite table (3+ columns). Merges with common table additively. */
     preConditionsTable?: { headers: string[]; rows: string[][] } | null;
     testData?: string | null;
@@ -56,6 +58,13 @@ export interface TcDraftData {
   commonPrerequisites?: {
     personas?: string | string[] | null;
     preConditions?: string[] | null;
+    /**
+     * Hierarchical pre-requisite rows with child markers (`- ` / `• ` rows
+     * captured as `{ isChild: true }`). When present, the HTML builder emits
+     * properly nested `<ol><li>...<ul><li>...</li></ul></li></ol>`. Falls back
+     * to flat `preConditions[]` rendering otherwise.
+     */
+    preConditionsHierarchy?: Array<{ text: string; isChild: boolean }> | null;
     /**
      * Multi-column structured Pre-requisite table captured from a reviewer-authored
      * Markdown table with 3+ columns. When present, the HTML builder emits a real
