@@ -1648,7 +1648,12 @@ function getHtmlContent(
       display: block;
     }
 
-    /* Info tooltip — small ⓘ that reveals helper text on hover/focus */
+    /* Info tooltip — small ⓘ that reveals helper text on hover/focus.
+       Pure-CSS positioning (anchored to the icon, centered above) — same as
+       the original Phase 2 implementation that worked correctly. The JS
+       positioning attempts (rounds 1 + 2) caused worse off-screen drift
+       than the original problem. The bubble escapes any ancestor with
+       overflow:hidden via the .card overflow:visible override below. */
     .info-tip {
       display: inline-flex;
       align-items: center;
@@ -1666,22 +1671,13 @@ function getHtmlContent(
       vertical-align: middle;
       user-select: none;
     }
-    /* The info bubble uses position:fixed to escape any ancestor with
-       overflow:hidden (the .card is one). JS positions the bubble next to
-       the icon on hover/focus — see positionInfoBubble() in the script.
-       We toggle display:none/block instead of opacity+visibility so the
-       browser doesn't keep a phantom 0×0 layout at viewport top-left when
-       hidden, and so getBoundingClientRect() always returns the bubble's
-       real measured size after .show is applied. */
     .info-bubble {
-      position: fixed;
-      /* Park offscreen until JS positions it so the first frame after
-         .show isn't a flash at viewport top-left. */
-      left: -10000px;
-      top: -10000px;
-      display: none;
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%);
       width: 320px;
-      max-width: calc(100vw - 16px);
+      max-width: min(320px, calc(100vw - 32px));
       padding: 0.7rem 0.9rem;
       background: rgba(20, 25, 40, 0.98);
       border: 1px solid var(--border);
@@ -1692,13 +1688,40 @@ function getHtmlContent(
       line-height: 1.45;
       text-align: left;
       pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 150ms ease;
       z-index: 1200;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       white-space: normal;
     }
-    .info-bubble.show {
-      display: block;
+    .info-tip:hover .info-bubble,
+    .info-tip:focus .info-bubble,
+    .info-tip:focus-within .info-bubble {
+      opacity: 1;
+      visibility: visible;
     }
+    /* When the icon is in the right half of its label/container, anchor the
+       bubble to the right edge instead of centering — avoids horizontal
+       overflow on icons near the right side. Triggered by adding
+       data-align="right" on the .info-tip in markup; default is centered. */
+    .info-tip[data-align="right"] .info-bubble {
+      left: auto;
+      right: 0;
+      transform: none;
+    }
+    .info-tip[data-align="left"] .info-bubble {
+      left: 0;
+      right: auto;
+      transform: none;
+    }
+    /* Allow the bubble to escape overflow:hidden ancestors. The .card
+       containers use overflow:hidden for their decorative gradient borders;
+       overriding here so the bubble can extend above the card. */
+    .card, .tab-panel { overflow: visible !important; }
+    /* When the icon is near the top of the card, the centered-above bubble
+       would overlap the previous element. The bubble's z-index sits above
+       so it's still readable; users can move the cursor without clipping. */
 
     /* Read-only display field */
     .readonly-display {
@@ -3423,95 +3446,37 @@ function getHtmlContent(
       window.close();
     }
 
-    // ─────────── Info-tip positioning ───────────
-    // Tooltips use position:fixed and are positioned by JS so they escape any
-    // ancestor with overflow:hidden (the .card has it) AND so they flip away
-    // from the right edge when the icon is near it. The bubble is parked
-    // off-screen via CSS until .show is added; we then measure and place it
-    // in the same synchronous step so the user never sees an unstyled flash.
-    function positionInfoBubble(tip) {
-      const bubble = tip.querySelector('.info-bubble');
-      if (!bubble) return;
-      const tipRect = tip.getBoundingClientRect();
-      // Skip work if the icon isn't laid out (e.g., parent display:none).
-      if (!tipRect.width && !tipRect.height) return;
-      const margin = 8;
-      // Make the bubble laid-out (display:block) so getBoundingClientRect
-      // returns its true rendered size. CSS keeps it off-screen at this
-      // point, so no flash is visible while we measure.
-      bubble.classList.add('show');
-      const bubbleRect = bubble.getBoundingClientRect();
-      const bubbleW = bubbleRect.width || 320;
-      const bubbleH = bubbleRect.height || 80;
-
-      // Decide vertical placement BEFORE computing top, by checking which
-      // side has more room. This avoids the "centered above, but actually
-      // off-screen" trap when the icon is near the top of the viewport.
-      const spaceAbove = tipRect.top - margin;
-      const spaceBelow = window.innerHeight - tipRect.bottom - margin;
-      const placeBelow = spaceAbove < bubbleH && spaceBelow >= bubbleH
-        ? true
-        : spaceAbove < bubbleH && spaceBelow < bubbleH
-          ? spaceBelow > spaceAbove   // both insufficient → pick the larger
-          : false;                     // there's room above → use it
-
-      let top;
-      if (placeBelow) {
-        top = tipRect.bottom + margin;
-      } else {
-        top = tipRect.top - bubbleH - margin;
-      }
-
-      // Centered-above-icon, then horizontally clamped to viewport.
-      let left = tipRect.left + (tipRect.width / 2) - (bubbleW / 2);
-      const maxLeft = window.innerWidth - bubbleW - margin;
-      if (left < margin) left = margin;
-      else if (left > maxLeft) left = maxLeft;
-
-      // Final safety: if even our chosen side overflows (very small viewport),
-      // clamp top into bounds rather than letting the bubble float off-screen.
-      if (top < margin) top = margin;
-      const maxTop = window.innerHeight - bubbleH - margin;
-      if (top > maxTop) top = maxTop;
-
-      bubble.style.left = left + 'px';
-      bubble.style.top = top + 'px';
+    // ─────────── Info-tip horizontal alignment ───────────
+    // Tooltips use pure CSS positioning (anchored to icon, centered above).
+    // The only JS bit is choosing left/center/right alignment based on
+    // where the icon sits relative to the viewport — keeps the bubble from
+    // overflowing horizontally without needing per-frame position math.
+    function alignInfoTip(tip) {
+      const r = tip.getBoundingClientRect();
+      const w = window.innerWidth;
+      // Bubble is 320px wide. Half is 160px. If the icon is closer than
+      // 170px to the right edge, anchor right. Closer than 170 to the left,
+      // anchor left. Otherwise center (default).
+      if (r.left < 170) tip.dataset.align = 'left';
+      else if (w - r.right < 170) tip.dataset.align = 'right';
+      else delete tip.dataset.align;
     }
-    function hideInfoBubble(tip) {
-      const bubble = tip.querySelector('.info-bubble');
-      if (!bubble) return;
-      bubble.classList.remove('show');
-      // Reset inline coords so the next show measures the bubble at its
-      // CSS-parked offscreen position rather than wherever it was last placed.
-      bubble.style.left = '';
-      bubble.style.top = '';
+    function alignAllTips() {
+      document.querySelectorAll('.info-tip').forEach(alignInfoTip);
     }
+    // Run once on load and re-run on resize / when tabs activate.
+    document.addEventListener('DOMContentLoaded', alignAllTips);
+    window.addEventListener('resize', alignAllTips);
+    // Also re-align when a tooltip is about to show, so dynamically-added
+    // tips (personas modal, plan rows added after probe) get correct alignment.
     document.addEventListener('mouseover', (e) => {
       const tip = e.target && e.target.closest && e.target.closest('.info-tip');
-      if (tip) positionInfoBubble(tip);
-    });
-    document.addEventListener('mouseout', (e) => {
-      const tip = e.target && e.target.closest && e.target.closest('.info-tip');
-      if (tip && (!e.relatedTarget || !tip.contains(e.relatedTarget))) hideInfoBubble(tip);
-    });
+      if (tip) alignInfoTip(tip);
+    }, true);
     document.addEventListener('focusin', (e) => {
       const tip = e.target && e.target.closest && e.target.closest('.info-tip');
-      if (tip) positionInfoBubble(tip);
-    });
-    document.addEventListener('focusout', (e) => {
-      const tip = e.target && e.target.closest && e.target.closest('.info-tip');
-      if (tip) hideInfoBubble(tip);
-    });
-    // Reposition any visible tooltip on resize/scroll so it doesn't drift
-    // away from its icon if the page reflows.
-    function repositionVisibleTips() {
-      document.querySelectorAll('.info-bubble.show').forEach((b) => {
-        const tip = b.parentElement;
-        if (tip) positionInfoBubble(tip);
-      });
-    }
-    window.addEventListener('resize', repositionVisibleTips);
-    window.addEventListener('scroll', repositionVisibleTips, true);
+      if (tip) alignInfoTip(tip);
+    }, true);
   </script>
 </body>
 </html>`;
