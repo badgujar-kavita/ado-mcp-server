@@ -73,9 +73,9 @@ flowchart TB
    - Open Cursor's AI chat (Cmd+L / Ctrl+L)  
    - Type `/vortex-ado/install` and run the command
 
-3. **Configure credentials**  
+3. **Configure credentials and conventions**  
    - Open your project folder in Cursor and run `/vortex-ado/ado-connect`  
-   - The wizard saves connection details to `<workspace>/.vortex-ado/config.json` and stores your PAT in the OS keychain — see [Per-Workspace Conventions](docs/conventions.md)
+   - The two-tab wizard saves your ADO + Confluence connection (Tab 1) and your project conventions — sprint prefix, test plan mappings, personas, field references (Tab 2) — to `<workspace>/.vortex-ado/config.json`. Your PAT and Confluence token go to the OS keychain — see [Per-Workspace Conventions](docs/conventions.md)
 
 4. **Restart Cursor** (or reload MCP in Settings > MCP)
 

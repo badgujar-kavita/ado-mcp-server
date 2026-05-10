@@ -6,6 +6,96 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### Phase 2 — Wizard expansion: Conventions tab
+
+`/ado-connect` is now a **two-tab wizard** that collects per-project conventions in addition to credentials. Tab 1 (Connection) is a refinement of the Phase 1 wizard; Tab 2 (Conventions) is new and replaces most hand-editing of `<workspace>/.vortex-ado/config.json` with a UI. Builds on Phase 1 (per-workspace config + OS keychain) and the Phase 1 hotfix Option A (workspace resolved via MCP `roots/list` with explicit `workspaceRoot` arg fallback).
+
+**Tab 1 — Connection (refined).**
+
+- ✅ **Single button: "Validate and Save Connection"** — replaces the previous split into separate "Test Connection" + "Save Configuration" buttons. The wizard validates the typed PAT against ADO **before** writing anything to disk or keychain. No partial saves.
+- ℹ️ **Returning users can leave the PAT field blank** to reuse the keychain entry. The PAT input shows a **"stored in keychain"** pill in this case; the wizard silently re-validates the stored PAT before saving so a stale token can't slip through.
+- ✅ **Auto-navigation to Tab 2 on successful save.**
+- ⚠️ **Org/project change banner.** When the typed `org` or `project` differs from the prior config, the save response includes `orgProjectChanged: true` and Tab 2 surfaces a banner asking the user to **"Reuse my existing conventions"** (loads existing personas, sprintPrefix, fieldRefs as pre-fills; plan mapping list re-probed against the new project) or **"Start fresh"** (empty form). Plan IDs from the previous project are **never** carried forward — they're project-specific.
+- 🧹 **Old keychain entry deleted on org/project change**, new entry created at the new key (carried over from Phase 1 cleanup behavior).
+
+**Tab 2 — Conventions (new).**
+
+Disabled until Tab 1 has saved a valid connection. On activation:
+
+1. Silently revalidates the PAT in the keychain (returns the user to Tab 1 with an error if it has gone stale).
+2. Probes the ADO project in parallel for the list of test plans, custom field references, and the iteration tree (used to suggest a `sprintPrefix`).
+3. Loads existing conventions from `<workspace>/.vortex-ado/config.json` if present and pre-fills the form.
+4. Renders the form.
+
+For returning users with a valid stored PAT, Tab 2 is effectively unlocked immediately — the silent revalidation in step 1 is the only gate.
+
+**Fields collected on Tab 2:**
+
+| Field | Type | Source / behavior |
+|---|---|---|
+| Test case title format | **Read-only display** | Shows the fixed format `TC_<userStoryId>_<NN> -> <featureTags> -> <use case>`. Tooltip: "This format is fixed for now to ensure consistent parsing during draft → ADO sync. Custom prefixes are planned for a future release." |
+| Sprint folder prefix | Free text | Default `Sprint_`. If the iteration probe found a recurring pattern (e.g. `Sprint_`, `Iteration_`), it's surfaced as placeholder text. |
+| Test plan mappings | Checkbox list | One row per probed plan, each with a checkbox + auto-suggested AreaPath fragment (leaf segment of the plan's areaPath). User checks the plans to map and edits the fragment if needed. If the plan probe fails, manual ID entry is offered. |
+| Personas | Add/edit/remove rows | Fields per row: Label, Profile, Roles, PSG, Key. Empty by default. Tooltip: "If left empty, your TCs will have no Persona section." |
+| Prerequisite field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `Prerequisite` or `Pre-requisite`. Default: `System.Description`. |
+| Solution Design field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `solution`, `technical`, `design`, or `spec`. Optional. |
+| Additional context fields | Add/remove rows | Each row is a dropdown of probed `Custom.*` html / string / plainText fields plus a free-text display label. |
+
+**Confirmation modal on Tab 2 save (diff-based).**
+
+The modal only fires when the form values actually differ from what was loaded — empty submissions and no-op resaves are detected as "no changes" and silently skipped. When changes are detected, the user sees:
+
+> ⚠️ **Update Conventions**
+> You're about to update your project conventions. Existing values for any field you changed will be overwritten. Continue?
+> [Cancel] [Confirm]
+
+A JSON preview of what's about to be saved is rendered below the prompt so the user sees the exact write before confirming.
+
+**Save model split (the two tabs save independently).**
+
+- **Tab 1 save** (`/api/save-connection`) writes the `ado` and `confluence` blocks to `config.json`, stores the PAT and Confluence token in the keychain. Preserves all other config blocks byte-identical.
+- **Tab 2 save** (`/api/save-conventions`) writes `suiteStructure`, `prerequisiteDefaults.personas`, `ado.fieldRefs`, and `additionalContextFields`. Doesn't touch the keychain or `ado` connection fields.
+- A user can edit either tab independently. PAT change without convention edits → conventions JSON untouched. Convention edit without PAT change → keychain untouched.
+- `additionalContextFields` is **replaced** wholesale on Tab 2 save (not merged) so deletes propagate correctly.
+
+**What's collected on Tab 2 vs. what stays in JSON / defaults.**
+
+| Field | Phase 2 wizard collects? |
+|---|---|
+| `ado.org`, `ado.project`, `ado.url` | Yes (Tab 1) |
+| `confluence.url`, `confluence.email`, `confluence.enabled` | Yes (Tab 1) |
+| `suiteStructure.sprintPrefix` | Yes (Tab 2) |
+| `suiteStructure.testPlanMapping` | Yes (Tab 2) |
+| `prerequisiteDefaults.personas` | Yes (Tab 2) |
+| `ado.fieldRefs.prerequisite` | Yes (Tab 2 dropdown) |
+| `ado.fieldRefs.solutionDesign` | Yes (Tab 2 dropdown) |
+| `additionalContextFields` | Yes (Tab 2) |
+| `testCaseTitle.prefix` | **No** — fixed format displayed read-only; custom prefixes deferred. |
+| `prerequisiteDefaults.personaRolesLabel`, `prerequisiteDefaults.personaPsgLabel` | **No** — defaults `Roles` / `Permission Set Group` work for most teams. Hand-edit JSON if needed. |
+| Framework defaults (image budgets, prereq section ordering, etc.) | **No** — never tenant-editable. |
+
+**What didn't change.**
+
+- Keychain account format: `vortex-ado/ado::{org}::{project}` and `vortex-ado/confluence::{org}::{project}` (unchanged from Phase 1).
+- Workspace resolver: MCP `roots/list` → explicit `workspaceRoot` arg → fail (Phase 1 hotfix Option A — both `/ado-connect` and `/ado-check` already auto-resolve via `roots/list`; Phase 2 doesn't move this).
+- Schema of `<workspace>/.vortex-ado/config.json` is unchanged. Phase 2 just gives a UI to fill in more of its fields. The Phase 1 schema reference in [docs/conventions.md](conventions.md) remains 100% accurate.
+- Framework defaults — unchanged.
+
+**Known limitation — fixed test case title format.**
+
+The TC title format is locked to `TC_<userStoryId>_<NN> -> <featureTags> -> <use case>` and shown read-only on Tab 2 with a tooltip explaining why. Custom prefixes (e.g. `TestCase_`, `TC-`) are **deferred to a future phase** because the draft → ADO sync parser depends on the current shape. Teams that need a different prefix today must continue to hand-edit `testCaseTitle.prefix` in `config.json`; the rest of the parser path will not honor it until parser work lands.
+
+**Tests added.**
+
+14 new tests in `src/tools/configure-ui.test.ts` covering: probe parsing (plans / fields / iterations), `saveConventions` merge semantics, refuses-without-base-config, and `additionalContextFields` replace-not-merge. Total test count: **344 → 358**.
+
+**Docs updated:**
+
+- `docs/changelog.md` (this entry).
+- `docs/conventions.md` — §2 file location now points readers at `/ado-connect`'s wizard; new §3 "How to fill it in" walks through the two-tab flow, what's collected vs. defaults, the diff-based confirmation modal, and the org/project change Reuse-vs-Fresh decision; subsequent sections re-numbered.
+- `docs/setup-guide.md`, `docs/user-setup-guide.md` — Step 2 / "Configure Your Credentials" sections updated to reflect the two-tab wizard, the new "Validate and Save Connection" button, the Tab 2 confirmation modal, and the returning-user PAT behavior. Advanced Configuration noted that most fields now live in the wizard's Conventions tab.
+- `README.md` — Quick Start mentions the two-tab wizard.
+
 ### Phase 1 — Per-workspace config + OS keychain
 
 The MCP now resolves all per-tenant configuration **per-workspace** instead of from a single global file. Combined with OS-keychain-backed credentials, this unblocks the multi-project parallel-work case.

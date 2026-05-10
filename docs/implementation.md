@@ -1089,7 +1089,7 @@ The parser handles all three formats and returns the numeric page ID.
 
 **Confluence API Token**: No scopes to configure -- inherits user's Confluence permissions. User needs "Can view" on relevant spaces. Create at [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens).
 
-See [docs/conventions.md § 6](conventions.md#6-where-credentials-live) for per-platform inspection commands.
+See [docs/conventions.md § 7](conventions.md#7-where-credentials-live) for per-platform inspection commands.
 
 ---
 

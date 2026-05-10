@@ -69,7 +69,7 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
 
 ### Step 2: Configure Your Credentials
 
-> ✅ **Phase 1 update.** The wizard now writes a **per-workspace** config and stores your PAT in the OS keychain. Run it once **per project workspace**.
+> ✅ **Phase 2 update.** The wizard is now **two tabs**: Tab 1 saves your ADO + Confluence connection, Tab 2 saves your project conventions (sprint prefix, test plans, personas, field references). Both tabs save independently. Run the wizard once **per project workspace**.
 
 **Option A: Use the Configuration UI (Recommended)**
 
@@ -80,16 +80,30 @@ You need a PAT because the MCP server connects to Azure DevOps on your behalf.
    /vortex-ado/ado-connect
    ```
 
-3. The web interface opens. Enter your ADO credentials and (optionally) Confluence; **test connections before saving**.
-4. Save. The wizard writes:
-   * `<workspace>/.vortex-ado/config.json` — connection details (org, project, URL)
-   * Your PAT into the OS keychain (macOS Keychain / Windows Credential Manager / Linux libsecret) under service `vortex-ado`, account `ado::{org}::{project}`
+3. **Tab 1 — Connection.** Enter your ADO credentials and (optionally) Confluence, then click **Validate and Save Connection**. The wizard checks your PAT against ADO before writing anything — no partial saves on a bad token. On success, it auto-navigates to Tab 2.
+   - ℹ️ Already have a PAT saved from a previous run? Leave the PAT field blank to reuse the keychain entry. You'll see a **"stored in keychain"** pill confirming this.
+4. **Tab 2 — Conventions.** The wizard probes your ADO project for plans, custom fields, and iterations, then asks you to set:
+   * **Sprint folder prefix** (default `Sprint_`)
+   * **Test plan mappings** — pick which probed plans to map and confirm the AreaPath fragment for each
+   * **Personas** — add rows for the personas your TCs use; leave empty if your TCs don't have a Persona section
+   * **Prerequisite** + **Solution Design** field references — pick from probed `Custom.*` fields
+   * **Additional context fields** — extra rich-text ADO fields you want pulled into `/ado-story`
+
+   The Test Case title format is shown read-only — it's locked to `TC_<userStoryId>_<NN> -> <featureTags> -> <use case>` for now to keep the draft → ADO sync parser happy.
+
+   Click **Save Conventions** when done. The wizard pops a confirmation modal showing exactly what's about to be written; if nothing changed, the save is silently skipped.
+
+The wizard writes:
+* `<workspace>/.vortex-ado/config.json` — connection + conventions (no secrets)
+* Your PAT and Confluence token into the OS keychain (macOS Keychain / Windows Credential Manager / Linux libsecret) under service `vortex-ado`
 
 🚫 If `/ado-connect` errors with "refusing to write into home directory", it means Cursor doesn't have a project folder open. Open one and retry.
 
+> ℹ️ Switching to a different ADO project? Tab 2 will ask whether to **Reuse my existing conventions** (carries over personas / sprint prefix / field refs as pre-fills, re-probes plans against the new project) or **Start fresh** (empty form). Plan IDs are always project-specific and never carried forward.
+
 **Option B: Edit Manually**
 
-See [docs/conventions.md § 7](conventions.md#7-copy-pasteable-starter-template) for a copy-paste starter `<workspace>/.vortex-ado/config.json`. After saving the file, store your PAT in your OS's credential store under service `vortex-ado`, account `ado::{org}::{project}` — see [docs/setup-guide.md → Step 2 Option B](setup-guide.md#option-b-edit-manually) for per-platform commands.
+See [docs/conventions.md § 8](conventions.md#8-copy-pasteable-starter-template) for a copy-paste starter `<workspace>/.vortex-ado/config.json`. After saving the file, store your PAT in your OS's credential store under service `vortex-ado`, account `ado::{org}::{project}` — see [docs/setup-guide.md → Step 2 Option B](setup-guide.md#option-b-edit-manually) for per-platform commands.
 
 > **Important:** Never paste your PAT in Cursor's chat. The keychain keeps it off disk.
 
@@ -124,15 +138,20 @@ If you see **READY**, setup is complete.
 
 Your per-workspace config at `<workspace>/.vortex-ado/config.json` controls test-case naming, personas, prerequisites, Solution Design behavior, and how much work-item context `ado_story` returns to the AI. The MCP merges your workspace overlay on top of framework defaults — anything you don't specify uses the default.
 
-Most teams will want to fill in at minimum:
+> ✅ **Phase 2 update.** Most fields are now collected via the **Conventions tab** of the `/ado-connect` wizard — sprint prefix, test plan mappings, personas, prerequisite + Solution Design field references, and additional context fields. You only need to hand-edit JSON for a few rarely-changed fields:
+>
+> * `testCaseTitle.prefix` — locked to `TC` for now (parser dependency); custom prefixes are deferred to a future phase.
+> * `prerequisiteDefaults.personaRolesLabel` and `personaPsgLabel` — defaults `Roles` / `Permission Set Group` work for most teams.
+
+Most teams will want to set, on the wizard's Conventions tab:
 
 * `suiteStructure.testPlanMapping` — required for `/qa-publish` (without it, push fails with `plan-resolution-failed`)
 * `prerequisiteDefaults.personas` — without it, drafted TCs render with an empty Persona section
-* `testCaseTitle.prefix` and `suiteStructure.sprintPrefix` — match your team's naming
+* `suiteStructure.sprintPrefix` — match your team's sprint folder naming
 
 See **[docs/conventions.md](conventions.md)** for the full annotated schema, an edit-priority table, and a copy-pasteable starter template.
 
-> ✅ Your `<workspace>/.vortex-ado/config.json` is **not** touched by re-installs. The installer only updates the MCP runtime under `~/.vortex-ado/`. Re-running `/ado-connect` only updates connection fields and preserves your manual edits to `personas`, `testPlanMapping`, etc.
+> ✅ Your `<workspace>/.vortex-ado/config.json` is **not** touched by re-installs. The installer only updates the MCP runtime under `~/.vortex-ado/`. Re-running `/ado-connect` Tab 1 only updates the connection block; Tab 2 only updates the conventions blocks; neither tab touches the fields the other manages.
 
 ---
 
@@ -157,7 +176,7 @@ If you'd rather configure manually:
    }
    ```
 
-3. Store the API token in your OS keychain under service `vortex-ado`, account `confluence::{org}::{project}` (see [docs/conventions.md § 6](conventions.md#6-where-credentials-live) for per-platform commands).
+3. Store the API token in your OS keychain under service `vortex-ado`, account `confluence::{org}::{project}` (see [docs/conventions.md § 7](conventions.md#7-where-credentials-live) for per-platform commands).
 4. Restart the MCP server (Settings → MCP → refresh vortex-ado).
 
 If Confluence is not configured, the MCP works normally—Solution Design content will simply be unavailable.

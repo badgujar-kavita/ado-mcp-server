@@ -110,7 +110,7 @@ This is only relevant for production/shared deployments. For individual use, PAT
 
 ## Step 2: Configure Your Credentials
 
-> **Phase 1 update.** As of v1.x, `/vortex-ado/ado-connect` writes a **per-workspace** config at `<workspace>/.vortex-ado/config.json` and stores your PAT in the **OS keychain** (macOS Keychain / Windows Credential Manager / Linux libsecret). Tokens never touch disk. Run the wizard once **per project workspace** — each workspace stays isolated, so you can have two Cursor windows on two different ADO projects without them stepping on each other. See [docs/conventions.md](conventions.md) for the full schema.
+> ✅ **Phase 2 update.** `/vortex-ado/ado-connect` is now a **two-tab wizard** that collects per-project conventions in addition to credentials. Tab 1 saves your ADO + Confluence connection; Tab 2 saves sprint prefix, test plan mappings, personas, field references, and additional context fields. Both tabs save independently to `<workspace>/.vortex-ado/config.json` (PAT/tokens still go to the OS keychain — never to disk). Run the wizard once **per project workspace** — two Cursor windows on two ADO projects stay isolated. See [docs/conventions.md](conventions.md) for the full schema.
 
 ### Option A: Use the Configuration UI (Recommended)
 
@@ -120,12 +120,31 @@ Open your project folder in Cursor, then in the AI chat run:
 /vortex-ado/ado-connect
 ```
 
-This opens a web interface where you can:
+This opens a two-tab web interface.
 
-* Enter your Azure DevOps credentials
-* Optionally configure Confluence
-* **Test connections before saving**
-* Save credentials securely (PAT into the OS keychain, connection details into `<workspace>/.vortex-ado/config.json`)
+**Tab 1 — Connection.** Enter your ADO credentials (org, project, full URL, PAT) and optionally Confluence (URL, email, API token). Click **Validate and Save Connection** — the wizard validates the typed PAT against ADO **before** writing anything to disk or keychain, so a bad PAT can't half-save. On success, the wizard auto-navigates to Tab 2.
+
+- ℹ️ **Returning users** can leave the PAT field blank to reuse the keychain entry. The PAT input shows a **"stored in keychain"** pill in this case; the wizard silently re-validates the stored PAT before saving.
+- ⚠️ **Org/project change** — if you typed a different `org` or `project` than the prior config, Tab 2 shows a banner asking whether to **Reuse existing conventions** (loads existing personas, sprintPrefix, field refs as pre-fills; plan mappings re-probed against the new project) or **Start fresh**.
+
+**Tab 2 — Conventions.** Disabled until Tab 1 has saved a valid connection. For returning users with a valid stored PAT, Tab 2 unlocks immediately. The wizard probes your ADO project for plans, custom fields, and the iteration tree, then renders a form to set:
+
+- **Sprint folder prefix** (default `Sprint_`; the iteration probe surfaces a recurring pattern as a placeholder).
+- **Test plan mappings** — checkbox list of probed plans, each with an auto-suggested AreaPath fragment you can edit.
+- **Personas** — add/edit/remove rows (Label / Profile / Roles / PSG / Key). Empty by default.
+- **Prerequisite field reference** — dropdown filtered to `Custom.*` fields whose name contains `Prerequisite` or `Pre-requisite`. Defaults to `System.Description`.
+- **Solution Design field reference** — dropdown filtered to `Custom.*` fields whose name contains `solution`, `technical`, `design`, or `spec`. Optional.
+- **Additional context fields** — add/remove rows; each row picks an HTML / string / plainText custom field plus a display label.
+
+The Test Case title format is shown read-only on Tab 2 — it's locked to `TC_<userStoryId>_<NN> -> <featureTags> -> <use case>` so the draft → ADO sync parser can round-trip cleanly. Custom prefixes are deferred to a future phase.
+
+Click **Save Conventions** when done. The wizard runs a **diff-based confirmation modal** — if nothing changed vs. what was loaded, the save is silently skipped. If there are changes, you'll see:
+
+> ⚠️ **Update Conventions**
+> You're about to update your project conventions. Existing values for any field you changed will be overwritten. Continue?
+> [Cancel] [Confirm]
+
+A JSON preview of what's about to be saved is rendered below the prompt. Tab 1 and Tab 2 save independently — a PAT change won't touch your conventions, and a convention edit won't touch the keychain.
 
 🚫 The wizard refuses to write into your home directory or a non-writable cwd — open the actual project folder first.
 
@@ -218,7 +237,7 @@ If you'd rather configure manually, add a `confluence` block to `<workspace>/.vo
 | `confluence.url` | Your Confluence Cloud base URL (with `/wiki`) | `https://your-org.atlassian.net/wiki` |
 | `confluence.email` | The email address of your Atlassian account | `kavita.badgujar@company.com` |
 
-Then store the API token in your OS keychain under service `vortex-ado`, account `confluence::{org}::{project}`. See [docs/conventions.md § 6](conventions.md#6-where-credentials-live) for per-platform commands.
+Then store the API token in your OS keychain under service `vortex-ado`, account `confluence::{org}::{project}`. See [docs/conventions.md § 7](conventions.md#7-where-credentials-live) for per-platform commands.
 
 ### Path 2: If You Move to OAuth 2.0 (3LO) Scopes
 
@@ -263,7 +282,7 @@ If Confluence is not configured, the field is empty, or the linked page cannot b
 
 The following knobs in your **per-workspace** config (`<workspace>/.vortex-ado/config.json`) control how much work-item context `ado_story` returns. Both are optional — framework defaults work for most teams.
 
-> ✅ **Phase 1 update.** Your `<workspace>/.vortex-ado/config.json` is **not** touched by re-installs. The installer only updates the MCP runtime (under `~/.vortex-ado/`); your per-workspace config and your keychain entries are completely separate. Re-running `/ado-connect` only updates credential-related fields and preserves manual edits like `additionalContextFields`, `personas`, and `testPlanMapping`. The legacy global `~/.vortex-ado/conventions.config.json` is still read as a fallback but should be migrated by running `/ado-connect` once per workspace.
+> ✅ **Phase 2 update.** Your `<workspace>/.vortex-ado/config.json` is **not** touched by re-installs. The installer only updates the MCP runtime (under `~/.vortex-ado/`); your per-workspace config and your keychain entries are completely separate. `additionalContextFields` and `personas` are now collected via the **Conventions tab** of `/ado-connect` — you only need to hand-edit the JSON for the `images.*` and `context.*` knobs covered in this section. Re-running `/ado-connect` Tab 1 only updates the connection block; Tab 2 only updates the conventions blocks; neither tab touches the fields the other manages. The legacy global `~/.vortex-ado/conventions.config.json` is still read as a fallback but should be migrated by running `/ado-connect` once per workspace.
 
 ### Enabling embedded image vision (optional)
 
@@ -568,9 +587,9 @@ As of Phase 1, your PAT and Confluence API token are stored in the **OS keychain
 * Your PAT never appears in Cursor's chat history
 * Each team member has their own separate credentials
 * Each workspace has its own connection context (two Cursor windows on two ADO projects = two isolated configs)
-* Re\-running `/ado-connect` preserves your manual edits to non-credential blocks (`testCaseTitle`, `personas`, plan mappings, etc.)
+* Re\-running `/ado-connect` preserves fields you didn't change — Tab 1 only writes the `ado` + `confluence` blocks; Tab 2 only writes `suiteStructure`, `prerequisiteDefaults.personas`, `ado.fieldRefs`, and `additionalContextFields`. Hand-edited fields (`testCaseTitle.prefix`, persona role/PSG labels, framework-default overrides) are never touched by either tab.
 
-To update your credentials at any time, re-run `/vortex-ado/ado-connect` from inside the workspace, or use your OS's credential-manager UI directly. See [docs/conventions.md § 6](conventions.md#6-where-credentials-live) for inspection and deletion commands.
+To update your credentials at any time, re-run `/vortex-ado/ado-connect` from inside the workspace, or use your OS's credential-manager UI directly. See [docs/conventions.md § 7](conventions.md#7-where-credentials-live) for inspection and deletion commands.
 
 **Legacy:** A `~/.vortex-ado/credentials.json` from a pre-Phase-1 install is still read as a fallback and is not deleted automatically. You can remove it once you've re-run `/ado-connect` for each workspace.
 

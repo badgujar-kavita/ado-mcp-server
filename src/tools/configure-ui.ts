@@ -260,6 +260,261 @@ async function testConfluenceConnection(baseUrl: string, email: string, apiToken
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 2 — backend probe functions for the Conventions tab.
+//
+// These let the wizard populate Tab 2's plan-mapping list, persona-field
+// dropdowns, and sprint-prefix suggestion automatically by querying the
+// authenticated ADO project. Each probe takes the credentials it needs
+// and returns a discriminated-union result {ok|notOk} so the frontend can
+// render either a populated form or a graceful fallback.
+//
+// Auth: the wizard reads the PAT from the OS keychain (returning user) or
+// uses the just-typed-but-not-yet-saved PAT (first-time user). Either way,
+// the PAT is passed in here as a function arg.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface ProbedPlan {
+  planId: number;
+  name: string;
+  areaPath: string;
+  /** Auto-suggested fragment derived from the plan's areaPath (last segment). */
+  suggestedFragment: string;
+}
+
+interface ProbeResult<T> {
+  ok: boolean;
+  message?: string;
+  data?: T;
+}
+
+/**
+ * GET /_apis/testplan/Plans — list all test plans the PAT can see.
+ * Used to populate Tab 2's plan-mapping picker.
+ */
+export async function probeAdoPlans(
+  pat: string,
+  org: string,
+  project: string,
+): Promise<ProbeResult<ProbedPlan[]>> {
+  try {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/testplan/plans?api-version=7.1`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: basicAuthHeader("", pat),
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) {
+      return { ok: false, message: `ADO returned ${response.status}: ${await response.text().catch(() => "")}` };
+    }
+    const json = (await response.json()) as { value?: Array<{ id: number; name: string; areaPath?: string }> };
+    const plans: ProbedPlan[] = (json.value ?? []).map((p) => ({
+      planId: p.id,
+      name: p.name,
+      areaPath: p.areaPath ?? "",
+      // The "fragment" the user maps to a plan is whatever distinguishes its
+      // area path from siblings. The last segment is a sensible auto-suggest;
+      // the user can edit it in the wizard.
+      suggestedFragment: extractAreaPathFragment(p.areaPath ?? "", project),
+    }));
+    return { ok: true, data: plans };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Extract a sensible AreaPath fragment for the testPlanMapping.
+ *
+ * If areaPath = "MyProject\Team\DHub", we want "DHub" (the leaf segment),
+ * not "MyProject" (always shared across the project's plans).
+ *
+ * Falls back to the full areaPath when it's a single segment, or empty.
+ */
+function extractAreaPathFragment(areaPath: string, _project: string): string {
+  if (!areaPath) return "";
+  // ADO area paths use backslash separators.
+  const segments = areaPath.split("\\").filter(Boolean);
+  if (segments.length === 0) return "";
+  if (segments.length === 1) return segments[0];
+  // Use the leaf segment — it's the most specific and discriminating.
+  return segments[segments.length - 1];
+}
+
+/**
+ * GET /_apis/wit/fields — list all work-item fields the PAT can see.
+ * Returns prereq + solutionDesign + additionalContext candidates separately
+ * so the frontend can populate the right dropdown.
+ */
+interface ProbedField {
+  referenceName: string; // e.g. "Custom.PrerequisiteforTest"
+  name: string; // human label, e.g. "Prerequisite for Test"
+  type: string; // e.g. "html", "string"
+}
+
+interface ProbedFields {
+  prerequisiteCandidates: ProbedField[];
+  solutionDesignCandidates: ProbedField[];
+  /** All Custom.* fields with html or PlainText type — useful for additionalContextFields multi-select. */
+  contextCandidates: ProbedField[];
+}
+
+export async function probeAdoFields(
+  pat: string,
+  org: string,
+  project: string,
+): Promise<ProbeResult<ProbedFields>> {
+  try {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/fields?api-version=7.1`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: basicAuthHeader("", pat),
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) {
+      return { ok: false, message: `ADO returned ${response.status}: ${await response.text().catch(() => "")}` };
+    }
+    const json = (await response.json()) as {
+      value?: Array<{ referenceName: string; name: string; type: string }>;
+    };
+    const all = json.value ?? [];
+
+    // Filter helpers — the wizard surfaces only candidates that look likely
+    // to be the right field for each role.
+    const prerequisiteCandidates = all.filter(
+      (f) =>
+        /pre-?requisite|prereq/i.test(f.name) ||
+        /pre-?requisite|prereq/i.test(f.referenceName),
+    );
+    const solutionDesignCandidates = all.filter(
+      (f) =>
+        /solution|technical|design|spec/i.test(f.name) ||
+        /solution|technical|design|spec/i.test(f.referenceName),
+    );
+    const contextCandidates = all.filter(
+      (f) =>
+        f.referenceName.startsWith("Custom.") &&
+        (f.type === "html" || f.type === "plainText" || f.type === "string"),
+    );
+
+    return {
+      ok: true,
+      data: {
+        prerequisiteCandidates,
+        solutionDesignCandidates,
+        contextCandidates,
+      },
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * GET /_apis/wit/classificationnodes/Iterations — fetch the iteration tree
+ * to suggest a sprint prefix. We look at leaf iteration names and find the
+ * common prefix (e.g. "Sprint_1", "Sprint_2" → "Sprint_").
+ *
+ * Returns the most-common prefix found, or null if no obvious pattern.
+ */
+export async function probeIterationPrefix(
+  pat: string,
+  org: string,
+  project: string,
+): Promise<ProbeResult<{ suggestedPrefix: string | null; samples: string[] }>> {
+  try {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/classificationnodes/Iterations?$depth=10&api-version=7.1`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: basicAuthHeader("", pat),
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) {
+      return { ok: false, message: `ADO returned ${response.status}: ${await response.text().catch(() => "")}` };
+    }
+    const json = (await response.json()) as {
+      name?: string;
+      children?: Array<unknown>;
+    };
+
+    // Walk the tree, collect leaf names.
+    const leafNames: string[] = [];
+    const walk = (node: { name?: string; children?: Array<unknown> }) => {
+      const children = node.children;
+      if (!children || children.length === 0) {
+        if (node.name) leafNames.push(node.name);
+        return;
+      }
+      for (const child of children) walk(child as { name?: string; children?: Array<unknown> });
+    };
+    walk(json);
+
+    // Find a common prefix that ends in a separator before digits — like
+    // "Sprint_", "SFTPM_", "Iteration ". Pattern: ^([A-Za-z_-]+?)\d+$
+    const prefixHits = new Map<string, number>();
+    for (const name of leafNames) {
+      const match = name.match(/^([A-Za-z][A-Za-z0-9_\- ]*?[_\- ])\d+$/);
+      if (match) {
+        const p = match[1];
+        prefixHits.set(p, (prefixHits.get(p) ?? 0) + 1);
+      }
+    }
+    const sorted = [...prefixHits.entries()].sort((a, b) => b[1] - a[1]);
+    const suggestedPrefix = sorted.length > 0 ? sorted[0][0] : null;
+
+    return {
+      ok: true,
+      data: {
+        suggestedPrefix,
+        samples: leafNames.slice(0, 8),
+      },
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Silently revalidate the PAT stored in keychain for a workspace.
+ *
+ * Used by Tab 2 on activation: if the user is a returning visitor and has
+ * a PAT in keychain for the workspace's org/project, this confirms the
+ * PAT is still good before unlocking Tab 2's probes.
+ *
+ * Returns { ok, pat? } — when ok=true, the caller has a verified PAT to
+ * reuse for further probes without re-prompting the user.
+ */
+async function checkKeychainPat(
+  workspaceRoot: string,
+): Promise<{ ok: boolean; message?: string; pat?: string; org?: string; project?: string }> {
+  const wsFile = workspaceConfigFile(workspaceRoot);
+  if (!existsSync(wsFile)) {
+    return { ok: false, message: "No workspace config found. Save your connection first." };
+  }
+  let parsed;
+  try {
+    parsed = WorkspaceConfigSchema.parse(JSON.parse(readFileSync(wsFile, "utf-8")));
+  } catch (err) {
+    return { ok: false, message: `Workspace config could not be parsed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  if (!parsed.ado?.org || !parsed.ado?.project) {
+    return { ok: false, message: "Workspace config has no ADO org/project. Save your connection first." };
+  }
+  const pat = await keychain.getAdoToken(parsed.ado.org, parsed.ado.project);
+  if (!pat) {
+    return { ok: false, message: "No PAT found in OS keychain for this workspace. Re-save your connection." };
+  }
+  // Verify the PAT against ADO. Reuse testAdoConnection's auth check.
+  const test = await testAdoConnection(pat, parsed.ado.org, parsed.ado.project);
+  if (!test.success) {
+    return { ok: false, message: `Saved PAT is no longer valid: ${test.message}. Update it on the Connection tab.` };
+  }
+  return { ok: true, pat, org: parsed.ado.org, project: parsed.ado.project };
+}
+
 /**
  * Save the wizard's submission to per-workspace config + OS keychain.
  *
@@ -365,7 +620,143 @@ async function saveCredentials(
   return { workspaceConfigPath: wsFile, orgProjectChanged };
 }
 
-function getHtmlContent(existingCreds: Partial<Credentials>): string {
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 2 — Save Conventions (Tab 2).
+//
+// Independent of saveCredentials. Touches workspace config only — never
+// keychain, never the `ado` or `confluence` blocks. The user can update
+// conventions without re-entering their PAT, and updating conventions
+// never invalidates their keychain entry.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface ConventionsPayload {
+  /** sprintPrefix override; framework default is "Sprint_" but sanitized bundle ships "Sprint_". */
+  sprintPrefix?: string;
+  /** Plan mappings (testPlanMapping). Empty array means "clear all mappings". */
+  testPlanMapping?: Array<{ planId: number; areaPathContains: string[] }>;
+  /** Personas keyed by id (e.g. "Cashier"). Empty object means "clear all". */
+  personas?: Record<
+    string,
+    {
+      label: string;
+      profile: string;
+      user?: string;
+      roles: string;
+      psg: string;
+    }
+  >;
+  /** ADO custom field for prereq HTML (e.g. "Custom.PrerequisiteforTest"). */
+  prerequisiteFieldRef?: string;
+  /** ADO custom field for Solution Design (e.g. "Custom.TechnicalSolution"). */
+  solutionDesignFieldRef?: string;
+  /** Additional context fields the agent should fetch alongside the primary ones. */
+  additionalContextFields?: Array<{
+    adoFieldRef: string;
+    label: string;
+    fetchLinks?: boolean;
+    fetchImages?: boolean;
+  }>;
+}
+
+export async function saveConventions(
+  payload: ConventionsPayload,
+  workspaceRoot: string,
+): Promise<{ workspaceConfigPath: string }> {
+  const safety = isWorkspaceSafeForWrite(workspaceRoot);
+  if (!safety.ok) {
+    throw new Error(`Cannot save conventions: ${safety.reason}`);
+  }
+
+  const wsDir = workspaceDir(workspaceRoot);
+  const wsFile = workspaceConfigFile(workspaceRoot);
+  if (!existsSync(wsDir)) {
+    mkdirSync(wsDir, { recursive: true });
+  }
+
+  // Existing config must already exist with an `ado` block — Tab 2 is gated
+  // on Tab 1 having succeeded, so this is a guarantee. Defensive parse.
+  if (!existsSync(wsFile)) {
+    throw new Error(
+      "Cannot save conventions: no workspace config exists yet. Save your connection first (Tab 1).",
+    );
+  }
+  let existingConfig: WorkspaceConfig;
+  try {
+    existingConfig = WorkspaceConfigSchema.parse(JSON.parse(readFileSync(wsFile, "utf-8")));
+  } catch (err) {
+    throw new Error(
+      `Cannot save conventions: existing workspace config is malformed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  if (!existingConfig.ado?.org || !existingConfig.ado?.project) {
+    throw new Error(
+      "Cannot save conventions: workspace config has no ADO connection. Save your connection first (Tab 1).",
+    );
+  }
+
+  // Merge payload into the existing config. We touch only convention blocks;
+  // ado + confluence are preserved verbatim.
+  const merged: WorkspaceConfig = {
+    ...existingConfig,
+    version: 1,
+    // suiteStructure block — overlay sprintPrefix and/or testPlanMapping if
+    // supplied. Other suiteStructure fields (parentUsSeparator, etc.) come
+    // from framework defaults at load time, so we don't need to write them.
+    ...(payload.sprintPrefix !== undefined || payload.testPlanMapping !== undefined
+      ? {
+          suiteStructure: {
+            ...(existingConfig.suiteStructure ?? {}),
+            ...(payload.sprintPrefix !== undefined ? { sprintPrefix: payload.sprintPrefix } : {}),
+            ...(payload.testPlanMapping !== undefined
+              ? { testPlanMapping: payload.testPlanMapping }
+              : {}),
+          },
+        }
+      : {}),
+
+    // prerequisiteDefaults — only the personas slice is in scope for the
+    // wizard; personaRolesLabel / personaPsgLabel stay framework-default.
+    ...(payload.personas !== undefined
+      ? {
+          prerequisiteDefaults: {
+            ...(existingConfig.prerequisiteDefaults ?? {}),
+            personas: payload.personas,
+          },
+        }
+      : {}),
+
+    // ado.fieldRefs — preserve the existing ado block, overlay fieldRefs.
+    ...(payload.prerequisiteFieldRef !== undefined ||
+    payload.solutionDesignFieldRef !== undefined
+      ? {
+          ado: {
+            ...existingConfig.ado,
+            fieldRefs: {
+              ...(existingConfig.ado.fieldRefs ?? {}),
+              ...(payload.prerequisiteFieldRef !== undefined
+                ? { prerequisite: payload.prerequisiteFieldRef }
+                : {}),
+              ...(payload.solutionDesignFieldRef !== undefined
+                ? { solutionDesign: payload.solutionDesignFieldRef }
+                : {}),
+            },
+          },
+        }
+      : {}),
+
+    // additionalContextFields — replace wholesale (empty array clears).
+    ...(payload.additionalContextFields !== undefined
+      ? { additionalContextFields: payload.additionalContextFields }
+      : {}),
+  };
+
+  writeFileSync(wsFile, JSON.stringify(merged, null, 2) + "\n", "utf-8");
+  return { workspaceConfigPath: wsFile };
+}
+
+function getHtmlContent(
+  existingCreds: Partial<Credentials> & { _patStored?: boolean; _confluenceTokenStored?: boolean },
+): string {
   const currentYear = new Date().getFullYear();
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1181,6 +1572,318 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
         width: 100%;
       }
     }
+
+    /* ─────────── Phase 2 additions: tabs, modal, tooltips ─────────── */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+    }
+    .tab {
+      flex: 1;
+      padding: 0.85rem 1rem;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 200ms ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+    .tab:hover:not(:disabled) {
+      color: var(--text);
+    }
+    .tab.active {
+      color: var(--primary-light);
+      border-bottom-color: var(--primary);
+    }
+    .tab:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .tab .tab-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .tab.active .tab-num {
+      background: var(--primary);
+      color: var(--text-bright);
+      border-color: var(--primary);
+    }
+    .tab[data-locked]::after {
+      content: '🔒';
+      margin-left: 0.4rem;
+      font-size: 0.85rem;
+    }
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Info tooltip — small ⓘ that reveals helper text on hover/focus */
+    .info-tip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--primary-light);
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-left: 0.4rem;
+      cursor: help;
+      position: relative;
+      vertical-align: middle;
+      user-select: none;
+    }
+    .info-tip:hover .info-bubble,
+    .info-tip:focus .info-bubble {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .info-bubble {
+      position: absolute;
+      left: 50%;
+      bottom: 130%;
+      transform: translateX(-50%) translateY(6px);
+      width: 280px;
+      max-width: 80vw;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 400;
+      line-height: 1.45;
+      text-align: left;
+      opacity: 0;
+      transition: all 180ms ease;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      white-space: normal;
+    }
+
+    /* Read-only display field */
+    .readonly-display {
+      padding: 0.85rem 1rem;
+      background: rgba(139, 92, 246, 0.06);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      font-size: 0.9rem;
+      user-select: text;
+    }
+    .readonly-display .field-note {
+      display: block;
+      margin-top: 0.4rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    /* Plan-mapping list rows */
+    .plan-row, .persona-row, .ctxfield-row {
+      display: grid;
+      gap: 0.5rem;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      align-items: center;
+    }
+    .plan-row {
+      grid-template-columns: 28px 1fr 1.2fr;
+    }
+    .persona-row {
+      grid-template-columns: 1fr 1fr 1fr 1fr 1fr 32px;
+    }
+    .ctxfield-row {
+      grid-template-columns: 28px 1fr 1.2fr;
+    }
+    .plan-row input[type="text"], .persona-row input[type="text"], .ctxfield-row input[type="text"] {
+      padding: 0.45rem 0.65rem;
+      background: var(--bg-darker);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    .plan-row .plan-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .plan-row .plan-meta b { color: var(--text); font-weight: 600; }
+    .row-remove {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 150ms ease;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .row-remove:hover {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .row-add-btn {
+      margin-top: 0.5rem;
+      padding: 0.55rem 0.95rem;
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px dashed var(--primary);
+      border-radius: 8px;
+      color: var(--primary-light);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 150ms ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .row-add-btn:hover {
+      background: rgba(139, 92, 246, 0.18);
+    }
+
+    /* Compact heading style for sub-sections inside Tab 2 */
+    .subsection-title {
+      display: flex;
+      align-items: center;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.65rem;
+      margin-top: 1.5rem;
+      letter-spacing: 0.02em;
+    }
+    .subsection-title:first-child { margin-top: 0; }
+
+    /* Banner shown when org/project changed on Tab 1 save */
+    .info-banner, .warn-banner {
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .info-banner {
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: var(--text);
+    }
+    .warn-banner {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: var(--text);
+    }
+
+    /* Confirmation modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .modal h3 {
+      margin: 0 0 0.85rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .modal p { color: var(--text); margin: 0 0 1rem; line-height: 1.55; }
+    .modal pre.modal-detail {
+      background: var(--bg-darker);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      overflow-x: auto;
+      margin: 0 0 1rem;
+      max-height: 200px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 0.65rem;
+      justify-content: flex-end;
+      margin-top: 1.25rem;
+    }
+    .modal-actions .btn { flex: 0 0 auto; padding: 0.65rem 1.25rem; }
+
+    /* Status pill rendered next to inputs after probe */
+    .probe-status {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      padding: 0.4rem 0;
+    }
+    .probe-status.ok { color: var(--success); }
+    .probe-status.warn { color: var(--warning); }
+    .probe-status.err { color: var(--error); }
+
+    /* Status info pill in field labels for "stored" indicator */
+    .field-pill {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--success);
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+      letter-spacing: 0.02em;
+    }
   </style>
 </head>
 <body>
@@ -1195,126 +1898,249 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
 
   <div class="container">
     <div class="main-content">
-    <div class="header">
-      <div class="logo-container">
-        <div class="logo-rings"></div>
-        <div class="logo-rings"></div>
-        <div class="logo-rings"></div>
-        <div class="logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
+      <div class="header">
+        <div class="logo-container">
+          <div class="logo-rings"></div>
+          <div class="logo-rings"></div>
+          <div class="logo-rings"></div>
+          <div class="logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
         </div>
-      </div>
-      <h1>Vortex ADO</h1>
-      <p class="subtitle">Configure your credentials <span>securely</span></p>
-    </div>
-
-    <!-- ADO Section -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-        </div>
-        <span class="card-title">Azure DevOps</span>
-        <span class="card-badge badge-required">Required</span>
+        <h1>Vortex ADO</h1>
+        <p class="subtitle">Configure your <span>workspace</span></p>
       </div>
 
-      <div class="form-group">
-        <label for="ado_pat">Personal Access Token (PAT)</label>
-        <input type="password" id="ado_pat" placeholder="Enter your ADO PAT" value="${existingCreds.ado_pat || ""}">
-      </div>
-
-      <div class="form-group">
-        <label for="ado_org">Organization</label>
-        <input type="text" id="ado_org" placeholder="e.g., YourOrgName" value="${existingCreds.ado_org || ""}">
-      </div>
-
-      <div class="form-group">
-        <label for="ado_project">Project</label>
-        <input type="text" id="ado_project" placeholder="e.g., YourProjectName" value="${existingCreds.ado_project || ""}">
-      </div>
-
-      <div class="btn-row">
-        <button type="button" class="btn btn-secondary" onclick="testAdo()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22 4 12 14.01 9 11.01"/>
-          </svg>
-          Test Connection
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" id="tab-1" role="tab" aria-selected="true" onclick="switchTab(1)">
+          <span class="tab-num">1</span> Connection
+        </button>
+        <button type="button" class="tab" id="tab-2" role="tab" aria-selected="false" onclick="switchTab(2)" data-locked>
+          <span class="tab-num">2</span> Conventions
         </button>
       </div>
 
-      <div id="ado-status"></div>
-    </div>
-
-    <!-- Confluence Section -->
-    <div class="card">
-      <div class="card-header collapsible-header" onclick="toggleConfluence()">
-        <div class="card-icon" style="background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%); box-shadow: 0 8px 20px rgba(0, 82, 204, 0.4);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-          </svg>
-        </div>
-        <span class="card-title">Confluence</span>
-        <span class="card-badge badge-optional">Optional</span>
-        <svg class="chevron" id="confluence-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
-
-      <div id="confluence-content" class="collapsible-content">
-        <div style="padding-top: 1.25rem;">
-          <div class="form-group">
-            <label for="confluence_base_url">Base URL</label>
-            <input type="text" id="confluence_base_url" placeholder="https://your-org.atlassian.net/wiki" value="${existingCreds.confluence_base_url || ""}">
-          </div>
-
-          <div class="form-group">
-            <label for="confluence_email">Email</label>
-            <input type="email" id="confluence_email" placeholder="your.email@company.com" value="${existingCreds.confluence_email || ""}">
-          </div>
-
-          <div class="form-group">
-            <label for="confluence_api_token">API Token</label>
-            <input type="password" id="confluence_api_token" placeholder="Enter your Confluence API token" value="${existingCreds.confluence_api_token || ""}">
-          </div>
-
-          <div class="btn-row">
-            <button type="button" class="btn btn-secondary" onclick="testConfluence()">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
+      <!-- Tab 1: Connection -->
+      <div class="tab-panel active" id="panel-1" role="tabpanel">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
               </svg>
-              Test Connection
-            </button>
+            </div>
+            <span class="card-title">Azure DevOps</span>
+            <span class="card-badge badge-required">Required</span>
           </div>
 
-          <div id="confluence-status"></div>
+          <div class="form-group">
+            <label for="ado_pat">
+              Personal Access Token (PAT)
+              ${existingCreds._patStored ? '<span class="field-pill">stored in keychain</span>' : ''}
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">Your ADO PAT is stored in the OS keychain (macOS Keychain / Windows Credential Manager / Linux libsecret) — never on disk. Leave blank when re-running the wizard if you don't want to change it.</span></span>
+            </label>
+            <input type="password" id="ado_pat" placeholder="${existingCreds._patStored ? '(leave blank to keep saved PAT)' : 'Enter your ADO PAT'}" value="">
+          </div>
+
+          <div class="form-group">
+            <label for="ado_org">
+              Organization
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">The organization slug from your ADO URL: https://dev.azure.com/&lt;ORG&gt;.</span></span>
+            </label>
+            <input type="text" id="ado_org" placeholder="e.g., YourOrgName" value="${existingCreds.ado_org || ""}">
+          </div>
+
+          <div class="form-group">
+            <label for="ado_project">
+              Project
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">The project name within the organization. Spaces are allowed.</span></span>
+            </label>
+            <input type="text" id="ado_project" placeholder="e.g., YourProjectName" value="${existingCreds.ado_project || ""}">
+          </div>
+
+          <div id="ado-status"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header collapsible-header" onclick="toggleConfluence()">
+            <div class="card-icon" style="background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%); box-shadow: 0 8px 20px rgba(0, 82, 204, 0.4);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+              </svg>
+            </div>
+            <span class="card-title">Confluence</span>
+            <span class="card-badge badge-optional">Optional</span>
+            <svg class="chevron" id="confluence-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+
+          <div id="confluence-content" class="collapsible-content">
+            <div style="padding-top: 1.25rem;">
+              <div class="form-group">
+                <label for="confluence_base_url">Base URL</label>
+                <input type="text" id="confluence_base_url" placeholder="https://your-org.atlassian.net/wiki" value="${existingCreds.confluence_base_url || ""}">
+              </div>
+              <div class="form-group">
+                <label for="confluence_email">Email</label>
+                <input type="email" id="confluence_email" placeholder="your.email@company.com" value="${existingCreds.confluence_email || ""}">
+              </div>
+              <div class="form-group">
+                <label for="confluence_api_token">
+                  API Token
+                  ${existingCreds._confluenceTokenStored ? '<span class="field-pill">stored in keychain</span>' : ''}
+                </label>
+                <input type="password" id="confluence_api_token" placeholder="${existingCreds._confluenceTokenStored ? '(leave blank to keep saved token)' : 'Enter your Confluence API token'}" value="">
+              </div>
+              <div id="confluence-status"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button type="button" class="btn btn-primary btn-save" id="save-connection-btn" onclick="saveConnection()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Validate and Save Connection
+          </button>
         </div>
       </div>
-    </div>
 
-    <div class="footer">
-      <button type="button" class="btn btn-primary btn-save" id="save-btn" onclick="saveCredentials()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-          <polyline points="17 21 17 13 7 13 7 21"/>
-          <polyline points="7 3 7 8 15 8"/>
-        </svg>
-        Save Configuration
-      </button>
-    </div>
+      <!-- Tab 2: Conventions -->
+      <div class="tab-panel" id="panel-2" role="tabpanel">
+        <div id="tab2-blocked-message" class="info-banner" style="display: none;">
+          Save your connection on Tab 1 first to enable convention setup.
+        </div>
+        <div id="tab2-orgchanged-banner" class="warn-banner" style="display: none;">
+          <strong>Project changed.</strong> Plan IDs and custom field references differ between projects. We've reloaded fresh probes for the new project. Choose which existing conventions (if any) to reuse below — or start fresh.
+          <div style="margin-top: 0.65rem;">
+            <button type="button" class="btn btn-secondary" onclick="reloadConventions(true)" style="margin-right: 0.4rem;">Reuse my existing conventions</button>
+            <button type="button" class="btn btn-secondary" onclick="reloadConventions(false)">Start fresh</button>
+          </div>
+        </div>
+
+        <div class="card" id="tab2-card" style="display: none;">
+          <div class="card-header">
+            <div class="card-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </div>
+            <span class="card-title">Project Conventions</span>
+            <span class="card-badge badge-optional">Recommended</span>
+          </div>
+
+          <!-- Test case title format (read-only display) -->
+          <div class="form-group">
+            <label>
+              Test case title format
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">This format is fixed for now to ensure consistent parsing during draft → ADO sync. Custom prefixes are planned for a future release.</span></span>
+            </label>
+            <div class="readonly-display">
+              TC_&lt;userStoryId&gt;_&lt;NN&gt; -&gt; &lt;featureTags&gt; -&gt; &lt;use case&gt;
+              <span class="field-note">Read-only · TC = fixed prefix · NN = zero-padded TC number · arrow segments are derived from your draft.</span>
+            </div>
+          </div>
+
+          <!-- Sprint prefix -->
+          <div class="form-group">
+            <label for="sprint-prefix-input">
+              Sprint folder prefix
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">Used to derive a sprint number from your User Story's Iteration path. Example: with prefix "Sprint_" the iteration "Sprint_14" maps to sprint 14. Suite folders are also named using this prefix (e.g. "Sprint_14"). Common values: Sprint_, SFTPM_, Iteration_.</span></span>
+            </label>
+            <input type="text" id="sprint-prefix-input" placeholder="Sprint_">
+            <div id="sprint-prefix-status" class="probe-status"></div>
+          </div>
+
+          <!-- Plan mappings -->
+          <div class="form-group">
+            <div class="subsection-title">
+              Test plan mappings
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">When you push a test case, the system uses your User Story's AreaPath to pick which test plan it belongs to. Check each plan you publish to and adjust the AreaPath fragment if the auto-suggestion isn't right. Without at least one mapping, /qa-publish will fail.</span></span>
+            </div>
+            <div id="plan-mapping-list"></div>
+            <div id="plan-mapping-status" class="probe-status"></div>
+          </div>
+
+          <!-- Personas -->
+          <div class="form-group">
+            <div class="subsection-title">
+              Personas
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">Test users that appear in every test case's Prerequisites section. If left empty, your TCs will have no Persona section. Add the standard test users your team uses (e.g., System Administrator, KAM, Manager).</span></span>
+            </div>
+            <div id="personas-list"></div>
+            <button type="button" class="row-add-btn" onclick="addPersonaRow()">+ Add persona</button>
+          </div>
+
+          <!-- Field refs -->
+          <div class="form-group">
+            <label for="prereq-field-select">
+              Prerequisite field reference
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">The ADO custom field where Prerequisites HTML is stored on a Test Case. Default System.Description works for most projects; override only if your team has a custom field like Custom.PrerequisiteforTest.</span></span>
+            </label>
+            <select id="prereq-field-select" class="probe-select">
+              <option value="">System.Description (framework default)</option>
+            </select>
+            <div id="prereq-field-status" class="probe-status"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="solution-field-select">
+              Solution Design field reference (optional)
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">If your team links Confluence Solution Design pages from a custom ADO field on User Stories, set this so /ado-story auto-fetches the linked page. Leave blank if you don't use Solution Design.</span></span>
+            </label>
+            <select id="solution-field-select" class="probe-select">
+              <option value="">— not used —</option>
+            </select>
+          </div>
+
+          <!-- Additional context fields -->
+          <div class="form-group">
+            <div class="subsection-title">
+              Additional context fields
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">Extra ADO custom fields that /ado-story should fetch as named context for the agent (e.g. Impact Assessment, Reference Documentation). Optional — leave empty if you only need standard fields.</span></span>
+            </div>
+            <div id="ctx-fields-list"></div>
+            <button type="button" class="row-add-btn" onclick="addContextField()">+ Add context field</button>
+          </div>
+        </div>
+
+        <div class="footer" id="tab2-footer" style="display: none;">
+          <button type="button" class="btn btn-primary btn-save" id="save-conventions-btn" onclick="trySaveConventions()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save Conventions
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="copyright">
       &copy; ${currentYear} Vortex ADO by <a href="#">Kavita Badgujar</a>. All rights reserved.
+    </div>
+  </div>
+
+  <!-- Confirmation modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <h3 id="modal-title">Confirm</h3>
+      <p id="modal-body"></p>
+      <pre class="modal-detail" id="modal-detail" style="display: none;"></pre>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal(false)">Cancel</button>
+        <button type="button" class="btn btn-primary" id="modal-confirm-btn" onclick="closeModal(true)">Confirm</button>
+      </div>
     </div>
   </div>
 
@@ -1326,8 +2152,8 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
           <polyline points="20 6 9 17 4 12"/>
         </svg>
       </div>
-      <h2 class="success-title">Configuration Saved!</h2>
-      <p class="success-message">Restart Cursor IDE to apply changes</p>
+      <h2 class="success-title" id="success-title">Saved!</h2>
+      <p class="success-message" id="success-message">Restart Cursor IDE to apply changes</p>
       <button type="button" class="btn btn-success" onclick="closeAndShutdown()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 6L6 18M6 6l12 12"/>
@@ -1338,10 +2164,9 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
   </div>
 
   <script>
-    // Create floating particles with variety
+    // ─────────── Particles (decorative) ───────────
     const particlesContainer = document.getElementById('particles');
     const colors = ['#8b5cf6', '#06b6d4', '#f472b6', '#a78bfa', '#10b981'];
-    
     for (let i = 0; i < 30; i++) {
       const particle = document.createElement('div');
       particle.className = 'particle' + (Math.random() > 0.5 ? ' particle-glow' : '');
@@ -1356,19 +2181,27 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       particlesContainer.appendChild(particle);
     }
 
-    let adoTested = false;
+    // ─────────── State ───────────
+    const existing = ${JSON.stringify({
+      _patStored: existingCreds._patStored ?? false,
+      _confluenceTokenStored: existingCreds._confluenceTokenStored ?? false,
+      ado_org: existingCreds.ado_org ?? "",
+      ado_project: existingCreds.ado_project ?? "",
+    })};
+    // After Tab 1 saves, flips to true so Tab 2 enables.
+    let connectionSaved = existing._patStored;
+    // Snapshot of the conventions form state at last load — used for diff-based modal trigger.
+    let conventionsSnapshot = null;
+    // Stash of probe data used to render Tab 2 form.
+    let probedPlans = [];
+    let probedFields = { prerequisiteCandidates: [], solutionDesignCandidates: [], contextCandidates: [] };
+    // PAT we use for probes — the just-typed value if Tab 1 just saved, otherwise we re-fetch via check-keychain-pat.
+    let activePat = null;
 
-    function toggleConfluence() {
-      const content = document.getElementById('confluence-content');
-      const header = document.querySelector('.collapsible-header');
-      
-      content.classList.toggle('open');
-      header.classList.toggle('open');
-    }
-
+    // ─────────── Status helpers ───────────
     function showStatus(elementId, type, message, details) {
       const container = document.getElementById(elementId);
-      
+      if (!container) return;
       let icon = '';
       if (type === 'success') {
         icon = '<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
@@ -1377,132 +2210,495 @@ function getHtmlContent(existingCreds: Partial<Credentials>): string {
       } else if (type === 'loading') {
         icon = '<svg class="status-icon spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
       }
-
-      container.innerHTML = \`
-        <div class="status status-\${type}">
-          \${icon}
-          <div>
-            <div>\${message}</div>
-            \${details ? '<div class="status-details">' + details + '</div>' : ''}
-          </div>
-        </div>
-      \`;
+      container.innerHTML = \`<div class="status status-\${type}">\${icon}<div><div>\${message}</div>\${details ? '<div class="status-details">' + details + '</div>' : ''}</div></div>\`;
     }
 
-    async function testAdo() {
-      const pat = document.getElementById('ado_pat').value.trim();
+    function toggleConfluence() {
+      const content = document.getElementById('confluence-content');
+      const header = document.querySelector('.collapsible-header');
+      content.classList.toggle('open');
+      header.classList.toggle('open');
+    }
+
+    // ─────────── Tab switching + gating ───────────
+    function switchTab(n) {
+      if (n === 2 && !connectionSaved) {
+        // Trying to enter Tab 2 without a saved connection — refuse.
+        showStatus('ado-status', 'error', 'Connection required', 'Save your connection on Tab 1 first.');
+        return;
+      }
+      document.getElementById('tab-1').classList.toggle('active', n === 1);
+      document.getElementById('tab-2').classList.toggle('active', n === 2);
+      document.getElementById('tab-1').setAttribute('aria-selected', n === 1 ? 'true' : 'false');
+      document.getElementById('tab-2').setAttribute('aria-selected', n === 2 ? 'true' : 'false');
+      document.getElementById('panel-1').classList.toggle('active', n === 1);
+      document.getElementById('panel-2').classList.toggle('active', n === 2);
+
+      if (n === 2) {
+        activateConventionsTab();
+      }
+    }
+
+    function setTab2Locked(locked) {
+      const tab2 = document.getElementById('tab-2');
+      tab2.disabled = locked;
+      if (locked) tab2.setAttribute('data-locked', '');
+      else tab2.removeAttribute('data-locked');
+    }
+    setTab2Locked(!connectionSaved);
+
+    // ─────────── Tab 2: silent revalidation + probe + load ───────────
+    let tab2Activated = false;
+    async function activateConventionsTab(forceReload = false) {
+      const card = document.getElementById('tab2-card');
+      const footer = document.getElementById('tab2-footer');
+      const blocked = document.getElementById('tab2-blocked-message');
+
+      if (!connectionSaved) {
+        blocked.style.display = 'block';
+        card.style.display = 'none';
+        footer.style.display = 'none';
+        return;
+      }
+      blocked.style.display = 'none';
+      if (tab2Activated && !forceReload) return; // load once
+
+      // 1. Silently revalidate the keychain PAT (returning user) OR use the
+      //    just-typed PAT (first-time user who just saved Tab 1).
+      if (!activePat) {
+        const check = await fetch('/api/check-keychain-pat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
+        if (!check.ok) {
+          showStatus('ado-status', 'error', 'PAT validation failed', check.message || 'Update your PAT on Tab 1.');
+          card.style.display = 'none';
+          footer.style.display = 'none';
+          return;
+        }
+        activePat = check.pat;
+      }
+
+      // 2. Run probes in parallel.
+      const org = document.getElementById('ado_org').value.trim();
+      const project = document.getElementById('ado_project').value.trim();
+      const probeBody = JSON.stringify({ pat: activePat, org, project });
+
+      const [plans, fields, iterations, existing] = await Promise.all([
+        fetch('/api/probe-plans', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+        fetch('/api/probe-fields', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+        fetch('/api/probe-iterations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+        fetch('/api/load-existing').then(r => r.json()).catch(() => ({ success: false })),
+      ]);
+
+      probedPlans = plans.ok ? (plans.data || []) : [];
+      probedFields = fields.ok ? fields.data : { prerequisiteCandidates: [], solutionDesignCandidates: [], contextCandidates: [] };
+
+      // Plans status
+      if (plans.ok) {
+        document.getElementById('plan-mapping-status').textContent =
+          probedPlans.length === 0 ? 'No test plans found in this project.' : '';
+        document.getElementById('plan-mapping-status').className = 'probe-status' + (probedPlans.length === 0 ? ' warn' : '');
+      } else {
+        document.getElementById('plan-mapping-status').textContent = 'Could not fetch plans: ' + (plans.message || 'unknown error') + ' — you can still hand-type plan IDs.';
+        document.getElementById('plan-mapping-status').className = 'probe-status err';
+      }
+
+      // Sprint prefix probe → suggestion only (don't auto-fill if user already has a value).
+      if (iterations.ok && iterations.data && iterations.data.suggestedPrefix) {
+        const cur = document.getElementById('sprint-prefix-input').value.trim();
+        if (!cur) {
+          document.getElementById('sprint-prefix-input').placeholder = iterations.data.suggestedPrefix + ' (suggested from your iterations)';
+        }
+        document.getElementById('sprint-prefix-status').textContent = 'Detected from iterations: ' + iterations.data.suggestedPrefix;
+        document.getElementById('sprint-prefix-status').className = 'probe-status ok';
+      }
+
+      // 3. Render the form using existing config (if any) + probed data.
+      const existingConventions = (existing && existing.success) ? (existing.existingConventions || {}) : {};
+      renderConventionsForm(existingConventions);
+      conventionsSnapshot = serializeConventionsForm();
+
+      card.style.display = 'block';
+      footer.style.display = 'flex';
+      tab2Activated = true;
+    }
+
+    function renderConventionsForm(existingConventions) {
+      // Sprint prefix
+      document.getElementById('sprint-prefix-input').value = existingConventions.sprintPrefix || '';
+
+      // Plan mapping list — render every probed plan with checkbox + fragment input
+      const planList = document.getElementById('plan-mapping-list');
+      planList.innerHTML = '';
+      const existingByPlanId = {};
+      (existingConventions.testPlanMapping || []).forEach(m => {
+        existingByPlanId[m.planId] = Array.isArray(m.areaPathContains) ? m.areaPathContains.join(', ') : m.areaPathContains;
+      });
+      if (probedPlans.length === 0) {
+        // Probe failed — render at least one manual-entry row so user isn't blocked.
+        addManualPlanRow();
+      } else {
+        probedPlans.forEach(plan => {
+          const row = document.createElement('div');
+          row.className = 'plan-row';
+          row.dataset.planId = plan.planId;
+          row.innerHTML = \`
+            <input type="checkbox" \${existingByPlanId[plan.planId] !== undefined ? 'checked' : ''} />
+            <div class="plan-meta"><b>\${escapeHtml(plan.name)}</b><br>Plan #\${plan.planId} · \${escapeHtml(plan.areaPath || '(no areaPath)')}</div>
+            <input type="text" placeholder="AreaPath fragment(s), comma-separated" value="\${escapeHtml(existingByPlanId[plan.planId] !== undefined ? existingByPlanId[plan.planId] : plan.suggestedFragment)}" />
+          \`;
+          planList.appendChild(row);
+        });
+      }
+
+      // Personas
+      const personasList = document.getElementById('personas-list');
+      personasList.innerHTML = '';
+      const existingPersonas = existingConventions.personas || {};
+      const personaKeys = Object.keys(existingPersonas);
+      if (personaKeys.length === 0) {
+        // Empty by default — user adds rows.
+      } else {
+        personaKeys.forEach(key => {
+          const p = existingPersonas[key];
+          addPersonaRow(key, p);
+        });
+      }
+
+      // Prereq field select
+      const prereqSelect = document.getElementById('prereq-field-select');
+      prereqSelect.innerHTML = '<option value="">System.Description (framework default)</option>';
+      probedFields.prerequisiteCandidates.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.referenceName;
+        opt.textContent = \`\${f.name} (\${f.referenceName})\`;
+        prereqSelect.appendChild(opt);
+      });
+      if (existingConventions.prerequisiteFieldRef) prereqSelect.value = existingConventions.prerequisiteFieldRef;
+
+      // Solution design field select
+      const solSelect = document.getElementById('solution-field-select');
+      solSelect.innerHTML = '<option value="">— not used —</option>';
+      probedFields.solutionDesignCandidates.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.referenceName;
+        opt.textContent = \`\${f.name} (\${f.referenceName})\`;
+        solSelect.appendChild(opt);
+      });
+      if (existingConventions.solutionDesignFieldRef) solSelect.value = existingConventions.solutionDesignFieldRef;
+
+      // Additional context fields
+      const ctxList = document.getElementById('ctx-fields-list');
+      ctxList.innerHTML = '';
+      (existingConventions.additionalContextFields || []).forEach(f => addContextField(f));
+    }
+
+    function addManualPlanRow() {
+      const list = document.getElementById('plan-mapping-list');
+      const row = document.createElement('div');
+      row.className = 'plan-row';
+      row.dataset.planId = '';
+      row.dataset.manual = 'true';
+      row.innerHTML = \`
+        <input type="checkbox" checked />
+        <div><input type="number" placeholder="Plan ID" style="width: 100%; padding: 0.45rem 0.65rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 0.85rem;" /></div>
+        <input type="text" placeholder="AreaPath fragment(s), comma-separated" />
+      \`;
+      list.appendChild(row);
+    }
+
+    function addPersonaRow(key, persona) {
+      const list = document.getElementById('personas-list');
+      const row = document.createElement('div');
+      row.className = 'persona-row';
+      const k = key || '';
+      const p = persona || { label: '', profile: '', user: '', roles: '', psg: '' };
+      row.innerHTML = \`
+        <input type="text" placeholder="Label (e.g. KAM User)" value="\${escapeHtml(p.label || '')}" data-field="label" />
+        <input type="text" placeholder="Profile" value="\${escapeHtml(p.profile || '')}" data-field="profile" />
+        <input type="text" placeholder="Roles" value="\${escapeHtml(p.roles || '')}" data-field="roles" />
+        <input type="text" placeholder="PSG" value="\${escapeHtml(p.psg || '')}" data-field="psg" />
+        <input type="text" placeholder="Key (no spaces)" value="\${escapeHtml(k)}" data-field="key" />
+        <button type="button" class="row-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
+      \`;
+      list.appendChild(row);
+    }
+
+    function addContextField(existing) {
+      const list = document.getElementById('ctx-fields-list');
+      const row = document.createElement('div');
+      row.className = 'ctxfield-row';
+      const e = existing || { adoFieldRef: '', label: '' };
+      const opts = probedFields.contextCandidates.map(f =>
+        \`<option value="\${escapeHtml(f.referenceName)}" \${f.referenceName === e.adoFieldRef ? 'selected' : ''}>\${escapeHtml(f.name)} (\${escapeHtml(f.referenceName)})</option>\`
+      ).join('');
+      row.innerHTML = \`
+        <button type="button" class="row-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
+        <select data-field="adoFieldRef" style="padding: 0.45rem 0.65rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 0.85rem;">
+          <option value="">— pick a field —</option>
+          \${opts}
+        </select>
+        <input type="text" placeholder="Display label" value="\${escapeHtml(e.label || '')}" data-field="label" />
+      \`;
+      list.appendChild(row);
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function serializeConventionsForm() {
+      // Plan mappings
+      const testPlanMapping = [];
+      document.querySelectorAll('#plan-mapping-list .plan-row').forEach(row => {
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        if (!checkbox || !checkbox.checked) return;
+        let planId;
+        if (row.dataset.manual === 'true') {
+          const numInput = row.querySelector('input[type="number"]');
+          planId = parseInt(numInput.value, 10);
+          if (isNaN(planId) || planId <= 0) return;
+        } else {
+          planId = parseInt(row.dataset.planId, 10);
+        }
+        const fragInput = row.querySelector('input[type="text"]');
+        const frag = (fragInput.value || '').trim();
+        if (!frag) return;
+        testPlanMapping.push({
+          planId,
+          areaPathContains: frag.split(',').map(s => s.trim()).filter(Boolean),
+        });
+      });
+
+      // Personas
+      const personas = {};
+      document.querySelectorAll('#personas-list .persona-row').forEach(row => {
+        const get = (f) => (row.querySelector(\`input[data-field="\${f}"]\`) || {}).value || '';
+        const key = get('key').trim();
+        const label = get('label').trim();
+        if (!key || !label) return;
+        personas[key] = {
+          label,
+          profile: get('profile').trim(),
+          roles: get('roles').trim(),
+          psg: get('psg').trim(),
+        };
+      });
+
+      // Context fields
+      const additionalContextFields = [];
+      document.querySelectorAll('#ctx-fields-list .ctxfield-row').forEach(row => {
+        const ref = (row.querySelector('select[data-field="adoFieldRef"]') || {}).value || '';
+        const label = (row.querySelector('input[data-field="label"]') || {}).value || '';
+        if (!ref) return;
+        additionalContextFields.push({
+          adoFieldRef: ref,
+          label: (label || '').trim(),
+          fetchLinks: true,
+          fetchImages: true,
+        });
+      });
+
+      return {
+        sprintPrefix: document.getElementById('sprint-prefix-input').value.trim(),
+        testPlanMapping,
+        personas,
+        prerequisiteFieldRef: document.getElementById('prereq-field-select').value || undefined,
+        solutionDesignFieldRef: document.getElementById('solution-field-select').value || undefined,
+        additionalContextFields,
+      };
+    }
+
+    function isConventionsChanged() {
+      if (!conventionsSnapshot) return true;
+      return JSON.stringify(canonicalize(serializeConventionsForm())) !== JSON.stringify(canonicalize(conventionsSnapshot));
+    }
+
+    // Stable canonicalization for diff comparison — sort keys, strip empty strings/arrays/objects.
+    function canonicalize(v) {
+      if (Array.isArray(v)) return v.map(canonicalize).filter(x => x !== undefined);
+      if (v && typeof v === 'object') {
+        const out = {};
+        Object.keys(v).sort().forEach(k => {
+          const val = canonicalize(v[k]);
+          if (val !== undefined && val !== '' && !(Array.isArray(val) && val.length === 0) && !(typeof val === 'object' && val !== null && Object.keys(val).length === 0)) {
+            out[k] = val;
+          }
+        });
+        return out;
+      }
+      if (typeof v === 'string') return v.trim();
+      return v;
+    }
+
+    // ─────────── Modal ───────────
+    let modalResolve = null;
+    function openModal(title, body, detail) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-body').textContent = body;
+      const detailEl = document.getElementById('modal-detail');
+      if (detail) {
+        detailEl.style.display = 'block';
+        detailEl.textContent = detail;
+      } else {
+        detailEl.style.display = 'none';
+      }
+      document.getElementById('modal-overlay').classList.add('show');
+      return new Promise(resolve => { modalResolve = resolve; });
+    }
+    function closeModal(confirmed) {
+      document.getElementById('modal-overlay').classList.remove('show');
+      if (modalResolve) modalResolve(confirmed);
+      modalResolve = null;
+    }
+
+    // ─────────── Tab 1: Validate and Save Connection ───────────
+    async function saveConnection() {
+      const patInput = document.getElementById('ado_pat').value.trim();
       const org = document.getElementById('ado_org').value.trim();
       const project = document.getElementById('ado_project').value.trim();
 
-      if (!pat || !org || !project) {
-        showStatus('ado-status', 'error', 'Missing fields', 'Please fill in all required fields');
+      if (!org || !project) {
+        showStatus('ado-status', 'error', 'Missing fields', 'Organization and Project are required.');
+        return;
+      }
+      if (!patInput && !existing._patStored) {
+        showStatus('ado-status', 'error', 'PAT required', 'Enter your ADO Personal Access Token.');
         return;
       }
 
-      showStatus('ado-status', 'loading', 'Testing connection...');
+      const btn = document.getElementById('save-connection-btn');
+      const originalLabel = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Validating...';
+      showStatus('ado-status', 'loading', 'Validating connection against ADO...');
 
-      try {
-        const res = await fetch('/api/test-ado', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pat, org, project })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          showStatus('ado-status', 'success', data.message, data.details);
-          adoTested = true;
-        } else {
-          showStatus('ado-status', 'error', data.message, data.details);
-          adoTested = false;
+      // If user left PAT blank but a stored one exists, validate the stored PAT
+      // by calling check-keychain-pat (cheaper than re-typing).
+      let patToUse = patInput;
+      if (!patToUse && existing._patStored) {
+        // We don't have the PAT in the browser — let the server validate via keychain.
+        const check = await fetch('/api/check-keychain-pat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json()).catch(() => ({ ok: false, message: 'Network error' }));
+        if (!check.ok) {
+          showStatus('ado-status', 'error', 'Saved PAT no longer valid', (check.message || 'Update your PAT.') + ' Type a new PAT and try again.');
+          btn.disabled = false; btn.innerHTML = originalLabel;
+          return;
         }
-      } catch (err) {
-        showStatus('ado-status', 'error', 'Request failed', err.message);
-        adoTested = false;
+        patToUse = check.pat;
+        // No re-validation needed — check-keychain-pat already validated. Skip to save.
+      } else {
+        // Validate the typed PAT against ADO.
+        const test = await fetch('/api/test-ado', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pat: patToUse, org, project }) }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error' }));
+        if (!test.success) {
+          showStatus('ado-status', 'error', test.message || 'Validation failed', test.details);
+          btn.disabled = false; btn.innerHTML = originalLabel;
+          return;
+        }
       }
-    }
 
-    async function testConfluence() {
+      // Validation passed — save.
       const baseUrl = document.getElementById('confluence_base_url').value.trim();
       const email = document.getElementById('confluence_email').value.trim();
       const apiToken = document.getElementById('confluence_api_token').value.trim();
+      const credentials = {
+        ado_pat: patToUse,
+        ado_org: org,
+        ado_project: project,
+        confluence_base_url: baseUrl,
+        confluence_email: email,
+        confluence_api_token: apiToken,
+      };
 
-      if (!baseUrl || !email || !apiToken) {
-        showStatus('confluence-status', 'error', 'Missing fields', 'Please fill in all Confluence fields');
+      const save = await fetch('/api/save-connection', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(credentials) }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error' }));
+      if (!save.success) {
+        showStatus('ado-status', 'error', 'Save failed', save.message);
+        btn.disabled = false; btn.innerHTML = originalLabel;
         return;
       }
 
-      showStatus('confluence-status', 'loading', 'Testing connection...');
+      // Success — unlock Tab 2 and navigate.
+      showStatus('ado-status', 'success', 'Connection saved!', save.message);
+      connectionSaved = true;
+      activePat = patToUse;
+      setTab2Locked(false);
+      tab2Activated = false; // force fresh load on next entry
 
-      try {
-        const res = await fetch('/api/test-confluence', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ baseUrl, email, apiToken })
-        });
-        const data = await res.json();
+      // Show org/project-changed banner if it applies, then auto-switch to Tab 2.
+      const banner = document.getElementById('tab2-orgchanged-banner');
+      if (save.orgProjectChanged) {
+        banner.style.display = 'block';
+      } else {
+        banner.style.display = 'none';
+      }
+      btn.disabled = false; btn.innerHTML = originalLabel;
+      setTimeout(() => switchTab(2), 600);
+    }
 
-        if (data.success) {
-          showStatus('confluence-status', 'success', data.message, data.details);
-        } else {
-          showStatus('confluence-status', 'error', data.message, data.details);
-        }
-      } catch (err) {
-        showStatus('confluence-status', 'error', 'Request failed', err.message);
+    // ─────────── Tab 2 banner: reuse vs fresh ───────────
+    async function reloadConventions(reuse) {
+      document.getElementById('tab2-orgchanged-banner').style.display = 'none';
+      tab2Activated = false;
+      if (reuse) {
+        // Reuse existing — let activate fetch /api/load-existing as usual.
+        await activateConventionsTab(true);
+      } else {
+        // Start fresh — clear existing conventions in memory before re-render
+        // by passing an empty existing payload. We achieve this by calling the
+        // render directly with empty payload after the probes complete.
+        const card = document.getElementById('tab2-card');
+        card.style.display = 'none';
+        // Fetch probes only, skip /api/load-existing.
+        const org = document.getElementById('ado_org').value.trim();
+        const project = document.getElementById('ado_project').value.trim();
+        const probeBody = JSON.stringify({ pat: activePat, org, project });
+        const [plans, fields] = await Promise.all([
+          fetch('/api/probe-plans', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+          fetch('/api/probe-fields', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+        ]);
+        probedPlans = plans.ok ? (plans.data || []) : [];
+        probedFields = fields.ok ? fields.data : { prerequisiteCandidates: [], solutionDesignCandidates: [], contextCandidates: [] };
+        renderConventionsForm({}); // empty → fresh start
+        conventionsSnapshot = serializeConventionsForm();
+        card.style.display = 'block';
+        document.getElementById('tab2-footer').style.display = 'flex';
+        tab2Activated = true;
       }
     }
 
-    async function saveCredentials() {
-      const pat = document.getElementById('ado_pat').value.trim();
-      const org = document.getElementById('ado_org').value.trim();
-      const project = document.getElementById('ado_project').value.trim();
-
-      if (!pat || !org || !project) {
-        showStatus('ado-status', 'error', 'Missing fields', 'Please fill in all required ADO fields');
+    // ─────────── Tab 2: save flow with confirmation ───────────
+    async function trySaveConventions() {
+      if (!isConventionsChanged()) {
+        showStatus('ado-status', 'success', 'No changes to save', 'Your conventions are already up to date.');
         return;
       }
+      // Modal
+      const ok = await openModal(
+        '⚠️ Update Conventions',
+        'You\\'re about to update your project conventions. Existing values for any field you changed will be overwritten. Continue?',
+        JSON.stringify(canonicalize(serializeConventionsForm()), null, 2),
+      );
+      if (!ok) return;
 
-      const btn = document.getElementById('save-btn');
+      const btn = document.getElementById('save-conventions-btn');
+      const originalLabel = btn.innerHTML;
       btn.disabled = true;
       btn.innerHTML = '<svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Saving...';
 
-      const credentials = {
-        ado_pat: pat,
-        ado_org: org,
-        ado_project: project,
-        confluence_base_url: document.getElementById('confluence_base_url').value.trim(),
-        confluence_email: document.getElementById('confluence_email').value.trim(),
-        confluence_api_token: document.getElementById('confluence_api_token').value.trim()
-      };
-
-      try {
-        const res = await fetch('/api/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(credentials)
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          document.getElementById('success-overlay').classList.add('show');
-        } else {
-          showStatus('ado-status', 'error', 'Save failed', data.message);
-          btn.disabled = false;
-          btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Configuration';
-        }
-      } catch (err) {
-        showStatus('ado-status', 'error', 'Request failed', err.message);
-        btn.disabled = false;
-        btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Configuration';
+      const payload = serializeConventionsForm();
+      const save = await fetch('/api/save-conventions', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error' }));
+      if (!save.success) {
+        btn.disabled = false; btn.innerHTML = originalLabel;
+        await openModal('Save failed', save.message || 'Unknown error', null);
+        return;
       }
+
+      conventionsSnapshot = serializeConventionsForm();
+      btn.disabled = false; btn.innerHTML = originalLabel;
+      document.getElementById('success-title').textContent = 'Conventions Saved!';
+      document.getElementById('success-message').textContent = 'Restart Cursor IDE (or refresh MCP) to apply the changes.';
+      document.getElementById('success-overlay').classList.add('show');
     }
 
     async function closeAndShutdown() {
-      try {
-        await fetch('/api/shutdown', { method: 'POST' });
-      } catch (e) {
-        // Server may already be closing, ignore errors
-      }
+      try { await fetch('/api/shutdown', { method: 'POST' }); } catch (e) {}
       window.close();
     }
   </script>
@@ -1580,7 +2776,55 @@ export async function startConfigServer(
           const body = JSON.parse(await parseBody(req));
           const result = await testConfluenceConnection(body.baseUrl, body.email, body.apiToken);
           sendJson(res, result);
-        } else if (url === "/api/save" && method === "POST") {
+        } else if (url === "/api/load-existing" && method === "GET") {
+          // Phase 2 — Tab 2 calls this on activation to get existing
+          // conventions for prefill + the keychain PAT-validity status.
+          try {
+            const wsFile = workspaceConfigFile(workspaceRoot);
+            let existingConventions: Record<string, unknown> = {};
+            if (existsSync(wsFile)) {
+              const cfg = WorkspaceConfigSchema.parse(
+                JSON.parse(readFileSync(wsFile, "utf-8")),
+              );
+              existingConventions = {
+                sprintPrefix: cfg.suiteStructure?.sprintPrefix,
+                testPlanMapping: cfg.suiteStructure?.testPlanMapping,
+                personas: cfg.prerequisiteDefaults?.personas,
+                prerequisiteFieldRef: cfg.ado?.fieldRefs?.prerequisite,
+                solutionDesignFieldRef: cfg.ado?.fieldRefs?.solutionDesign,
+                additionalContextFields: cfg.additionalContextFields,
+              };
+            }
+            sendJson(res, { success: true, existingConventions });
+          } catch (err) {
+            sendJson(
+              res,
+              { success: false, message: err instanceof Error ? err.message : String(err) },
+              400,
+            );
+          }
+        } else if (url === "/api/check-keychain-pat" && method === "POST") {
+          // Tab 2 silent revalidation — confirms keychain PAT is still valid.
+          const result = await checkKeychainPat(workspaceRoot);
+          sendJson(res, result);
+        } else if (url === "/api/probe-plans" && method === "POST") {
+          const body = JSON.parse(await parseBody(req));
+          const result = await probeAdoPlans(body.pat, body.org, body.project);
+          sendJson(res, result);
+        } else if (url === "/api/probe-fields" && method === "POST") {
+          const body = JSON.parse(await parseBody(req));
+          const result = await probeAdoFields(body.pat, body.org, body.project);
+          sendJson(res, result);
+        } else if (url === "/api/probe-iterations" && method === "POST") {
+          const body = JSON.parse(await parseBody(req));
+          const result = await probeIterationPrefix(body.pat, body.org, body.project);
+          sendJson(res, result);
+        } else if (
+          (url === "/api/save-connection" || url === "/api/save") &&
+          method === "POST"
+        ) {
+          // Tab 1: validate-and-save-connection. The legacy /api/save alias is
+          // kept so a stale frontend during local deploys doesn't break.
           const body = JSON.parse(await parseBody(req)) as Credentials;
           try {
             const saved = await saveCredentials(body, workspaceRoot);
@@ -1588,6 +2832,23 @@ export async function startConfigServer(
               success: true,
               message: `Credentials saved to ${saved.workspaceConfigPath} (PAT in OS keychain)`,
               orgProjectChanged: saved.orgProjectChanged,
+            });
+          } catch (saveErr) {
+            sendJson(
+              res,
+              { success: false, message: saveErr instanceof Error ? saveErr.message : String(saveErr) },
+              400,
+            );
+          }
+        } else if (url === "/api/save-conventions" && method === "POST") {
+          // Tab 2: save conventions only. Doesn't touch keychain or
+          // ado/confluence blocks.
+          const body = JSON.parse(await parseBody(req)) as ConventionsPayload;
+          try {
+            const saved = await saveConventions(body, workspaceRoot);
+            sendJson(res, {
+              success: true,
+              message: `Conventions saved to ${saved.workspaceConfigPath}`,
             });
           } catch (saveErr) {
             sendJson(
