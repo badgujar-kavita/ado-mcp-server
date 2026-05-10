@@ -453,7 +453,7 @@ export async function probeIterationPrefix(
     walk(json);
 
     // Find a common prefix that ends in a separator before digits — like
-    // "Sprint_", "SFTPM_", "Iteration ". Pattern: ^([A-Za-z_-]+?)\d+$
+    // "Sprint_", "Iteration_", custom prefixes. Pattern: ^([A-Za-z_-]+?)\d+$
     const prefixHits = new Map<string, number>();
     for (const name of leafNames) {
       const match = name.match(/^([A-Za-z][A-Za-z0-9_\- ]*?[_\- ])\d+$/);
@@ -1657,21 +1657,20 @@ function getHtmlContent(
       vertical-align: middle;
       user-select: none;
     }
-    .info-tip:hover .info-bubble,
-    .info-tip:focus .info-bubble {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
+    /* The info bubble uses position:fixed to escape any ancestor with
+       overflow:hidden (the .card is one). JS positions the bubble next to
+       the icon on hover/focus — see positionInfoBubble() in the script. */
+    .info-tip {
+      position: relative;
     }
     .info-bubble {
-      position: absolute;
-      left: 50%;
-      bottom: 130%;
-      transform: translateX(-50%) translateY(6px);
-      width: 280px;
-      max-width: 80vw;
-      padding: 0.65rem 0.85rem;
-      background: var(--bg-card);
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 320px;
+      max-width: calc(100vw - 32px);
+      padding: 0.7rem 0.9rem;
+      background: rgba(20, 25, 40, 0.98);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
@@ -1680,11 +1679,16 @@ function getHtmlContent(
       line-height: 1.45;
       text-align: left;
       opacity: 0;
-      transition: all 180ms ease;
+      transition: opacity 180ms ease;
       pointer-events: none;
-      z-index: 100;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 200;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       white-space: normal;
+      visibility: hidden;
+    }
+    .info-bubble.show {
+      opacity: 1;
+      visibility: visible;
     }
 
     /* Read-only display field */
@@ -1721,20 +1725,51 @@ function getHtmlContent(
     .plan-row {
       grid-template-columns: 28px 1fr 1.2fr;
     }
+    /* Persona row uses a 2-row grid so each labeled field gets enough width.
+       Row 1: Label, Profile, Roles, PSG (all visible). Row 2: Key + remove.
+       This avoids the truncated-input problem on standard widths. */
     .persona-row {
-      grid-template-columns: 1fr 1fr 1fr 1fr 1fr 32px;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-areas:
+        "label profile roles psg"
+        "key key key remove";
+      row-gap: 0.45rem;
     }
+    .persona-row > [data-field="label"]   { grid-area: label; }
+    .persona-row > [data-field="profile"] { grid-area: profile; }
+    .persona-row > [data-field="roles"]   { grid-area: roles; }
+    .persona-row > [data-field="psg"]     { grid-area: psg; }
+    .persona-row > [data-field="key"]     { grid-area: key; }
+    .persona-row > .row-remove            { grid-area: remove; justify-self: end; }
     .ctxfield-row {
-      grid-template-columns: 28px 1fr 1.2fr;
+      grid-template-columns: 28px 1.6fr 1fr;
     }
-    .plan-row input[type="text"], .persona-row input[type="text"], .ctxfield-row input[type="text"] {
-      padding: 0.45rem 0.65rem;
+    .plan-row input[type="text"], .persona-row input[type="text"], .ctxfield-row input[type="text"], .ctxfield-row select {
+      padding: 0.55rem 0.7rem;
       background: var(--bg-darker);
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text);
       font-family: inherit;
-      font-size: 0.85rem;
+      font-size: 0.88rem;
+      width: 100%;
+    }
+    .persona-row input[type="text"]::placeholder {
+      color: var(--text-dim);
+      opacity: 0.7;
+    }
+    /* On narrow screens, stack persona fields vertically. */
+    @media (max-width: 720px) {
+      .persona-row {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "label"
+          "profile"
+          "roles"
+          "psg"
+          "key"
+          "remove";
+      }
     }
     .plan-row .plan-meta {
       font-size: 0.78rem;
@@ -2054,7 +2089,7 @@ function getHtmlContent(
           <div class="form-group">
             <label for="sprint-prefix-input">
               Sprint folder prefix
-              <span class="info-tip" tabindex="0">i<span class="info-bubble">Used to derive a sprint number from your User Story's Iteration path. Example: with prefix "Sprint_" the iteration "Sprint_14" maps to sprint 14. Suite folders are also named using this prefix (e.g. "Sprint_14"). Common values: Sprint_, SFTPM_, Iteration_.</span></span>
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">Used to derive a sprint number from your User Story's Iteration path. Example: with prefix "Sprint_" the iteration "Sprint_14" maps to sprint 14. Suite folders are also named using this prefix (e.g. "Sprint_14"). Use whatever convention your team follows.</span></span>
             </label>
             <input type="text" id="sprint-prefix-input" placeholder="Sprint_">
             <div id="sprint-prefix-status" class="probe-status"></div>
@@ -2074,7 +2109,7 @@ function getHtmlContent(
           <div class="form-group">
             <div class="subsection-title">
               Personas
-              <span class="info-tip" tabindex="0">i<span class="info-bubble">Test users that appear in every test case's Prerequisites section. If left empty, your TCs will have no Persona section. Add the standard test users your team uses (e.g., System Administrator, KAM, Manager).</span></span>
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">Test users that appear in every test case's Prerequisites section. If left empty, your TCs will have no Persona section. Add the standard test users your team uses for verification.</span></span>
             </div>
             <div id="personas-list"></div>
             <button type="button" class="row-add-btn" onclick="addPersonaRow()">+ Add persona</button>
@@ -2301,19 +2336,23 @@ function getHtmlContent(
         document.getElementById('plan-mapping-status').className = 'probe-status err';
       }
 
-      // Sprint prefix probe → suggestion only (don't auto-fill if user already has a value).
-      if (iterations.ok && iterations.data && iterations.data.suggestedPrefix) {
-        const cur = document.getElementById('sprint-prefix-input').value.trim();
-        if (!cur) {
-          document.getElementById('sprint-prefix-input').placeholder = iterations.data.suggestedPrefix + ' (suggested from your iterations)';
-        }
-        document.getElementById('sprint-prefix-status').textContent = 'Detected from iterations: ' + iterations.data.suggestedPrefix;
-        document.getElementById('sprint-prefix-status').className = 'probe-status ok';
-      }
-
       // 3. Render the form using existing config (if any) + probed data.
       const existingConventions = (existing && existing.success) ? (existing.existingConventions || {}) : {};
       renderConventionsForm(existingConventions);
+
+      // 4. Prepopulate sprint prefix from probe iff the existing config
+      //    didn't supply one. This ensures workspace config wins, with the
+      //    probed value as a fallback. Always show the "detected" hint.
+      if (iterations.ok && iterations.data && iterations.data.suggestedPrefix) {
+        const input = document.getElementById('sprint-prefix-input');
+        const status = document.getElementById('sprint-prefix-status');
+        if (!input.value.trim()) {
+          input.value = iterations.data.suggestedPrefix;
+        }
+        status.textContent = 'Detected from your iterations: ' + iterations.data.suggestedPrefix + ' — edit if your team uses a different prefix.';
+        status.className = 'probe-status ok';
+      }
+
       conventionsSnapshot = serializeConventionsForm();
 
       card.style.display = 'block';
@@ -2411,15 +2450,29 @@ function getHtmlContent(
       row.className = 'persona-row';
       const k = key || '';
       const p = persona || { label: '', profile: '', user: '', roles: '', psg: '' };
+      // Persona "key" is the internal JSON key for the persona (e.g. "Admin"
+      // for the persona labeled "Administrator"). Auto-derived from the
+      // label if the user doesn't provide one. Stripped to alphanumeric +
+      // underscore so it works as a JSON key.
       row.innerHTML = \`
-        <input type="text" placeholder="Label (e.g. KAM User)" value="\${escapeHtml(p.label || '')}" data-field="label" />
-        <input type="text" placeholder="Profile" value="\${escapeHtml(p.profile || '')}" data-field="profile" />
-        <input type="text" placeholder="Roles" value="\${escapeHtml(p.roles || '')}" data-field="roles" />
-        <input type="text" placeholder="PSG" value="\${escapeHtml(p.psg || '')}" data-field="psg" />
-        <input type="text" placeholder="Key (no spaces)" value="\${escapeHtml(k)}" data-field="key" />
-        <button type="button" class="row-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
+        <input type="text" placeholder="Display label (e.g. Standard User)" value="\${escapeHtml(p.label || '')}" data-field="label" />
+        <input type="text" placeholder="Profile name" value="\${escapeHtml(p.profile || '')}" data-field="profile" />
+        <input type="text" placeholder="Role(s)" value="\${escapeHtml(p.roles || '')}" data-field="roles" />
+        <input type="text" placeholder="Permission Set Group" value="\${escapeHtml(p.psg || '')}" data-field="psg" />
+        <input type="text" placeholder="Internal key (auto-generated from label if blank)" value="\${escapeHtml(k)}" data-field="key" />
+        <button type="button" class="row-remove" onclick="this.parentElement.remove()" title="Remove persona">×</button>
       \`;
       list.appendChild(row);
+    }
+
+    /**
+     * Derive a clean JSON key from a persona's display label.
+     * "Key Account Manager (KAM) User" → "KeyAccountManagerKAMUser"
+     * Strips spaces, punctuation, keeps alphanumerics. Fallback "Persona1".
+     */
+    function derivePersonaKey(label, fallbackIndex) {
+      const cleaned = String(label || '').replace(/[^A-Za-z0-9]/g, '');
+      return cleaned || ('Persona' + (fallbackIndex + 1));
     }
 
     function addContextField(existing) {
@@ -2427,18 +2480,50 @@ function getHtmlContent(
       const row = document.createElement('div');
       row.className = 'ctxfield-row';
       const e = existing || { adoFieldRef: '', label: '' };
-      const opts = probedFields.contextCandidates.map(f =>
-        \`<option value="\${escapeHtml(f.referenceName)}" \${f.referenceName === e.adoFieldRef ? 'selected' : ''}>\${escapeHtml(f.name)} (\${escapeHtml(f.referenceName)})</option>\`
-      ).join('');
       row.innerHTML = \`
-        <button type="button" class="row-remove" onclick="this.parentElement.remove()" title="Remove">×</button>
-        <select data-field="adoFieldRef" style="padding: 0.45rem 0.65rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 0.85rem;">
+        <button type="button" class="row-remove" onclick="this.parentElement.remove(); refreshContextFieldDropdowns();" title="Remove">×</button>
+        <select data-field="adoFieldRef" data-current="\${escapeHtml(e.adoFieldRef || '')}" onchange="refreshContextFieldDropdowns()">
           <option value="">— pick a field —</option>
-          \${opts}
         </select>
         <input type="text" placeholder="Display label" value="\${escapeHtml(e.label || '')}" data-field="label" />
       \`;
       list.appendChild(row);
+      // Pre-fill the data-current attribute reflects what was originally
+      // selected; refreshContextFieldDropdowns will populate the option list.
+      refreshContextFieldDropdowns();
+      // Set the current selection AFTER options are populated.
+      const sel = row.querySelector('select[data-field="adoFieldRef"]');
+      if (e.adoFieldRef) sel.value = e.adoFieldRef;
+    }
+
+    /**
+     * Repopulate every additional-context-field dropdown so options already
+     * picked by another row are HIDDEN (preventing duplicates). Each row's
+     * own current selection always remains in its dropdown.
+     */
+    function refreshContextFieldDropdowns() {
+      const rows = Array.from(document.querySelectorAll('#ctx-fields-list .ctxfield-row'));
+      const allSelected = rows.map(r => {
+        const sel = r.querySelector('select[data-field="adoFieldRef"]');
+        return sel ? sel.value : '';
+      }).filter(Boolean);
+
+      rows.forEach(row => {
+        const sel = row.querySelector('select[data-field="adoFieldRef"]');
+        if (!sel) return;
+        const ownValue = sel.value;
+        // Build options: empty + all candidates EXCEPT ones picked elsewhere.
+        const optsHtml = ['<option value="">— pick a field —</option>'];
+        probedFields.contextCandidates.forEach(f => {
+          const isOwn = f.referenceName === ownValue;
+          const pickedElsewhere = allSelected.includes(f.referenceName) && !isOwn;
+          if (pickedElsewhere) return;
+          optsHtml.push(\`<option value="\${escapeHtml(f.referenceName)}" \${isOwn ? 'selected' : ''}>\${escapeHtml(f.name)} (\${escapeHtml(f.referenceName)})</option>\`);
+        });
+        sel.innerHTML = optsHtml.join('');
+        // Restore selection
+        if (ownValue) sel.value = ownValue;
+      });
     }
 
     function escapeHtml(s) {
@@ -2468,14 +2553,22 @@ function getHtmlContent(
         });
       });
 
-      // Personas
+      // Personas — auto-derive key from label when user leaves it blank.
       const personas = {};
-      document.querySelectorAll('#personas-list .persona-row').forEach(row => {
+      Array.from(document.querySelectorAll('#personas-list .persona-row')).forEach((row, idx) => {
         const get = (f) => (row.querySelector(\`input[data-field="\${f}"]\`) || {}).value || '';
-        const key = get('key').trim();
         const label = get('label').trim();
-        if (!key || !label) return;
-        personas[key] = {
+        if (!label) return; // skip empty rows
+        let key = get('key').trim();
+        if (!key) key = derivePersonaKey(label, idx);
+        // Defensive: avoid overwriting if two rows derive to the same key.
+        let unique = key;
+        let suffix = 2;
+        while (personas[unique]) {
+          unique = key + suffix;
+          suffix += 1;
+        }
+        personas[unique] = {
           label,
           profile: get('profile').trim(),
           roles: get('roles').trim(),
@@ -2701,6 +2794,51 @@ function getHtmlContent(
       try { await fetch('/api/shutdown', { method: 'POST' }); } catch (e) {}
       window.close();
     }
+
+    // ─────────── Info-tip positioning ───────────
+    // Tooltips use position:fixed and are positioned by JS so they escape any
+    // ancestor with overflow:hidden (the .card has it) AND so they flip away
+    // from the right edge when the icon is near it.
+    function positionInfoBubble(tip) {
+      const bubble = tip.querySelector('.info-bubble');
+      if (!bubble) return;
+      const tipRect = tip.getBoundingClientRect();
+      const margin = 8;
+      // Render to measure
+      bubble.classList.add('show');
+      const bubbleRect = bubble.getBoundingClientRect();
+      // Try center-above first
+      let left = tipRect.left + (tipRect.width / 2) - (bubbleRect.width / 2);
+      let top = tipRect.top - bubbleRect.height - margin;
+      // Clamp horizontal: keep within viewport
+      const maxLeft = window.innerWidth - bubbleRect.width - margin;
+      if (left < margin) left = margin;
+      else if (left > maxLeft) left = maxLeft;
+      // If above doesn't fit, flip to below
+      if (top < margin) top = tipRect.bottom + margin;
+      bubble.style.left = left + 'px';
+      bubble.style.top = top + 'px';
+    }
+    function hideInfoBubble(tip) {
+      const bubble = tip.querySelector('.info-bubble');
+      if (bubble) bubble.classList.remove('show');
+    }
+    document.addEventListener('mouseover', (e) => {
+      const tip = e.target.closest && e.target.closest('.info-tip');
+      if (tip) positionInfoBubble(tip);
+    });
+    document.addEventListener('mouseout', (e) => {
+      const tip = e.target.closest && e.target.closest('.info-tip');
+      if (tip && (!e.relatedTarget || !tip.contains(e.relatedTarget))) hideInfoBubble(tip);
+    });
+    document.addEventListener('focusin', (e) => {
+      const tip = e.target.closest && e.target.closest('.info-tip');
+      if (tip) positionInfoBubble(tip);
+    });
+    document.addEventListener('focusout', (e) => {
+      const tip = e.target.closest && e.target.closest('.info-tip');
+      if (tip) hideInfoBubble(tip);
+    });
   </script>
 </body>
 </html>`;
