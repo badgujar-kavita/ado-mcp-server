@@ -1886,32 +1886,49 @@ function getHtmlContent(
     .persona-card-actions .persona-confirm-delete-btn:hover {
       background: #dc2626;
     }
+    /* Persona card fields use a 3-column horizontal layout so all three
+       attributes (Profile / Role(s) / Permission Set Group) sit side-by-side
+       and fill the card's width — no awkward dead space when values are
+       short. Each cell stacks label-on-top, value-below for readability. */
     .persona-card .persona-card-fields {
       display: grid;
-      grid-template-columns: max-content 1fr;
-      column-gap: 0.85rem;
-      row-gap: 0.25rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.45rem 1rem;
+      padding: 0.55rem 0.65rem;
+      margin-top: 0.45rem;
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 8px;
       font-size: 0.84rem;
+    }
+    .persona-card .persona-card-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
     }
     .persona-card .persona-field-label {
       color: var(--text-dim);
-      font-weight: 500;
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
     .persona-card .persona-field-value {
       color: var(--text);
       word-break: break-word;
+      font-size: 0.9rem;
+      font-weight: 500;
     }
     .persona-card .persona-field-value.empty {
       color: var(--text-dim);
       font-style: italic;
+      font-weight: 400;
     }
     @media (max-width: 720px) {
       .persona-card .persona-card-fields {
         grid-template-columns: 1fr;
-        row-gap: 0.05rem;
-      }
-      .persona-card .persona-field-label {
-        margin-top: 0.3rem;
+        gap: 0.55rem;
       }
     }
 
@@ -2139,6 +2156,67 @@ function getHtmlContent(
     }
     .modal-actions .btn { flex: 0 0 auto; padding: 0.65rem 1.25rem; }
 
+    /* Loading skeleton placeholder lines on Tab 2 while ADO probes run.
+       Shown by JS in activateConventionsTab() between fetch start and finish. */
+    .skeleton-block {
+      height: 14px;
+      width: 100%;
+      border-radius: 6px;
+      margin: 0.65rem 0;
+      background: linear-gradient(90deg, rgba(148, 163, 184, 0.06) 0%, rgba(148, 163, 184, 0.18) 50%, rgba(148, 163, 184, 0.06) 100%);
+      background-size: 200% 100%;
+      animation: skeletonShimmer 1.4s ease-in-out infinite;
+    }
+    .skeleton-status {
+      margin-top: 1rem;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      text-align: center;
+      font-style: italic;
+    }
+    @keyframes skeletonShimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    /* Refresh button next to the Conventions card title — re-runs all probes
+       so the user can pick up new plans/fields/iterations created in ADO
+       since they opened the wizard. */
+    .card-refresh-btn {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 8px;
+      color: var(--primary-light);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 150ms ease;
+    }
+    .card-refresh-btn:hover {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: var(--primary);
+    }
+    .card-refresh-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .card-refresh-btn svg {
+      transition: transform 600ms ease;
+    }
+    .card-refresh-btn.spinning svg {
+      animation: spinReverse 0.9s linear infinite;
+    }
+    @keyframes spinReverse {
+      from { transform: rotate(360deg); }
+      to { transform: rotate(0deg); }
+    }
+
     /* Status pill rendered next to inputs after probe */
     .probe-status {
       font-size: 0.82rem;
@@ -2304,6 +2382,23 @@ function getHtmlContent(
           </div>
         </div>
 
+        <!-- Loading skeleton — visible while ADO probes run on Tab 2 activation. -->
+        <div class="card" id="tab2-skeleton" style="display: none;">
+          <div class="card-header">
+            <div class="card-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);">
+              <svg class="spinner" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            </div>
+            <span class="card-title">Loading conventions…</span>
+          </div>
+          <div class="skeleton-block"></div>
+          <div class="skeleton-block" style="width: 70%"></div>
+          <div class="skeleton-block"></div>
+          <div class="skeleton-block" style="width: 85%"></div>
+          <div class="skeleton-block"></div>
+          <div class="skeleton-block" style="width: 60%"></div>
+          <p class="skeleton-status" id="skeleton-status">Probing your ADO project for plans, fields, and iterations…</p>
+        </div>
+
         <div class="card" id="tab2-card" style="display: none;">
           <div class="card-header">
             <div class="card-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);">
@@ -2313,6 +2408,14 @@ function getHtmlContent(
             </div>
             <span class="card-title">Project Conventions</span>
             <span class="card-badge badge-optional">Recommended</span>
+            <button type="button" class="card-refresh-btn" id="refresh-conventions-btn" onclick="refreshConventionsTab()" title="Re-fetch plans, fields, and iterations from ADO. Useful if you just created a new field or plan.">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Refresh
+            </button>
           </div>
 
           <!-- Test case title format (read-only display) -->
@@ -2574,19 +2677,33 @@ function getHtmlContent(
 
     // ─────────── Tab 2: silent revalidation + probe + load ───────────
     let tab2Activated = false;
+    // Activate the Conventions tab. Shows a skeleton loader while the four
+    // ADO probes run in parallel, then swaps in the populated form. The user
+    // always sees feedback — never a blank page. forceReload=true re-runs
+    // probes even if the tab was already activated; used by the manual
+    // refresh button and the org/project change Reuse-vs-Fresh flow.
     async function activateConventionsTab(forceReload = false) {
       const card = document.getElementById('tab2-card');
+      const skeleton = document.getElementById('tab2-skeleton');
       const footer = document.getElementById('tab2-footer');
       const blocked = document.getElementById('tab2-blocked-message');
+      const skelStatus = document.getElementById('skeleton-status');
 
       if (!connectionSaved) {
         blocked.style.display = 'block';
+        skeleton.style.display = 'none';
         card.style.display = 'none';
         footer.style.display = 'none';
         return;
       }
       blocked.style.display = 'none';
-      if (tab2Activated && !forceReload) return; // load once
+      if (tab2Activated && !forceReload) return; // load once unless forced
+
+      // Show skeleton while probes run; hide the populated card if reloading.
+      skeleton.style.display = 'block';
+      card.style.display = 'none';
+      footer.style.display = 'none';
+      if (skelStatus) skelStatus.textContent = 'Probing your ADO project for plans, fields, and iterations…';
 
       // 1. Silently revalidate the keychain PAT (returning user) OR use the
       //    just-typed PAT (first-time user who just saved Tab 1).
@@ -2594,6 +2711,7 @@ function getHtmlContent(
         const check = await fetch('/api/check-keychain-pat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
         if (!check.ok) {
           showStatus('ado-status', 'error', 'PAT validation failed', check.message || 'Update your PAT on Tab 1.');
+          skeleton.style.display = 'none';
           card.style.display = 'none';
           footer.style.display = 'none';
           return;
@@ -2645,9 +2763,79 @@ function getHtmlContent(
 
       conventionsSnapshot = serializeConventionsForm();
 
+      // Swap skeleton for populated card.
+      skeleton.style.display = 'none';
       card.style.display = 'block';
       footer.style.display = 'flex';
       tab2Activated = true;
+    }
+
+    /**
+     * Manual refresh — re-fetches plans / fields / iterations from ADO so
+     * the user can pick up newly-created plans or fields without leaving
+     * the wizard. Preserves any unsaved form edits where possible.
+     */
+    async function refreshConventionsTab() {
+      const btn = document.getElementById('refresh-conventions-btn');
+      if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+
+      // Snapshot current form values so we can re-apply after probes update
+      // the dropdown candidate sets. We pass them in as the "existing" payload
+      // so the user's in-progress edits aren't blown away by a refresh.
+      const inFlight = serializeConventionsForm();
+
+      try {
+        // Force re-probe; activate handles skeleton + render + footer toggle.
+        tab2Activated = false;
+        // Override fetch results: instead of going through /api/load-existing,
+        // pass the user's current form state as if it were "existing".
+        // Easiest path: monkey-patch existingConventions by replacing the
+        // load-existing fetch via a temporary override. Cleanest: inline the
+        // refresh logic so it doesn't re-read the file.
+        const card = document.getElementById('tab2-card');
+        const skeleton = document.getElementById('tab2-skeleton');
+        const footer = document.getElementById('tab2-footer');
+        skeleton.style.display = 'block';
+        card.style.display = 'none';
+        footer.style.display = 'none';
+
+        const org = document.getElementById('ado_org').value.trim();
+        const project = document.getElementById('ado_project').value.trim();
+        const probeBody = JSON.stringify({ pat: activePat, org, project });
+        const [plans, fields, iterations] = await Promise.all([
+          fetch('/api/probe-plans', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+          fetch('/api/probe-fields', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+          fetch('/api/probe-iterations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+        ]);
+
+        probedPlans = plans.ok ? (plans.data || []) : [];
+        probedFields = fields.ok ? fields.data : { prerequisiteCandidates: [], solutionDesignCandidates: [], contextCandidates: [] };
+
+        // Re-render with the user's in-flight form values (NOT the saved file)
+        // so any unsaved edits survive the refresh.
+        renderConventionsForm({
+          sprintPrefix: inFlight.sprintPrefix,
+          testPlanMapping: inFlight.testPlanMapping,
+          personas: inFlight.personas,
+          prerequisiteFieldRef: inFlight.prerequisiteFieldRef,
+          solutionDesignFieldRef: inFlight.solutionDesignFieldRef,
+          additionalContextFields: inFlight.additionalContextFields,
+        });
+
+        if (iterations.ok && iterations.data && iterations.data.suggestedPrefix) {
+          const input = document.getElementById('sprint-prefix-input');
+          const status = document.getElementById('sprint-prefix-status');
+          status.textContent = 'Detected from your iterations: ' + iterations.data.suggestedPrefix + ' — edit if your team uses a different prefix.';
+          status.className = 'probe-status ok';
+        }
+
+        skeleton.style.display = 'none';
+        card.style.display = 'block';
+        footer.style.display = 'flex';
+        tab2Activated = true;
+      } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+      }
     }
 
     function renderConventionsForm(existingConventions) {
@@ -2854,11 +3042,11 @@ function getHtmlContent(
       card.className = 'persona-card';
       card.dataset.personaKey = key;
       const p = persona || { label: '', profile: '', roles: '', psg: '' };
-      const fieldRow = (lbl, val) => {
+      const fieldCell = (lbl, val) => {
         const v = (val || '').trim();
         const cls = v ? 'persona-field-value' : 'persona-field-value empty';
         const display = v ? escapeHtml(v) : '—';
-        return \`<div class="persona-field-label">\${escapeHtml(lbl)}</div><div class="\${cls}">\${display}</div>\`;
+        return \`<div class="persona-card-field"><div class="persona-field-label">\${escapeHtml(lbl)}</div><div class="\${cls}">\${display}</div></div>\`;
       };
       card.innerHTML = \`
         <div class="persona-card-header">
@@ -2871,9 +3059,9 @@ function getHtmlContent(
           </div>
         </div>
         <div class="persona-card-fields">
-          \${fieldRow('Profile', p.profile)}
-          \${fieldRow('Roles', p.roles)}
-          \${fieldRow('PSG', p.psg)}
+          \${fieldCell('Profile', p.profile)}
+          \${fieldCell('Role(s)', p.roles)}
+          \${fieldCell('Permission Set Group', p.psg)}
         </div>
       \`;
       list.appendChild(card);
@@ -3255,15 +3443,37 @@ function getHtmlContent(
       const bubbleRect = bubble.getBoundingClientRect();
       const bubbleW = bubbleRect.width || 320;
       const bubbleH = bubbleRect.height || 80;
-      // Try center-above first
+
+      // Decide vertical placement BEFORE computing top, by checking which
+      // side has more room. This avoids the "centered above, but actually
+      // off-screen" trap when the icon is near the top of the viewport.
+      const spaceAbove = tipRect.top - margin;
+      const spaceBelow = window.innerHeight - tipRect.bottom - margin;
+      const placeBelow = spaceAbove < bubbleH && spaceBelow >= bubbleH
+        ? true
+        : spaceAbove < bubbleH && spaceBelow < bubbleH
+          ? spaceBelow > spaceAbove   // both insufficient → pick the larger
+          : false;                     // there's room above → use it
+
+      let top;
+      if (placeBelow) {
+        top = tipRect.bottom + margin;
+      } else {
+        top = tipRect.top - bubbleH - margin;
+      }
+
+      // Centered-above-icon, then horizontally clamped to viewport.
       let left = tipRect.left + (tipRect.width / 2) - (bubbleW / 2);
-      let top = tipRect.top - bubbleH - margin;
-      // Clamp horizontal: keep within viewport
       const maxLeft = window.innerWidth - bubbleW - margin;
       if (left < margin) left = margin;
       else if (left > maxLeft) left = maxLeft;
-      // If above doesn't fit, flip to below
-      if (top < margin) top = tipRect.bottom + margin;
+
+      // Final safety: if even our chosen side overflows (very small viewport),
+      // clamp top into bounds rather than letting the bubble float off-screen.
+      if (top < margin) top = margin;
+      const maxTop = window.innerHeight - bubbleH - margin;
+      if (top > maxTop) top = maxTop;
+
       bubble.style.left = left + 'px';
       bubble.style.top = top + 'px';
     }
