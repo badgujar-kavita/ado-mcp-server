@@ -938,6 +938,15 @@ function getHtmlContent(
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* Tab 2 has substantially more content (plan-mapping list, persona
+       cards, additional context fields, two field-ref dropdowns). Widen
+       the container while it's active so labels don't truncate and the
+       grid rows have room to breathe. The breakpoint at 720px below
+       still collapses everything to a single column on mobile. */
+    body.tab2-active .container {
+      max-width: 1080px;
     }
 
     .main-content {
@@ -1659,16 +1668,20 @@ function getHtmlContent(
     }
     /* The info bubble uses position:fixed to escape any ancestor with
        overflow:hidden (the .card is one). JS positions the bubble next to
-       the icon on hover/focus — see positionInfoBubble() in the script. */
-    .info-tip {
-      position: relative;
-    }
+       the icon on hover/focus — see positionInfoBubble() in the script.
+       We toggle display:none/block instead of opacity+visibility so the
+       browser doesn't keep a phantom 0×0 layout at viewport top-left when
+       hidden, and so getBoundingClientRect() always returns the bubble's
+       real measured size after .show is applied. */
     .info-bubble {
       position: fixed;
-      left: 0;
-      top: 0;
+      /* Park offscreen until JS positions it so the first frame after
+         .show isn't a flash at viewport top-left. */
+      left: -10000px;
+      top: -10000px;
+      display: none;
       width: 320px;
-      max-width: calc(100vw - 32px);
+      max-width: calc(100vw - 16px);
       padding: 0.7rem 0.9rem;
       background: rgba(20, 25, 40, 0.98);
       border: 1px solid var(--border);
@@ -1678,17 +1691,13 @@ function getHtmlContent(
       font-weight: 400;
       line-height: 1.45;
       text-align: left;
-      opacity: 0;
-      transition: opacity 180ms ease;
       pointer-events: none;
-      z-index: 200;
+      z-index: 1200;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       white-space: normal;
-      visibility: hidden;
     }
     .info-bubble.show {
-      opacity: 1;
-      visibility: visible;
+      display: block;
     }
 
     /* Read-only display field */
@@ -1712,7 +1721,7 @@ function getHtmlContent(
     }
 
     /* Plan-mapping list rows */
-    .plan-row, .persona-row, .ctxfield-row {
+    .plan-row, .ctxfield-row {
       display: grid;
       gap: 0.5rem;
       padding: 0.65rem 0.85rem;
@@ -1725,26 +1734,10 @@ function getHtmlContent(
     .plan-row {
       grid-template-columns: 28px 1fr 1.2fr;
     }
-    /* Persona row uses a 2-row grid so each labeled field gets enough width.
-       Row 1: Label, Profile, Roles, PSG (all visible). Row 2: Key + remove.
-       This avoids the truncated-input problem on standard widths. */
-    .persona-row {
-      grid-template-columns: 1fr 1fr 1fr 1fr;
-      grid-template-areas:
-        "label profile roles psg"
-        "key key key remove";
-      row-gap: 0.45rem;
-    }
-    .persona-row > [data-field="label"]   { grid-area: label; }
-    .persona-row > [data-field="profile"] { grid-area: profile; }
-    .persona-row > [data-field="roles"]   { grid-area: roles; }
-    .persona-row > [data-field="psg"]     { grid-area: psg; }
-    .persona-row > [data-field="key"]     { grid-area: key; }
-    .persona-row > .row-remove            { grid-area: remove; justify-self: end; }
     .ctxfield-row {
       grid-template-columns: 28px 1.6fr 1fr;
     }
-    .plan-row input[type="text"], .persona-row input[type="text"], .ctxfield-row input[type="text"], .ctxfield-row select {
+    .plan-row input[type="text"], .ctxfield-row input[type="text"], .ctxfield-row select {
       padding: 0.55rem 0.7rem;
       background: var(--bg-darker);
       border: 1px solid var(--border);
@@ -1754,23 +1747,272 @@ function getHtmlContent(
       font-size: 0.88rem;
       width: 100%;
     }
-    .persona-row input[type="text"]::placeholder {
-      color: var(--text-dim);
-      opacity: 0.7;
+
+    /* ─────────── Native <select> styling ───────────
+       Native <select>s on macOS render with white/grey browser chrome that
+       clashes with the dark theme. We strip the default appearance and draw
+       the chevron via background-image so the dropdowns visually match the
+       <input> fields next to them across browsers. */
+    .tab-panel select,
+    select.probe-select,
+    .ctxfield-row select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      width: 100%;
+      padding: 0.75rem 2.25rem 0.75rem 1rem;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.3;
+      cursor: pointer;
+      /* Custom chevron rendered as inline SVG data URL for cross-browser
+         consistency (native arrows are unstyleable on most browsers). */
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23a78bfa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='4,6 8,10 12,6'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 0.85rem center;
+      background-size: 14px 14px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    /* On narrow screens, stack persona fields vertically. */
+    .tab-panel select:hover,
+    select.probe-select:hover,
+    .ctxfield-row select:hover {
+      border-color: rgba(139, 92, 246, 0.45);
+    }
+    .tab-panel select:focus,
+    select.probe-select:focus,
+    .ctxfield-row select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow:
+        0 0 0 4px var(--primary-glow),
+        0 4px 20px rgba(0, 0, 0, 0.2);
+      background-color: rgba(15, 23, 42, 0.9);
+    }
+    .tab-panel select:disabled,
+    select.probe-select:disabled,
+    .ctxfield-row select:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    /* The <option> elements themselves can't be styled in most browsers
+       (Chrome/Safari render them via the native OS popup), but we set a
+       sane background+color so Firefox at least matches the theme. */
+    .tab-panel select option,
+    select.probe-select option,
+    .ctxfield-row select option {
+      background: #0f172a;
+      color: var(--text);
+    }
+    /* Compact variant for the smaller selects inside ctxfield rows so
+       they sit at the same height as the row's input. */
+    .ctxfield-row select {
+      padding: 0.55rem 2rem 0.55rem 0.7rem;
+      background-color: var(--bg-darker);
+      border-radius: 6px;
+      font-size: 0.88rem;
+      background-position: right 0.65rem center;
+    }
+
+    /* Persona cards (replaces the old inline persona rows) */
+    .persona-card {
+      position: relative;
+      padding: 0.85rem 1rem 0.85rem 1.05rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 0.6rem;
+      transition: border-color 150ms ease, background 150ms ease;
+    }
+    .persona-card:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      background: rgba(139, 92, 246, 0.04);
+    }
+    .persona-card .persona-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.45rem;
+    }
+    .persona-card .persona-card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .persona-card .persona-card-actions {
+      display: flex;
+      gap: 0.35rem;
+      flex-shrink: 0;
+    }
+    .persona-card-actions button {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 150ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .persona-card-actions .persona-edit-btn:hover {
+      background: rgba(139, 92, 246, 0.15);
+      border-color: var(--primary);
+      color: var(--primary-light);
+    }
+    .persona-card-actions .persona-delete-btn:hover {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .persona-card-actions .persona-confirm-delete-btn {
+      width: auto;
+      padding: 0 0.55rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: var(--error);
+      border-color: var(--error);
+      color: white;
+    }
+    .persona-card-actions .persona-confirm-delete-btn:hover {
+      background: #dc2626;
+    }
+    .persona-card .persona-card-fields {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      column-gap: 0.85rem;
+      row-gap: 0.25rem;
+      font-size: 0.84rem;
+    }
+    .persona-card .persona-field-label {
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .persona-card .persona-field-value {
+      color: var(--text);
+      word-break: break-word;
+    }
+    .persona-card .persona-field-value.empty {
+      color: var(--text-dim);
+      font-style: italic;
+    }
     @media (max-width: 720px) {
-      .persona-row {
+      .persona-card .persona-card-fields {
         grid-template-columns: 1fr;
-        grid-template-areas:
-          "label"
-          "profile"
-          "roles"
-          "psg"
-          "key"
-          "remove";
+        row-gap: 0.05rem;
+      }
+      .persona-card .persona-field-label {
+        margin-top: 0.3rem;
       }
     }
+
+    /* Persona modal (separate from #modal-overlay confirmation modal) */
+    .persona-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 1100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .persona-modal-overlay.show { display: flex; }
+    .persona-modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.6rem 1.6rem 1.4rem;
+      max-width: 540px;
+      width: 100%;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .persona-modal h3 {
+      margin: 0 0 1rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+    .persona-modal .pm-field {
+      margin-bottom: 0.95rem;
+    }
+    .persona-modal .pm-field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+    .persona-modal .pm-field input[type="text"] {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      background: var(--bg-darker);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    .persona-modal .pm-field input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+    }
+    .persona-modal .pm-help {
+      display: block;
+      margin-top: 0.3rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+    .persona-modal .pm-error {
+      color: var(--error);
+      font-size: 0.8rem;
+      margin-top: 0.4rem;
+      min-height: 1.2em;
+    }
+    .persona-modal .pm-advanced {
+      margin-top: 0.25rem;
+      border-top: 1px dashed var(--border);
+      padding-top: 0.85rem;
+    }
+    .persona-modal .pm-advanced-toggle {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .persona-modal .pm-advanced-toggle:hover { color: var(--text); }
+    .persona-modal .pm-advanced-body {
+      margin-top: 0.7rem;
+      display: none;
+    }
+    .persona-modal .pm-advanced-body.show { display: block; }
+    .persona-modal .pm-actions {
+      display: flex;
+      gap: 0.6rem;
+      justify-content: flex-end;
+      margin-top: 1.1rem;
+    }
+    .persona-modal .pm-actions .btn { flex: 0 0 auto; padding: 0.6rem 1.15rem; }
     .plan-row .plan-meta {
       font-size: 0.78rem;
       color: var(--text-muted);
@@ -2112,7 +2354,7 @@ function getHtmlContent(
               <span class="info-tip" tabindex="0">i<span class="info-bubble">Test users that appear in every test case's Prerequisites section. If left empty, your TCs will have no Persona section. Add the standard test users your team uses for verification.</span></span>
             </div>
             <div id="personas-list"></div>
-            <button type="button" class="row-add-btn" onclick="addPersonaRow()">+ Add persona</button>
+            <button type="button" class="row-add-btn" onclick="openPersonaModal()">+ Add persona</button>
           </div>
 
           <!-- Field refs -->
@@ -2175,6 +2417,50 @@ function getHtmlContent(
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal(false)">Cancel</button>
         <button type="button" class="btn btn-primary" id="modal-confirm-btn" onclick="closeModal(true)">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Persona add/edit modal (separate from confirmation modal) -->
+  <div class="persona-modal-overlay" id="persona-modal">
+    <div class="persona-modal" role="dialog" aria-labelledby="persona-modal-title">
+      <h3 id="persona-modal-title">Add persona</h3>
+      <div class="pm-field">
+        <label for="pm-label">Display label</label>
+        <input type="text" id="pm-label" placeholder="e.g. Standard User" autocomplete="off" />
+        <span class="pm-help">Shown in the test case Prerequisites section. This is the name your team recognizes (e.g. "Cashier", "Admin").</span>
+      </div>
+      <div class="pm-field">
+        <label for="pm-profile">Profile name</label>
+        <input type="text" id="pm-profile" placeholder="e.g. Standard User" autocomplete="off" />
+        <span class="pm-help">The Salesforce (or equivalent) profile assigned to this persona.</span>
+      </div>
+      <div class="pm-field">
+        <label for="pm-roles">Role(s)</label>
+        <input type="text" id="pm-roles" placeholder="e.g. Sales Manager, Region Lead" autocomplete="off" />
+        <span class="pm-help">Comma-separated role(s) assigned to this user. Used to verify access in test prerequisites.</span>
+      </div>
+      <div class="pm-field">
+        <label for="pm-psg">Permission Set Group</label>
+        <input type="text" id="pm-psg" placeholder="e.g. Sales_Standard_PSG" autocomplete="off" />
+        <span class="pm-help">The PSG (or permission set bundle) granted to this persona.</span>
+      </div>
+      <div class="pm-error" id="pm-error"></div>
+      <div class="pm-advanced">
+        <button type="button" class="pm-advanced-toggle" id="pm-advanced-toggle" onclick="togglePersonaAdvanced()">
+          <span id="pm-advanced-caret">▸</span> Advanced (internal key)
+        </button>
+        <div class="pm-advanced-body" id="pm-advanced-body">
+          <div class="pm-field" style="margin-bottom: 0;">
+            <label for="pm-key">Internal key</label>
+            <input type="text" id="pm-key" placeholder="auto-generated from label" autocomplete="off" />
+            <span class="pm-help">JSON key used internally (e.g. "StandardUser"). Leave blank to auto-derive from the label — most teams never need to set this.</span>
+          </div>
+        </div>
+      </div>
+      <div class="pm-actions">
+        <button type="button" class="btn btn-secondary" onclick="closePersonaModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="savePersonaFromModal()">Save persona</button>
       </div>
     </div>
   </div>
@@ -2268,6 +2554,10 @@ function getHtmlContent(
       document.getElementById('tab-2').setAttribute('aria-selected', n === 2 ? 'true' : 'false');
       document.getElementById('panel-1').classList.toggle('active', n === 1);
       document.getElementById('panel-2').classList.toggle('active', n === 2);
+      // Tab 2 needs a wider container — toggle a body class so the
+      // .container max-width rule kicks in. Tab 1 stays at its narrower
+      // default width so its short form doesn't feel sparse.
+      document.body.classList.toggle('tab2-active', n === 2);
 
       if (n === 2) {
         activateConventionsTab();
@@ -2388,19 +2678,16 @@ function getHtmlContent(
         });
       }
 
-      // Personas
-      const personasList = document.getElementById('personas-list');
-      personasList.innerHTML = '';
+      // Personas — load into the in-memory currentPersonas map and render
+      // each one as a card. Cards (not rows) are the canonical UI now.
+      currentPersonas = {};
+      personaOrder = [];
       const existingPersonas = existingConventions.personas || {};
-      const personaKeys = Object.keys(existingPersonas);
-      if (personaKeys.length === 0) {
-        // Empty by default — user adds rows.
-      } else {
-        personaKeys.forEach(key => {
-          const p = existingPersonas[key];
-          addPersonaRow(key, p);
-        });
-      }
+      Object.keys(existingPersonas).forEach(key => {
+        currentPersonas[key] = { ...existingPersonas[key] };
+        personaOrder.push(key);
+      });
+      renderAllPersonaCards();
 
       // Prereq field select
       const prereqSelect = document.getElementById('prereq-field-select');
@@ -2444,26 +2731,14 @@ function getHtmlContent(
       list.appendChild(row);
     }
 
-    function addPersonaRow(key, persona) {
-      const list = document.getElementById('personas-list');
-      const row = document.createElement('div');
-      row.className = 'persona-row';
-      const k = key || '';
-      const p = persona || { label: '', profile: '', user: '', roles: '', psg: '' };
-      // Persona "key" is the internal JSON key for the persona (e.g. "Admin"
-      // for the persona labeled "Administrator"). Auto-derived from the
-      // label if the user doesn't provide one. Stripped to alphanumeric +
-      // underscore so it works as a JSON key.
-      row.innerHTML = \`
-        <input type="text" placeholder="Display label (e.g. Standard User)" value="\${escapeHtml(p.label || '')}" data-field="label" />
-        <input type="text" placeholder="Profile name" value="\${escapeHtml(p.profile || '')}" data-field="profile" />
-        <input type="text" placeholder="Role(s)" value="\${escapeHtml(p.roles || '')}" data-field="roles" />
-        <input type="text" placeholder="Permission Set Group" value="\${escapeHtml(p.psg || '')}" data-field="psg" />
-        <input type="text" placeholder="Internal key (auto-generated from label if blank)" value="\${escapeHtml(k)}" data-field="key" />
-        <button type="button" class="row-remove" onclick="this.parentElement.remove()" title="Remove persona">×</button>
-      \`;
-      list.appendChild(row);
-    }
+    /**
+     * Personas are stored in an in-memory map keyed by their JSON key.
+     * personaOrder preserves the order they appear in the list (so editing
+     * a persona keeps its position even if the auto-derived key changes).
+     */
+    let currentPersonas = {};
+    let personaOrder = [];
+    let editingPersonaKey = null; // null = adding; string = editing existing key
 
     /**
      * Derive a clean JSON key from a persona's display label.
@@ -2473,6 +2748,180 @@ function getHtmlContent(
     function derivePersonaKey(label, fallbackIndex) {
       const cleaned = String(label || '').replace(/[^A-Za-z0-9]/g, '');
       return cleaned || ('Persona' + (fallbackIndex + 1));
+    }
+
+    /** Open the persona modal in add mode (no arg) or edit mode (existing key). */
+    function openPersonaModal(existingKey) {
+      const isEdit = typeof existingKey === 'string' && currentPersonas[existingKey];
+      editingPersonaKey = isEdit ? existingKey : null;
+      const p = isEdit ? currentPersonas[existingKey] : { label: '', profile: '', roles: '', psg: '' };
+      document.getElementById('persona-modal-title').textContent = isEdit ? 'Edit persona' : 'Add persona';
+      document.getElementById('pm-label').value = p.label || '';
+      document.getElementById('pm-profile').value = p.profile || '';
+      document.getElementById('pm-roles').value = p.roles || '';
+      document.getElementById('pm-psg').value = p.psg || '';
+      document.getElementById('pm-key').value = isEdit ? existingKey : '';
+      document.getElementById('pm-error').textContent = '';
+      // Collapse Advanced by default when opening
+      document.getElementById('pm-advanced-body').classList.remove('show');
+      document.getElementById('pm-advanced-caret').textContent = '▸';
+      document.getElementById('persona-modal').classList.add('show');
+      // Focus the label field for fast entry
+      setTimeout(() => document.getElementById('pm-label').focus(), 0);
+    }
+
+    function closePersonaModal() {
+      document.getElementById('persona-modal').classList.remove('show');
+      editingPersonaKey = null;
+    }
+
+    function togglePersonaAdvanced() {
+      const body = document.getElementById('pm-advanced-body');
+      const caret = document.getElementById('pm-advanced-caret');
+      const isOpen = body.classList.toggle('show');
+      caret.textContent = isOpen ? '▾' : '▸';
+    }
+
+    /**
+     * Validate the modal form, write into currentPersonas, then re-render
+     * the cards. In edit mode, replace the original entry (preserving
+     * position even if the auto-derived key changed).
+     */
+    function savePersonaFromModal() {
+      const label = (document.getElementById('pm-label').value || '').trim();
+      const profile = (document.getElementById('pm-profile').value || '').trim();
+      const roles = (document.getElementById('pm-roles').value || '').trim();
+      const psg = (document.getElementById('pm-psg').value || '').trim();
+      let key = (document.getElementById('pm-key').value || '').trim();
+      const errEl = document.getElementById('pm-error');
+
+      if (!label) {
+        errEl.textContent = 'Display label is required.';
+        document.getElementById('pm-label').focus();
+        return;
+      }
+      errEl.textContent = '';
+
+      // Auto-derive key when blank. fallbackIndex uses current order length
+      // as a rough deterministic fallback (only kicks in for label that
+      // strips to empty — e.g. all punctuation).
+      if (!key) key = derivePersonaKey(label, personaOrder.length);
+
+      // Disambiguate against existing keys (excluding the entry we're editing).
+      let unique = key;
+      let suffix = 2;
+      while (currentPersonas[unique] && unique !== editingPersonaKey) {
+        unique = key + suffix;
+        suffix += 1;
+      }
+
+      const persona = { label, profile, roles, psg };
+
+      if (editingPersonaKey && editingPersonaKey !== unique) {
+        // Key changed during edit — replace at the same position in order.
+        const pos = personaOrder.indexOf(editingPersonaKey);
+        delete currentPersonas[editingPersonaKey];
+        if (pos >= 0) personaOrder.splice(pos, 1);
+        currentPersonas[unique] = persona;
+        if (pos >= 0) personaOrder.splice(pos, 0, unique);
+        else personaOrder.push(unique);
+      } else if (editingPersonaKey) {
+        // Edit in place — same key, just update values.
+        currentPersonas[unique] = persona;
+      } else {
+        // New persona — append.
+        currentPersonas[unique] = persona;
+        if (!personaOrder.includes(unique)) personaOrder.push(unique);
+      }
+
+      closePersonaModal();
+      renderAllPersonaCards();
+    }
+
+    /** Re-render every persona card from currentPersonas in personaOrder. */
+    function renderAllPersonaCards() {
+      const list = document.getElementById('personas-list');
+      list.innerHTML = '';
+      personaOrder.forEach(key => {
+        if (currentPersonas[key]) renderPersonaCard(key, currentPersonas[key]);
+      });
+    }
+
+    /** Build and append a single persona card. */
+    function renderPersonaCard(key, persona) {
+      const list = document.getElementById('personas-list');
+      const card = document.createElement('div');
+      card.className = 'persona-card';
+      card.dataset.personaKey = key;
+      const p = persona || { label: '', profile: '', roles: '', psg: '' };
+      const fieldRow = (lbl, val) => {
+        const v = (val || '').trim();
+        const cls = v ? 'persona-field-value' : 'persona-field-value empty';
+        const display = v ? escapeHtml(v) : '—';
+        return \`<div class="persona-field-label">\${escapeHtml(lbl)}</div><div class="\${cls}">\${display}</div>\`;
+      };
+      card.innerHTML = \`
+        <div class="persona-card-header">
+          <div class="persona-card-title">\${escapeHtml(p.label || '(unnamed persona)')}</div>
+          <div class="persona-card-actions">
+            <button type="button" class="persona-edit-btn" title="Edit persona" onclick="openPersonaModal('\${escapeHtml(key)}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            </button>
+            <button type="button" class="persona-delete-btn" title="Delete persona" onclick="deletePersona('\${escapeHtml(key)}', this)">×</button>
+          </div>
+        </div>
+        <div class="persona-card-fields">
+          \${fieldRow('Profile', p.profile)}
+          \${fieldRow('Roles', p.roles)}
+          \${fieldRow('PSG', p.psg)}
+        </div>
+      \`;
+      list.appendChild(card);
+    }
+
+    /**
+     * Delete flow: first click swaps the × for an inline "Confirm" button.
+     * Second click within 4s confirms; clicking elsewhere or timing out
+     * reverts. Avoids the jarring native confirm() dialog.
+     */
+    function deletePersona(key, btn) {
+      // Look for an existing confirm button on this card.
+      const card = btn.closest('.persona-card');
+      if (!card) return;
+      const actions = card.querySelector('.persona-card-actions');
+      if (!actions) return;
+
+      // If we're already in "confirm" mode for this card, perform the delete.
+      if (btn.dataset.confirming === 'true') {
+        delete currentPersonas[key];
+        const idx = personaOrder.indexOf(key);
+        if (idx >= 0) personaOrder.splice(idx, 1);
+        renderAllPersonaCards();
+        return;
+      }
+
+      // Switch to confirm mode.
+      btn.dataset.confirming = 'true';
+      btn.classList.remove('persona-delete-btn');
+      btn.classList.add('persona-confirm-delete-btn');
+      btn.textContent = 'Delete?';
+      btn.title = 'Click again to confirm';
+      // Auto-revert after 4s.
+      const revertTimer = setTimeout(() => revert(), 4000);
+      function revert() {
+        clearTimeout(revertTimer);
+        btn.dataset.confirming = '';
+        btn.classList.remove('persona-confirm-delete-btn');
+        btn.classList.add('persona-delete-btn');
+        btn.textContent = '×';
+        btn.title = 'Delete persona';
+        document.removeEventListener('click', outside, true);
+      }
+      function outside(e) {
+        if (e.target !== btn) revert();
+      }
+      // Defer attaching the outside-click listener so this very click doesn't fire it.
+      setTimeout(() => document.addEventListener('click', outside, true), 0);
     }
 
     function addContextField(existing) {
@@ -2553,26 +3002,17 @@ function getHtmlContent(
         });
       });
 
-      // Personas — auto-derive key from label when user leaves it blank.
+      // Personas — read from the in-memory map maintained by the modal/cards.
+      // Modal validation already enforces non-empty label and key uniqueness.
       const personas = {};
-      Array.from(document.querySelectorAll('#personas-list .persona-row')).forEach((row, idx) => {
-        const get = (f) => (row.querySelector(\`input[data-field="\${f}"]\`) || {}).value || '';
-        const label = get('label').trim();
-        if (!label) return; // skip empty rows
-        let key = get('key').trim();
-        if (!key) key = derivePersonaKey(label, idx);
-        // Defensive: avoid overwriting if two rows derive to the same key.
-        let unique = key;
-        let suffix = 2;
-        while (personas[unique]) {
-          unique = key + suffix;
-          suffix += 1;
-        }
-        personas[unique] = {
-          label,
-          profile: get('profile').trim(),
-          roles: get('roles').trim(),
-          psg: get('psg').trim(),
+      personaOrder.forEach(key => {
+        const p = currentPersonas[key];
+        if (!p || !p.label) return;
+        personas[key] = {
+          label: (p.label || '').trim(),
+          profile: (p.profile || '').trim(),
+          roles: (p.roles || '').trim(),
+          psg: (p.psg || '').trim(),
         };
       });
 
@@ -2798,20 +3238,28 @@ function getHtmlContent(
     // ─────────── Info-tip positioning ───────────
     // Tooltips use position:fixed and are positioned by JS so they escape any
     // ancestor with overflow:hidden (the .card has it) AND so they flip away
-    // from the right edge when the icon is near it.
+    // from the right edge when the icon is near it. The bubble is parked
+    // off-screen via CSS until .show is added; we then measure and place it
+    // in the same synchronous step so the user never sees an unstyled flash.
     function positionInfoBubble(tip) {
       const bubble = tip.querySelector('.info-bubble');
       if (!bubble) return;
       const tipRect = tip.getBoundingClientRect();
+      // Skip work if the icon isn't laid out (e.g., parent display:none).
+      if (!tipRect.width && !tipRect.height) return;
       const margin = 8;
-      // Render to measure
+      // Make the bubble laid-out (display:block) so getBoundingClientRect
+      // returns its true rendered size. CSS keeps it off-screen at this
+      // point, so no flash is visible while we measure.
       bubble.classList.add('show');
       const bubbleRect = bubble.getBoundingClientRect();
+      const bubbleW = bubbleRect.width || 320;
+      const bubbleH = bubbleRect.height || 80;
       // Try center-above first
-      let left = tipRect.left + (tipRect.width / 2) - (bubbleRect.width / 2);
-      let top = tipRect.top - bubbleRect.height - margin;
+      let left = tipRect.left + (tipRect.width / 2) - (bubbleW / 2);
+      let top = tipRect.top - bubbleH - margin;
       // Clamp horizontal: keep within viewport
-      const maxLeft = window.innerWidth - bubbleRect.width - margin;
+      const maxLeft = window.innerWidth - bubbleW - margin;
       if (left < margin) left = margin;
       else if (left > maxLeft) left = maxLeft;
       // If above doesn't fit, flip to below
@@ -2821,24 +3269,39 @@ function getHtmlContent(
     }
     function hideInfoBubble(tip) {
       const bubble = tip.querySelector('.info-bubble');
-      if (bubble) bubble.classList.remove('show');
+      if (!bubble) return;
+      bubble.classList.remove('show');
+      // Reset inline coords so the next show measures the bubble at its
+      // CSS-parked offscreen position rather than wherever it was last placed.
+      bubble.style.left = '';
+      bubble.style.top = '';
     }
     document.addEventListener('mouseover', (e) => {
-      const tip = e.target.closest && e.target.closest('.info-tip');
+      const tip = e.target && e.target.closest && e.target.closest('.info-tip');
       if (tip) positionInfoBubble(tip);
     });
     document.addEventListener('mouseout', (e) => {
-      const tip = e.target.closest && e.target.closest('.info-tip');
+      const tip = e.target && e.target.closest && e.target.closest('.info-tip');
       if (tip && (!e.relatedTarget || !tip.contains(e.relatedTarget))) hideInfoBubble(tip);
     });
     document.addEventListener('focusin', (e) => {
-      const tip = e.target.closest && e.target.closest('.info-tip');
+      const tip = e.target && e.target.closest && e.target.closest('.info-tip');
       if (tip) positionInfoBubble(tip);
     });
     document.addEventListener('focusout', (e) => {
-      const tip = e.target.closest && e.target.closest('.info-tip');
+      const tip = e.target && e.target.closest && e.target.closest('.info-tip');
       if (tip) hideInfoBubble(tip);
     });
+    // Reposition any visible tooltip on resize/scroll so it doesn't drift
+    // away from its icon if the page reflows.
+    function repositionVisibleTips() {
+      document.querySelectorAll('.info-bubble.show').forEach((b) => {
+        const tip = b.parentElement;
+        if (tip) positionInfoBubble(tip);
+      });
+    }
+    window.addEventListener('resize', repositionVisibleTips);
+    window.addEventListener('scroll', repositionVisibleTips, true);
   </script>
 </body>
 </html>`;
