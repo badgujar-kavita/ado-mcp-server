@@ -20,15 +20,15 @@ The installer will:
 * Clone the repository to `~/.vortex-ado`
 * Install dependencies and build
 * Register VortexADO MCP in Cursor
-* Create a credentials template at `~/.vortex-ado/credentials.json`
 
 **After installation:**
 
-1. **Configure credentials** \-\- Edit `~/.vortex-ado/credentials.json` with your ADO PAT, org, and project (see [Step 2](#step-2-configure-your-credentials))
-2. **Restart Cursor** (or reload MCP in Settings > MCP)
-3. **Verify** \-\- Type `/vortex-ado/ado-check` in AI chat
+1. **Open your project folder in Cursor** (per-workspace config lives next to the project — supports running multiple ADO projects in parallel windows)
+2. **Configure credentials** \-\- Run `/vortex-ado/ado-connect` from inside the workspace; it writes `<workspace>/.vortex-ado/config.json` and stores your PAT in the OS keychain (see [Step 2](#step-2-configure-your-credentials))
+3. **Restart Cursor** (or reload MCP in Settings > MCP)
+4. **Verify** \-\- Type `/vortex-ado/ado-check` in AI chat
 
-After setup, VortexADO MCP is available in **all workspaces** automatically.
+After setup, VortexADO MCP is available in **all workspaces** automatically. Each workspace carries its own config — two Cursor windows on two different ADO projects work in parallel without sharing state.
 
 ---
 
@@ -110,65 +110,64 @@ This is only relevant for production/shared deployments. For individual use, PAT
 
 ## Step 2: Configure Your Credentials
 
+> **Phase 1 update.** As of v1.x, `/vortex-ado/ado-connect` writes a **per-workspace** config at `<workspace>/.vortex-ado/config.json` and stores your PAT in the **OS keychain** (macOS Keychain / Windows Credential Manager / Linux libsecret). Tokens never touch disk. Run the wizard once **per project workspace** — each workspace stays isolated, so you can have two Cursor windows on two different ADO projects without them stepping on each other. See [docs/conventions.md](conventions.md) for the full schema.
+
 ### Option A: Use the Configuration UI (Recommended)
 
-After restarting Cursor, run this command in the AI chat:
+Open your project folder in Cursor, then in the AI chat run:
 
 ```
 /vortex-ado/ado-connect
 ```
 
-This opens a beautiful web interface where you can:
+This opens a web interface where you can:
 
 * Enter your Azure DevOps credentials
 * Optionally configure Confluence
 * **Test connections before saving**
-* Save credentials securely
+* Save credentials securely (PAT into the OS keychain, connection details into `<workspace>/.vortex-ado/config.json`)
+
+🚫 The wizard refuses to write into your home directory or a non-writable cwd — open the actual project folder first.
 
 ### Option B: Edit Manually
 
-If you prefer to edit the file directly:
+If you prefer to set up by hand:
 
-1. Open the credentials file:
-
-**Mac:**
-
-```bash
-open ~/.vortex-ado/credentials.json
-```
-
-**Windows (PowerShell):**
-
-```powershell
-notepad "$env:USERPROFILE\.vortex-ado\credentials.json"
-```
-
-2. The file looks like this:
+1. Create `<workspace>/.vortex-ado/config.json` with at least the `ado` block:
 
 ```json
 {
-  "ado_pat": "your-personal-access-token",
-  "ado_org": "your-organization-name",
-  "ado_project": "your-project-name",
-  "confluence_base_url": "",
-  "confluence_email": "",
-  "confluence_api_token": ""
+  "version": 1,
+  "ado": {
+    "url": "https://dev.azure.com/YourOrgName",
+    "org": "YourOrgName",
+    "project": "Your Project Name"
+  }
 }
 ```
 
-3. Replace the placeholder values:
+2. Store the PAT in your OS keychain under service `vortex-ado`, account `ado::YourOrgName::Your Project Name`:
 
-| Field | What to Enter | Example |
-|---|---|---|
-| `ado_pat` | The PAT you created in Step 1 | `ghp4x7abc123...` |
-| `ado_org` | Your ADO organization name (from `https://dev.azure.com/{org}`) | `YourOrgName` |
-| `ado_project` | Your ADO project name | `TPM Product Ecosystem` |
+   **Mac:**
+   ```bash
+   security add-generic-password -s "vortex-ado" -a "ado::YourOrgName::Your Project Name" -w "your-pat-here"
+   ```
 
-The Confluence fields are **optional** \-\- leave them empty if you don't use Confluence. See [Step 2b](#step-2b-configure-confluence-optional) for Confluence setup.
+   **Windows (PowerShell):**
+   ```powershell
+   cmdkey /generic:"vortex-ado/ado::YourOrgName::Your Project Name" /user:"vortex-ado" /pass:"your-pat-here"
+   ```
 
-4. **Save the file**
+   **Linux:**
+   ```bash
+   echo -n "your-pat-here" | secret-tool store --label "vortex-ado" service vortex-ado account "ado::YourOrgName::Your Project Name"
+   ```
 
-**Important:** Never paste your PAT in Cursor's chat. Your credentials are stored locally and are never shared.
+3. Confluence fields are **optional** \-\- leave them out of `config.json` if you don't use Confluence. See [Step 2b](#step-2b-configure-confluence-optional).
+
+> **Important:** Never paste your PAT in Cursor's chat. The keychain keeps it off disk and out of any backup that captures your home directory.
+
+> **Legacy fallback.** If you have an old `~/.vortex-ado/credentials.json` from before Phase 1, the MCP will still read it as a fallback so you're not broken — but you'll see a one-time migration warning at startup recommending you re-run `/ado-connect` per-workspace.
 
 ---
 
@@ -210,13 +209,16 @@ That's it -- **read-only access to page content only**.
 
 #### Fill in the Credentials
 
-Open `~/.vortex-ado/credentials.json` and fill in the three Confluence fields:
+The easiest way is to fill in Confluence inside `/vortex-ado/ado-connect` — the wizard saves URL + email to `<workspace>/.vortex-ado/config.json` under `confluence` and the API token to the OS keychain (account `confluence::{org}::{project}`).
 
-| Field | What to Enter | Example |
+If you'd rather configure manually, add a `confluence` block to `<workspace>/.vortex-ado/config.json`:
+
+| `config.json` field | What to Enter | Example |
 |---|---|---|
-| `confluence_base_url` | Your Confluence Cloud base URL (with `/wiki`) | `https://your-org.atlassian.net/wiki` |
-| `confluence_email` | The email address of your Atlassian account | `kavita.badgujar@company.com` |
-| `confluence_api_token` | The API token you created above | `ATATT3x...` |
+| `confluence.url` | Your Confluence Cloud base URL (with `/wiki`) | `https://your-org.atlassian.net/wiki` |
+| `confluence.email` | The email address of your Atlassian account | `kavita.badgujar@company.com` |
+
+Then store the API token in your OS keychain under service `vortex-ado`, account `confluence::{org}::{project}`. See [docs/conventions.md § 6](conventions.md#6-where-credentials-live) for per-platform commands.
 
 ### Path 2: If You Move to OAuth 2.0 (3LO) Scopes
 
@@ -259,17 +261,13 @@ If Confluence is not configured, the field is empty, or the linked page cannot b
 
 ## Step 2c: Tune Context Richness (Optional)
 
-The following knobs in `conventions.config.json` control how much work-item context `ado_story` returns. Both are optional — defaults work for most teams.
+The following knobs in your **per-workspace** config (`<workspace>/.vortex-ado/config.json`) control how much work-item context `ado_story` returns. Both are optional — framework defaults work for most teams.
 
-> **⚠️ Important — edits to `conventions.config.json` are overwritten by re-install.**
->
-> The file lives at `~/.vortex-ado/conventions.config.json`. It IS created automatically on first install (the tarball contains it), and the MCP reads your edits at runtime — so tweaking values locally works as expected. **But** the installer (curl one-liner) overwrites this file on every re-install with the latest repo defaults. Only `credentials.json` is preserved across re-installs today.
->
-> If you flip `returnMcpImageParts` or add entries to `additionalContextFields`, either keep a copy of your edits somewhere safe, or plan to re-apply them after running the installer to upgrade. (A future installer improvement may preserve this file too.)
+> ✅ **Phase 1 update.** Your `<workspace>/.vortex-ado/config.json` is **not** touched by re-installs. The installer only updates the MCP runtime (under `~/.vortex-ado/`); your per-workspace config and your keychain entries are completely separate. Re-running `/ado-connect` only updates credential-related fields and preserves manual edits like `additionalContextFields`, `personas`, and `testPlanMapping`. The legacy global `~/.vortex-ado/conventions.config.json` is still read as a fallback but should be migrated by running `/ado-connect` once per workspace.
 
 ### Enabling embedded image vision (optional)
 
-By default `ado_story` returns work-item context as a single text content part. To let vision-capable MCP clients (Cursor, Claude Desktop) see ADO-attached screenshots and Confluence diagrams directly, flip this flag in `conventions.config.json`:
+By default `ado_story` returns work-item context as a single text content part. To let vision-capable MCP clients (Cursor, Claude Desktop) see ADO-attached screenshots and Confluence diagrams directly, flip this flag in `<workspace>/.vortex-ado/config.json`:
 
 ```json
 {
@@ -294,7 +292,7 @@ The MCP scans the following ADO fields by default on every User Story fetch:
 - `Microsoft.VSTS.Common.AcceptanceCriteria`
 - `Custom.TechnicalSolution` (Solution Notes — configurable via `solutionDesign.adoFieldRef`)
 
-If your project uses additional custom fields (Impact Assessment, Reference Documentation, Business Justification, etc.) that contain test-design-relevant content, add them to `additionalContextFields` in `conventions.config.json`:
+If your project uses additional custom fields (Impact Assessment, Reference Documentation, Business Justification, etc.) that contain test-design-relevant content, add them to `additionalContextFields` in `<workspace>/.vortex-ado/config.json`:
 
 ```json
 {
@@ -424,7 +422,7 @@ You can also use natural language instead of commands. For example, type "Fetch 
 
 ### Scalability
 
-- All naming conventions and formatting rules live in `conventions.config.json`, so many future adjustments do not require code changes.
+- All naming conventions and formatting rules live in `<workspace>/.vortex-ado/config.json` (per-workspace, merged on top of framework defaults), so many future adjustments do not require code changes. See [docs/conventions.md](conventions.md).
 - Most workflows are composed in prompts and skills, which keeps the MCP tools focused and reusable across projects.
 
 ### Reliability
@@ -508,8 +506,9 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 ### "No valid credentials found" after restart
 
-- Open `~/.vortex-ado/credentials.json` and verify you replaced all placeholder values
-- Make sure the `ado_pat`, `ado_org`, and `ado_project` fields are not empty
+- Run `/vortex-ado/ado-connect` from inside your workspace folder — this writes `<workspace>/.vortex-ado/config.json` and stores your PAT in the OS keychain.
+- If the wizard refuses with "refusing to write into home directory", it means you opened Cursor without a project folder. Open the actual project folder and retry.
+- For legacy installs only: open `~/.vortex-ado/credentials.json` and verify you replaced all placeholder values; make sure `ado_pat`, `ado_org`, and `ado_project` are not empty.
 - Run `/vortex-ado/ado-check` to see which field is missing
 
 ### PAT authentication errors (401)
@@ -531,13 +530,16 @@ When `ado_story` or `confluence_read` returns "401 Unauthorized" when fetching S
 
 4. **Space permissions** — Your account must have **Can view** on the Confluence space (e.g., GCTP). Check Space Settings > Permissions.
 
-5. **Credentials location** — Add to `~/.vortex-ado/credentials.json`:
-   ```json
-   "confluence_base_url": "https://your-org.atlassian.net/wiki",
-   "confluence_email": "your.email@company.com",
-   "confluence_api_token": "ATATT3x..."
+5. **Credentials location** — Easiest fix: re-run `/vortex-ado/ado-connect` and re-enter the Confluence section. The wizard updates `<workspace>/.vortex-ado/config.json` and stores the API token in the OS keychain (account `confluence::{org}::{project}`). Manual layout:
+   ```jsonc
+   // <workspace>/.vortex-ado/config.json
+   "confluence": {
+     "enabled": true,
+     "url":     "https://your-org.atlassian.net/wiki",
+     "email":   "your.email@company.com"
+   }
    ```
-   Or use env vars: `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`.
+   Plus the API token in the OS keychain. Or use env vars: `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`. Legacy `~/.vortex-ado/credentials.json` is still read as a fallback.
 
 6. **Restart** — After changing credentials, restart the MCP server (Cursor Settings > MCP > refresh vortex-ado).
 
@@ -560,14 +562,17 @@ The installer adds **ado\-testforge** to your **global** Cursor config (`~/.curs
 
 ## Credential Security
 
-Your credentials are stored at `~/.vortex-ado/credentials.json` in your **home directory**. This means:
+As of Phase 1, your PAT and Confluence API token are stored in the **OS keychain** (macOS Keychain / Windows Credential Manager / Linux libsecret) under service `vortex-ado`. Connection identifiers (org, project, URL) live in `<workspace>/.vortex-ado/config.json`. This means:
 
-* Your PAT is stored locally only \-\- never synced or shared
+* Your PAT is stored in the OS-managed credential store \-\- never on disk, never synced or shared
 * Your PAT never appears in Cursor's chat history
 * Each team member has their own separate credentials
-* Re\-installing does not overwrite existing credentials
+* Each workspace has its own connection context (two Cursor windows on two ADO projects = two isolated configs)
+* Re\-running `/ado-connect` preserves your manual edits to non-credential blocks (`testCaseTitle`, `personas`, plan mappings, etc.)
 
-To update your credentials at any time, edit the file directly.
+To update your credentials at any time, re-run `/vortex-ado/ado-connect` from inside the workspace, or use your OS's credential-manager UI directly. See [docs/conventions.md § 6](conventions.md#6-where-credentials-live) for inspection and deletion commands.
+
+**Legacy:** A `~/.vortex-ado/credentials.json` from a pre-Phase-1 install is still read as a fallback and is not deleted automatically. You can remove it once you've re-run `/ado-connect` for each workspace.
 
 ---
 

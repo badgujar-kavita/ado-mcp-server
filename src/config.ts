@@ -1,14 +1,36 @@
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
+/**
+ * Per-workspace conventions config loader.
+ *
+ * Resolution order:
+ *   1. Per-workspace config at `<workspace>/.vortex-ado/config.json`
+ *      (workspace = process.cwd(), which Cursor sets to the open folder).
+ *      Merged with framework defaults from src/config/defaults.ts.
+ *   2. Legacy global config at `~/.vortex-ado/conventions.config.json`.
+ *      Read as-is (no merge) for backward compatibility during migration.
+ *   3. Framework defaults only (no tenant overrides at all).
+ *
+ * Multi-project safety: each Cursor window spawns its own MCP process with
+ * its own `process.cwd()`, so two windows with two projects open get two
+ * different per-workspace configs. They never interfere with each other.
+ *
+ * The legacy fallback is intentional during Phase 1 of the migration: tenants
+ * who haven't yet run /ado-connect in their workspace still see the old
+ * behavior. The startup migration warning (Commit 6) tells them what to do.
+ */
+
+import { existsSync, readFileSync } from "fs";
+import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
+import { homedir } from "os";
 import { z } from "zod";
 import type { ConventionsConfig } from "./types.ts";
+import { mergeConfig } from "./config/merge.ts";
+import { WorkspaceConfigSchema, type WorkspaceConfig } from "./config/schema.ts";
 
 const PersonaConfigSchema = z.preprocess(
   (v) => {
     if (v && typeof v === "object" && v !== null) {
       const obj = v as Record<string, unknown>;
-      // Backward compat: accept old `tpmRoles` field name and map to `roles`.
       if (!("roles" in obj) && "tpmRoles" in obj) {
         return { ...obj, roles: obj.tpmRoles };
       }
@@ -57,7 +79,11 @@ const ContextBudgetsSchema = z.object({
   maxTotalFetchSeconds: z.number().int().positive().optional().default(45),
 });
 
-const ConventionsConfigSchema = z.object({
+/**
+ * Legacy schema — matches the shipped conventions.config.json shape.
+ * Used only when reading the legacy global file during migration.
+ */
+const LegacyConventionsConfigSchema = z.object({
   testCaseTitle: z.object({
     prefix: z.string(),
     separator: z.string(),
@@ -68,11 +94,7 @@ const ConventionsConfigSchema = z.object({
   prerequisites: z.object({
     heading: z.string(),
     sections: z.array(
-      z.object({
-        key: z.string(),
-        label: z.string(),
-        required: z.boolean(),
-      })
+      z.object({ key: z.string(), label: z.string(), required: z.boolean() }),
     ),
     preConditionFormat: z.object({
       style: z.string(),
@@ -122,15 +144,99 @@ const ConventionsConfigSchema = z.object({
   context: ContextBudgetsSchema.optional(),
 });
 
+/** Cache by resolved config source path so each Cursor window's process gets its own copy. */
 let _config: ConventionsConfig | null = null;
+let _configSource: string | null = null;
 
+/**
+ * Path of the per-workspace config file, computed from process.cwd().
+ * Each Cursor window's MCP process has its own cwd, so this returns the
+ * right per-workspace path automatically.
+ */
+function workspaceConfigPath(): string {
+  return join(process.cwd(), ".vortex-ado", "config.json");
+}
+
+/**
+ * Path of the legacy global config file.
+ */
+function legacyConventionsPath(): string {
+  return join(homedir(), ".vortex-ado", "conventions.config.json");
+}
+
+/**
+ * Bundled (shipped) config that lives next to dist/. Kept as a last-resort
+ * fallback during Phase 1 — Commit 6 will delete this and rely solely on
+ * framework defaults + workspace overrides.
+ */
+function bundledConventionsPath(): string {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  return resolve(__dirname, "..", "conventions.config.json");
+}
+
+/**
+ * Load the conventions config for the current workspace.
+ *
+ * No-arg signature preserved so the ~30 existing callsites don't change.
+ * The function reads `process.cwd()` internally to determine the workspace.
+ */
 export function loadConventionsConfig(): ConventionsConfig {
   if (_config) return _config;
 
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-  const configPath = resolve(__dirname, "..", "conventions.config.json");
-  const raw = readFileSync(configPath, "utf-8");
-  const parsed = JSON.parse(raw);
-  _config = ConventionsConfigSchema.parse(parsed) as ConventionsConfig;
+  // Step 1: per-workspace config (canonical new location).
+  const wsPath = workspaceConfigPath();
+  if (existsSync(wsPath)) {
+    try {
+      const raw = JSON.parse(readFileSync(wsPath, "utf-8"));
+      const workspace = WorkspaceConfigSchema.parse(raw) as WorkspaceConfig;
+      _config = mergeConfig(workspace);
+      _configSource = wsPath;
+      return _config;
+    } catch (err) {
+      // Surface the schema/parse failure clearly instead of silently falling
+      // back to legacy. A malformed workspace config is a user-fixable issue
+      // we want to be loud about.
+      throw new Error(
+        `Failed to parse workspace config at ${wsPath}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  // Step 2: legacy global config (backward compat during Phase 1).
+  const legacyPath = legacyConventionsPath();
+  if (existsSync(legacyPath)) {
+    const raw = JSON.parse(readFileSync(legacyPath, "utf-8"));
+    _config = LegacyConventionsConfigSchema.parse(raw) as ConventionsConfig;
+    _configSource = legacyPath;
+    return _config;
+  }
+
+  // Step 3: bundled shipped config (legacy install fallback). Goes away in Commit 6.
+  const bundledPath = bundledConventionsPath();
+  if (existsSync(bundledPath)) {
+    const raw = JSON.parse(readFileSync(bundledPath, "utf-8"));
+    _config = LegacyConventionsConfigSchema.parse(raw) as ConventionsConfig;
+    _configSource = bundledPath;
+    return _config;
+  }
+
+  // Step 4: framework defaults only (truly no tenant config anywhere).
+  // Empty workspace config produces a config with empty Category-1 fields
+  // (testCaseTitle.prefix=""", personas={}, sprintPrefix="", etc.). Tools
+  // surface clear errors when they hit empty Category-1 values.
+  _config = mergeConfig({ version: 1 });
+  _configSource = "(framework defaults only)";
   return _config;
+}
+
+/** Test seam — reset cache so tests can change cwd and reload. */
+export function __resetConventionsCacheForTests(): void {
+  _config = null;
+  _configSource = null;
+}
+
+/** Diagnostic — what file (if any) was the loaded config read from? */
+export function getConventionsConfigSource(): string | null {
+  if (!_config) loadConventionsConfig();
+  return _configSource;
 }

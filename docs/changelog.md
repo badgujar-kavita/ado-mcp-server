@@ -6,6 +6,104 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### Phase 1 — Per-workspace config + OS keychain
+
+The MCP now resolves all per-tenant configuration **per-workspace** instead of from a single global file. Combined with OS-keychain-backed credentials, this unblocks the multi-project parallel-work case.
+
+**Why this exists.** A QA engineer who works on two ADO projects (e.g. `Project_ABC` in one Cursor window and `Project_XYZ` in another) used to share **one** global config at `~/.vortex-ado/conventions.config.json` and **one** PAT at `~/.vortex-ado/credentials.json` across both windows. There was no way to point Project_ABC at one ADO org/project and Project_XYZ at another simultaneously — the windows would clobber each other. Phase 1 fixes this. Each Cursor window spawns its own MCP process with its own `process.cwd()`, reads its **own** `<workspace>/.vortex-ado/config.json`, and looks up its **own** keychain entry. Two workspaces = two isolated configs = two parallel sessions, no interference.
+
+**New: per-workspace config file.** Replaces the global `conventions.config.json` for new setups.
+
+```
+<workspace>/.vortex-ado/config.json
+```
+
+Schema (see `docs/conventions.md` for full annotated reference):
+
+```jsonc
+{
+  "version": 1,
+  "ado": {
+    "url": "https://dev.azure.com/MyOrg",
+    "org": "MyOrg",
+    "project": "MyProject",
+    "setupAt": "2026-05-10T...",
+    "fieldRefs": {
+      "prerequisite":    "Custom.PrerequisiteforTest",   // optional override
+      "solutionDesign":  "Custom.TechnicalSolution"      // optional override
+    }
+  },
+  "confluence": { "enabled": true, "url": "...", "email": "..." },  // optional
+  "testCaseTitle":         { "prefix": "TC_" },                      // project-specific
+  "prerequisiteDefaults":  { "personas": { ... }, "personaRolesLabel": "...", "personaPsgLabel": "..." },
+  "suiteStructure":        { "sprintPrefix": "Sprint_", "tcTitlePrefix": "TC", "testPlanMapping": [ ... ] },
+  "additionalContextFields": []
+}
+```
+
+Everything else (framework defaults — `prerequisites.heading`, `images.*`, `context.*`, `solutionDesign.usageRules`, `testCaseDefaults`, etc.) is filled in automatically by the merge layer; tenants don't see or edit it.
+
+**New: OS keychain credentials storage.** ADO PATs and Confluence API tokens are now stored in the operating system's secure credential store via `keytar`:
+
+| Platform | Backed by |
+|---|---|
+| macOS    | Keychain Services (visible in **Keychain Access.app**) |
+| Windows  | Credential Manager (visible in **Control Panel → Credential Manager → Generic Credentials**) |
+| Linux    | libsecret (GNOME Keyring / KDE KWallet) |
+
+- **Service:** `vortex-ado`
+- **Account format:** `ado::{org}::{project}` and `confluence::{org}::{project}`
+- Tokens never appear on disk — not in `config.json`, not in `~/.vortex-ado/`, nowhere.
+
+**Two-layer config resolution.** At load time the MCP merges:
+
+1. **Framework defaults** (`src/config/defaults.ts`) — universal values shipped with the MCP: image budgets, prereq section ordering, persona role labels, format helpers. Tenants don't see or edit these.
+2. **Workspace overlay** (`<workspace>/.vortex-ado/config.json`) — team-specific values: `testCaseTitle.prefix`, `prerequisiteDefaults.personas`, `suiteStructure.testPlanMapping`, `suiteStructure.sprintPrefix`, custom `fieldRefs`.
+
+Workspace fields override framework defaults shallowly per top-level key, deep-merged within objects. The merged result is what every consumer (`tools/`, `helpers/`, prompts) sees.
+
+**`/ado-connect` rewrite.** The wizard now writes to `<workspace>/.vortex-ado/config.json` + keychain instead of `~/.vortex-ado/credentials.json`. Behavior:
+
+- 🚫 **Refuses to write into the user home directory.** If the resolved workspace is `$HOME` (e.g. wizard launched from a shell with no folder open), the tool returns an error rather than scattering project config across your home dir.
+- 🚫 **Refuses to write into a non-writable cwd.** Surfaces a clear error if `.vortex-ado/` cannot be created.
+- ℹ️ **Re-runs preserve non-credential blocks.** Running `/ado-connect` a second time on the same workspace updates only credential-related fields (`ado.url`, `ado.org`, `ado.project`, `confluence.*`). It leaves `testCaseTitle`, `prerequisiteDefaults`, `suiteStructure.testPlanMapping`, and `additionalContextFields` untouched — your manual edits survive.
+- 🧹 **Org/project change cleans up orphaned keychain entries.** If you re-run `/ado-connect` and switch from `OldOrg/OldProject` to `NewOrg/NewProject`, the old `ado::OldOrg::OldProject` keychain entry is deleted so you don't accumulate stale tokens.
+
+**Migration: backward-compatible fallback (transitional).** Existing tenants are not broken. The loader falls back through this chain when no per-workspace config is found:
+
+1. `<workspace>/.vortex-ado/config.json` (preferred)
+2. `~/.vortex-ado/conventions.config.json` (legacy global — still read)
+3. Bundled `conventions.config.json` (sanitized — see below)
+4. Framework defaults only
+
+Existing setups continue to work until the tenant runs `/ado-connect` per-workspace, at which point the new per-workspace config takes over.
+
+**⚠️ One-time migration warning at MCP startup.** When legacy `~/.vortex-ado/credentials.json` or `~/.vortex-ado/conventions.config.json` exist **and** no per-workspace config is found, the MCP prints a one-time warning recommending a `/ado-connect` re-run.
+
+**Bundled `conventions.config.json` sanitized.** Previously the bundled file shipped team-specific TPM defaults (TPM persona names, TPM plan IDs, `SFTPM_` sprint prefix, custom field refs) to every tenant. That's been wiped — the bundled fallback now contains only generic placeholders. Teams that relied on the unintended TPM defaults must now declare them explicitly in their workspace config (see Phase 2 note below).
+
+**Cwd-based workspace detection.** Phase 1 uses `process.cwd()` to locate the workspace. Cursor sets cwd reliably to the open folder, so this is correct in practice. The MCP `roots/list` protocol resolver is built (`src/workspace/resolve.ts`) but **not yet wired** — Phase 2 will switch the loader over to it.
+
+**Same call surface for consumers.** `loadConventionsConfig()` and `loadCredentials()` keep their no-arg signatures — all per-workspace resolution happens inside. No tool/helper/prompt changes were needed.
+
+**Deferred to Phase 2:**
+
+- The `/ado-connect` UI form **does not yet collect** plan mappings, personas, sprintPrefix, testCaseTitle.prefix, or custom fieldRefs. Tenants who need non-default values must **manually edit** `<workspace>/.vortex-ado/config.json` after the wizard runs. See `docs/conventions.md` § "Edit priority" for what to fill in first.
+- The `roots/list` MCP-protocol-based workspace resolution (already coded) is not yet active.
+- Mixed plan/persona wizard editing — coming in Phase 2.
+
+**Breaking changes:** None for existing tenants thanks to the legacy fallback. New tenants get per-workspace + keychain by default and never touch `~/.vortex-ado/` at all.
+
+**New dependency:** `keytar` (native module). Builds during `npm install` — most platforms have prebuilt binaries; bare-metal Linux without libsecret may need `apt-get install libsecret-1-dev` before install.
+
+**Docs updated:**
+
+- `docs/conventions.md` (new) — canonical per-workspace config reference + edit-priority guide + multi-project scenario walkthrough.
+- `docs/implementation.md` — config resolution section rewritten for the two-layer model + keychain note.
+- `docs/setup-guide.md`, `docs/user-setup-guide.md` — credentials sections updated to reflect `/ado-connect` writing per-workspace + keychain.
+- `website/public/docs/index.html` — new "Per-Workspace Conventions" section after Team Configuration.
+- `docs/README.md` — index entry for `conventions.md`.
+
 ### Test Data — Structured Table + Literal-`\n` Recovery
 
 Test Data now flows through the same draft → ADO render path as the multi-column Pre-requisite table — symmetric behavior across both prereq sections.

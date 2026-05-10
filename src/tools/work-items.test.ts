@@ -1,5 +1,8 @@
-import { test } from "node:test";
+import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AdoClient } from "../ado-client.ts";
 import { ConfluenceClient } from "../confluence-client.ts";
@@ -9,6 +12,60 @@ import {
   registerWorkItemTools,
 } from "./work-items.ts";
 import type { AdoWorkItem, EmbeddedImage, UserStoryContext } from "../types.ts";
+import { __resetConventionsCacheForTests } from "../config.ts";
+
+// ── Per-workspace config fixture ───────────────────────────────────────────
+// These tests assert on additionalContextFields and solutionDesign.adoFieldRef.
+// Both are project-specific values that no longer ship in the bundled file,
+// so we set up a tmp workspace with the legacy TPM values the assertions
+// expect, chdir into it, and reset the loader cache.
+
+let _originalCwd: string;
+let _fixtureDir: string;
+
+before(() => {
+  _originalCwd = process.cwd();
+  _fixtureDir = mkdtempSync(join(tmpdir(), "ado-work-items-test-"));
+  mkdirSync(join(_fixtureDir, ".vortex-ado"), { recursive: true });
+  writeFileSync(
+    join(_fixtureDir, ".vortex-ado", "config.json"),
+    JSON.stringify(
+      {
+        version: 1,
+        ado: {
+          url: "https://dev.azure.com/myorg",
+          org: "myorg",
+          project: "myproj",
+          fieldRefs: { solutionDesign: "Custom.TechnicalSolution" },
+        },
+        additionalContextFields: [
+          {
+            adoFieldRef: "Custom.ImpactAssessment",
+            label: "Impact Assessment",
+            fetchLinks: true,
+            fetchImages: true,
+          },
+          {
+            adoFieldRef: "Custom.ReferenceDocumentation",
+            label: "Reference Documentation",
+            fetchLinks: true,
+            fetchImages: true,
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  process.chdir(_fixtureDir);
+  __resetConventionsCacheForTests();
+});
+
+after(() => {
+  process.chdir(_originalCwd);
+  rmSync(_fixtureDir, { recursive: true, force: true });
+  __resetConventionsCacheForTests();
+});
 
 // ── Fetch mock helper ───────────────────────────────────────────────────────
 

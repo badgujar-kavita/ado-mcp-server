@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { loadCredentials } from "./credentials.ts";
+import { loadCredentials, bootstrapCredentials, credentialsFileExists } from "./credentials.ts";
 import { loadConventionsConfig } from "./config.ts";
 import { AdoClient } from "./ado-client.ts";
 import { createConfluenceClient } from "./confluence-client.ts";
@@ -8,9 +8,20 @@ import { registerAllTools } from "./tools/index.ts";
 import { registerSetupTools } from "./tools/setup.ts";
 import { registerAllPrompts } from "./prompts/index.ts";
 import { getCurrentVersion } from "./version.ts";
+import { existsSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 
 async function main() {
+  // Bootstrap credentials FIRST — must be async because keychain reads are
+  // async, and we want subsequent loadCredentials() calls to be sync-cached.
+  await bootstrapCredentials();
+
   loadConventionsConfig();
+
+  // One-time migration warning: if legacy global files exist, tell the
+  // user the new layout (without forcing migration). See Commit 6.
+  emitLegacyMigrationWarning();
 
   const credentials = loadCredentials();
   
@@ -53,6 +64,29 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
+}
+
+/**
+ * Emit a one-line migration warning when legacy global config/credential
+ * files are detected. Helps tenants who upgraded from a pre-Phase-1 install
+ * understand they should run /ado-connect per workspace going forward.
+ */
+function emitLegacyMigrationWarning(): void {
+  const legacyConventions = join(homedir(), ".vortex-ado", "conventions.config.json");
+  const legacyCreds = join(homedir(), ".vortex-ado", "credentials.json");
+  const wsConfig = join(process.cwd(), ".vortex-ado", "config.json");
+
+  // Only warn if legacy files exist AND no per-workspace config has been set up.
+  const hasLegacy = existsSync(legacyConventions) || credentialsFileExists();
+  const hasWorkspace = existsSync(wsConfig);
+  if (hasLegacy && !hasWorkspace) {
+    console.error(
+      "[VortexADO] Legacy global config detected at ~/.vortex-ado/. " +
+        "Phase 1 uses per-workspace configs. Run /vortex-ado/ado-connect " +
+        "in this project folder to set up. Legacy files remain readable " +
+        "as a fallback for now and are safe to delete after migration.",
+    );
+  }
 }
 
 main().catch((err) => {

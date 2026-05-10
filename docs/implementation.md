@@ -103,7 +103,7 @@ AND Title        Contains   TC_1245456
 **Resolution logic (built into `qa_suite_setup`):**
 
 1. Fetch the User Story by ID
-2. **`qa_suite_setup`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (per-team configuration in `conventions.config.json`) and sprint from Iteration (e.g. with prefix `Sprint_`, `Sprint_14` → 14)
+2. **`qa_suite_setup`** (User Story ID only): Derives plan from US AreaPath via `testPlanMapping` (per-team configuration; in Phase 1 this lives in `<workspace>/.vortex-ado/config.json` — see [docs/conventions.md](conventions.md)) and sprint from Iteration (e.g. with prefix `Sprint_`, `Sprint_14` → 14)
 3. Walk US relations to find Parent US or EPIC link
 4. If parent exists: resolve or create `Sprint_X > ParentID | ParentTitle > USID | USTitle`
 5. If no parent: resolve or create `Sprint_X > Non-Epic US TCs > USID | USTitle`
@@ -595,9 +595,39 @@ When `qa_draft` or `qa_publish` (no prior draft) is invoked:
 
 ---
 
-## Conventions Configuration (`conventions.config.json`)
+## Conventions Configuration
 
-All naming patterns, formats, and labels are externalized into a single JSON config file at the project root. This makes it easy to adjust conventions without touching code. The file is loaded at server startup and validated with a Zod schema -- any misconfiguration fails fast with a clear error.
+> **Phase 1 (current):** The MCP now resolves conventions **per-workspace** at `<workspace>/.vortex-ado/config.json`, merged on top of framework defaults shipped in `src/config/defaults.ts`. The legacy global `~/.vortex-ado/conventions.config.json` is still read as a fallback for tenants who haven't re-run `/ado-connect` yet. See [docs/conventions.md](conventions.md) for the full annotated schema and edit-priority guide.
+
+### Two-layer resolution
+
+`loadConventionsConfig()` builds the effective config by merging in this order, last write wins:
+
+1. **Framework defaults** (`src/config/defaults.ts`) — universal values shipped with the MCP. Image budgets, prereq section ordering, persona role labels, format helpers, `solutionDesign.usageRules`, `testCaseDefaults`, `prerequisites.heading`, `context.*`. Tenants don't see or edit these.
+2. **Workspace overlay** (`<workspace>/.vortex-ado/config.json`) — team-specific values: `ado.url/org/project`, `testCaseTitle.prefix`, `prerequisiteDefaults.personas`, `suiteStructure.testPlanMapping`, `suiteStructure.sprintPrefix`, `additionalContextFields`, optional `ado.fieldRefs.*`.
+
+Top-level keys are deep-merged within objects; arrays replace wholesale. The merged object is what every consumer (`tools/`, `helpers/`, prompts) receives — no consumer needs to know about the layering.
+
+### Workspace detection
+
+Phase 1 uses `process.cwd()` to locate the workspace. Each Cursor window spawns its own MCP process with its own cwd, so two Cursor windows = two independent configs = two parallel sessions with no interference.
+
+A `roots/list` MCP-protocol resolver is implemented at `src/workspace/resolve.ts` but **not yet wired** — Phase 2 will switch the loader to it.
+
+### Fallback chain
+
+When `<workspace>/.vortex-ado/config.json` is missing, the loader falls back through:
+
+1. `<workspace>/.vortex-ado/config.json` (preferred)
+2. `~/.vortex-ado/conventions.config.json` (legacy global — still read for transitional compatibility)
+3. Bundled `conventions.config.json` (sanitized as of Phase 1 — generic placeholders only)
+4. Framework defaults only
+
+A one-time migration warning prints at MCP startup when the legacy global files exist but no per-workspace config does.
+
+### Effective shape
+
+The merged config has the same overall shape as the previous flat file — examples below show the *effective* config after merge. What you actually write in `<workspace>/.vortex-ado/config.json` is just the workspace overlay (the project-specific subset documented in [docs/conventions.md](conventions.md)).
 
 ```json
 {
@@ -1040,22 +1070,26 @@ The parser handles all three formats and returns the numeric page ID.
 
 ---
 
-## Credentials Configuration (`~/.vortex-ado/credentials.json`)
+## Credentials Configuration
 
-```json
-{
-  "ado_pat": "your-personal-access-token",
-  "ado_org": "your-organization-name",
-  "ado_project": "your-project-name",
-  "confluence_base_url": "https://yoursite.atlassian.net/wiki",
-  "confluence_email": "your.email@company.com",
-  "confluence_api_token": "your-confluence-api-token"
-}
-```
+> **Phase 1:** Credentials are now stored in the **OS keychain** (macOS Keychain Services / Windows Credential Manager / Linux libsecret) via [`keytar`](https://github.com/atom/node-keytar). Connection identifiers (`url`, `org`, `project`, Confluence email) live in `<workspace>/.vortex-ado/config.json` under `ado` and `confluence` blocks. Tokens never appear on disk.
+
+**Keychain layout:**
+
+| Service | Account | Stores |
+|---|---|---|
+| `vortex-ado` | `ado::{org}::{project}` | ADO Personal Access Token |
+| `vortex-ado` | `confluence::{org}::{project}` | Confluence API token |
+
+`loadCredentials()` resolves the active org/project from the workspace config, then reads the matching keychain entry. The wizard (`/ado-connect`) writes both sides atomically.
+
+**Backward compatibility:** when no per-workspace config and no keychain entries exist, the loader falls back to the legacy `~/.vortex-ado/credentials.json` so existing tenants are not broken.
 
 **ADO PAT Required Scopes**: `vso.work_write`, `vso.test_write`
 
 **Confluence API Token**: No scopes to configure -- inherits user's Confluence permissions. User needs "Can view" on relevant spaces. Create at [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens).
+
+See [docs/conventions.md § 6](conventions.md#6-where-credentials-live) for per-platform inspection commands.
 
 ---
 

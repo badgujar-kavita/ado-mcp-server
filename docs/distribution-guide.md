@@ -18,12 +18,11 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 The installer will:
 
-* Clone the repository to `~/.vortex-ado`
+* Clone the repository to `~/.vortex-ado` (MCP runtime only — not user config)
 * Install dependencies and build
 * Register the MCP in Cursor (`~/.cursor/mcp.json`)
-* Create a credentials template
 
-**After installation**, users edit `~/.vortex-ado/credentials.json` with their ADO PAT, org, and project, then restart Cursor.
+**After installation**, users open their project folder in Cursor and run `/vortex-ado/ado-connect`. The wizard writes connection details to `<workspace>/.vortex-ado/config.json` (per-workspace) and stores the PAT in the OS keychain. See [docs/conventions.md](conventions.md). Then restart the MCP server (Settings → MCP → refresh vortex-ado).
 
 ### For Developers (Updates)
 
@@ -56,7 +55,7 @@ The installer automatically detects existing installations and pulls the latest 
 | `install.sh` | One\-command installer |
 | `uninstall.sh` | One\-command uninstaller |
 | `docs/` | User and developer documentation |
-| `conventions.config.json` | Test case naming conventions |
+| `conventions.config.json` | Bundled fallback (sanitized) — generic placeholders only. Per-tenant config is written by `/ado-connect` to `<workspace>/.vortex-ado/config.json`. |
 
 ---
 
@@ -81,7 +80,7 @@ This removes the `~/.vortex-ado` directory and the Cursor MCP registration. The 
 | **ADO PAT** | Each user creates their own |
 | **Internet** | For initial install and updates |
 
-Credentials are stored locally at `~/.vortex-ado/credentials.json` — never in the repository.
+Credentials are stored in the OS keychain (`vortex-ado` service) and connection details in `<workspace>/.vortex-ado/config.json` per-workspace — never in the repository. Legacy `~/.vortex-ado/credentials.json` is still read as a transitional fallback.
 
 ---
 

@@ -74,12 +74,12 @@ flowchart TB
    - Type `/vortex-ado/install` and run the command
 
 3. **Configure credentials**  
-   - Edit `~/.vortex-ado/credentials.json` (created by installer)  
-   - Add your ADO PAT, organization name, and project name
+   - Open your project folder in Cursor and run `/vortex-ado/ado-connect`  
+   - The wizard saves connection details to `<workspace>/.vortex-ado/config.json` and stores your PAT in the OS keychain — see [Per-Workspace Conventions](docs/conventions.md)
 
 4. **Restart Cursor** (or reload MCP in Settings > MCP)
 
-After setup, VortexADO MCP is available globally in all workspaces.
+After setup, VortexADO MCP is available globally in all workspaces. Each workspace carries its own config — open multiple ADO projects in parallel Cursor windows without sharing state.
 
 ---
 
@@ -103,6 +103,7 @@ After setup, VortexADO MCP is available globally in all workspaces.
 | Document | Purpose |
 |----------|---------|
 | [Setup Guide](docs/setup-guide.md) | Full installation, credentials, slash commands |
+| [Per-Workspace Conventions](docs/conventions.md) | `<workspace>/.vortex-ado/config.json` schema, edit priorities, multi-project scenarios, OS keychain |
 | [Implementation](docs/implementation.md) | Architecture, tools, conventions, API reference |
 | [Testing Guide](docs/testing-guide.md) | Step-by-step testing, tool quick reference |
 | [Test Case Writing Style](docs/test-case-writing-style-reference.md) | Title format, steps, admin validation |

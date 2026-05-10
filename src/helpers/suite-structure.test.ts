@@ -1,13 +1,21 @@
 /**
  * Unit tests for the pure helper functions in src/helpers/suite-structure.ts.
  *
- * These tests use the real conventions.config.json checked into the repo.
- * The config drives the expected values (e.g. sprintPrefix "SFTPM_",
- * parentUsSeparator " | ", testPlanMapping entries).
+ * Self-contained: writes a fixture per-workspace config to a tmpdir, chdir's
+ * into it, then exercises the helpers. The cache is reset between describe
+ * setup/teardown so the fixture is the actual source of truth — no
+ * dependency on `~/.vortex-ado/conventions.config.json` or any bundled file.
+ *
+ * Fixture mirrors realistic per-tenant values (sprintPrefix "S_", two plan
+ * mappings) so the assertions verify the helpers' logic, not specific
+ * production values.
  */
 
-import { describe, it } from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   buildSprintFolderName,
   buildParentUsFolderName,
@@ -17,59 +25,103 @@ import {
   resolveSprintFromIteration,
   buildSuiteQueryString,
 } from "../helpers/suite-structure.ts";
+import { __resetConventionsCacheForTests } from "../config.ts";
 
 describe("suite-structure helpers", () => {
-  // ── buildSprintFolderName ─────────────────────────────────────────
+  let originalCwd: string;
+  let fixtureDir: string;
+
+  before(() => {
+    originalCwd = process.cwd();
+    fixtureDir = mkdtempSync(join(tmpdir(), "ado-suite-test-"));
+    mkdirSync(join(fixtureDir, ".vortex-ado"), { recursive: true });
+    writeFileSync(
+      join(fixtureDir, ".vortex-ado", "config.json"),
+      JSON.stringify(
+        {
+          version: 1,
+          ado: {
+            url: "https://dev.azure.com/TestOrg",
+            org: "TestOrg",
+            project: "TestProject",
+          },
+          testCaseTitle: { prefix: "TC" },
+          suiteStructure: {
+            sprintPrefix: "S_",
+            tcTitlePrefix: "TC",
+            testPlanMapping: [
+              { planId: 1001, areaPathContains: ["Alpha", "ALPHA"] },
+              { planId: 2002, areaPathContains: ["Beta"] },
+            ],
+          },
+          prerequisiteDefaults: {
+            personas: {
+              Admin: { label: "Admin", profile: "Admin", roles: "Admin", psg: "Admin" },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    process.chdir(fixtureDir);
+    __resetConventionsCacheForTests();
+  });
+
+  after(() => {
+    process.chdir(originalCwd);
+    rmSync(fixtureDir, { recursive: true, force: true });
+    __resetConventionsCacheForTests();
+  });
+
+  // ── buildSprintFolderName ──────────────────────────────────────────
 
   it("buildSprintFolderName returns prefixed name", () => {
-    assert.equal(buildSprintFolderName(12), "SFTPM_12");
+    assert.equal(buildSprintFolderName(12), "S_12");
   });
 
   it("buildSprintFolderName handles single-digit sprint", () => {
-    assert.equal(buildSprintFolderName(1), "SFTPM_1");
+    assert.equal(buildSprintFolderName(1), "S_1");
   });
 
-  // ── buildParentUsFolderName ───────────────────────────────────────
+  // ── buildParentUsFolderName (uses framework default " | " separator) ──
 
   it("buildParentUsFolderName formats id + separator + title", () => {
-    assert.equal(
-      buildParentUsFolderName(1234, "My Feature"),
-      "1234 | My Feature",
-    );
+    assert.equal(buildParentUsFolderName(1234, "My Feature"), "1234 | My Feature");
   });
 
-  // ── buildUsFolderName ─────────────────────────────────────────────
+  // ── buildUsFolderName ──────────────────────────────────────────────
 
   it("buildUsFolderName formats id + separator + title", () => {
     assert.equal(buildUsFolderName(5678, "My Story"), "5678 | My Story");
   });
 
-  // ── getNonEpicFolderName ──────────────────────────────────────────
+  // ── getNonEpicFolderName (framework default) ───────────────────────
 
-  it("getNonEpicFolderName returns configured value", () => {
+  it("getNonEpicFolderName returns the framework-default value when not overridden", () => {
     assert.equal(getNonEpicFolderName(), "Non-Epic US TCs");
   });
 
-  // ── resolvePlanIdFromAreaPath ─────────────────────────────────────
+  // ── resolvePlanIdFromAreaPath ──────────────────────────────────────
 
-  it("resolvePlanIdFromAreaPath matches DHub area path", () => {
+  it("resolvePlanIdFromAreaPath matches first rule (Alpha → 1001)", () => {
     assert.equal(
-      resolvePlanIdFromAreaPath("Project\\Team\\DHub\\SomeArea"),
-      1066479,
+      resolvePlanIdFromAreaPath("Project\\Team\\Alpha\\SomeArea"),
+      1001,
     );
   });
 
-  it("resolvePlanIdFromAreaPath matches EHub area path", () => {
+  it("resolvePlanIdFromAreaPath matches second rule (Beta → 2002)", () => {
     assert.equal(
-      resolvePlanIdFromAreaPath("Project\\Team\\EHub\\SomeArea"),
-      1066480,
+      resolvePlanIdFromAreaPath("Project\\Team\\Beta\\SomeArea"),
+      2002,
     );
   });
 
   it("resolvePlanIdFromAreaPath is case-insensitive", () => {
     assert.equal(
-      resolvePlanIdFromAreaPath("Project\\Team\\dhub\\SomeArea"),
-      1066479,
+      resolvePlanIdFromAreaPath("Project\\Team\\alpha\\SomeArea"),
+      1001,
     );
   });
 
@@ -86,20 +138,14 @@ describe("suite-structure helpers", () => {
     );
   });
 
-  // ── resolveSprintFromIteration ────────────────────────────────────
+  // ── resolveSprintFromIteration (uses fixture sprintPrefix "S_") ────
 
   it("resolveSprintFromIteration extracts sprint number", () => {
-    assert.equal(
-      resolveSprintFromIteration("Some\\Path\\SFTPM_14"),
-      14,
-    );
+    assert.equal(resolveSprintFromIteration("Some\\Path\\S_14"), 14);
   });
 
   it("resolveSprintFromIteration handles multi-digit sprint", () => {
-    assert.equal(
-      resolveSprintFromIteration("Project\\Team\\SFTPM_123"),
-      123,
-    );
+    assert.equal(resolveSprintFromIteration("Project\\Team\\S_123"), 123);
   });
 
   it("resolveSprintFromIteration throws when no match", () => {
@@ -115,16 +161,16 @@ describe("suite-structure helpers", () => {
     );
   });
 
-  // ── buildSuiteQueryString ─────────────────────────────────────────
+  // ── buildSuiteQueryString ──────────────────────────────────────────
 
   it("buildSuiteQueryString contains TC_ prefix and UNDER clause", () => {
-    const query = buildSuiteQueryString(12345, "TPM Product\\Area");
+    const query = buildSuiteQueryString(12345, "Test Project\\Area");
     assert.ok(
       query.includes("TC_12345"),
       `Expected query to contain "TC_12345", got: ${query}`,
     );
     assert.ok(
-      query.includes("UNDER 'TPM Product\\Area'"),
+      query.includes("UNDER 'Test Project\\Area'"),
       `Expected query to contain UNDER clause, got: ${query}`,
     );
   });

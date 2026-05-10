@@ -11,6 +11,7 @@ Documentation for the VortexADO MCP server — Azure DevOps test case automation
 | [user-setup-guide.md](user-setup-guide.md) | **User Setup Guide** — Self-service setup for org-wide use; Confluence-ready |
 | [implementation.md](implementation.md) | Architecture, tools, conventions, API reference |
 | [setup-guide.md](setup-guide.md) | Installation, credentials, slash commands (technical reference) |
+| [conventions.md](conventions.md) | **Per-workspace config reference** — `<workspace>/.vortex-ado/config.json` schema, edit-priority guide, multi-project scenario, OS-keychain credentials |
 | [testing-guide.md](testing-guide.md) | Step-by-step testing, tool quick reference, troubleshooting |
 | [changelog.md](changelog.md) | Release history and deployment changes |
 | [tc-style-guide-and-consistency-strategy.md](tc-style-guide-and-consistency-strategy.md) | Test case style patterns and AI consistency |
@@ -32,6 +33,7 @@ Documentation for the VortexADO MCP server — Azure DevOps test case automation
 
 - **New user? Set up on your own** → [user-setup-guide.md](user-setup-guide.md)
 - **Technical setup reference** → [setup-guide.md](setup-guide.md)
+- **Configuring conventions per workspace?** → [conventions.md](conventions.md)
 - **Testing tools?** → [testing-guide.md](testing-guide.md)
 - **Writing automation-friendly test cases?** → [automation-friendly-test-patterns.md](automation-friendly-test-patterns.md)
 - **Managing versions and releases?** → [version-management.md](version-management.md)

@@ -281,35 +281,66 @@
 
       <!-- CREDENTIALS -->
       <h2 id="credentials">Credentials Setup</h2>
-      <p>After install, configure your credentials. You have two options:</p>
+      <p>After install, open your project folder in Cursor and configure credentials <strong>per-workspace</strong>. The wizard writes connection details to <code>&lt;workspace&gt;/.vortex-ado/config.json</code> and stores your PAT in the operating system's secure credential store — never on disk.</p>
+
+      <div class="tip">
+        <strong>Multi-project parallel work.</strong> Two Cursor windows on two different ADO projects each get their own per-workspace config and their own keychain entry. They never share state. See <a href="#per-workspace-conventions">Per-Workspace Conventions</a> below.
+      </div>
 
       <h3>Option 1: Configuration UI (recommended)</h3>
-      <p>Type <code>/ado-connect</code> in Cursor's chat. This opens a web interface where you can enter credentials and test connections in real time.</p>
+      <p>Open your project folder in Cursor, then type <code>/ado-connect</code> in the agent chat. The wizard:</p>
+      <ul>
+        <li>Lets you enter credentials and <strong>test connections in real time</strong></li>
+        <li>Writes connection details (org, project, URL, optional Confluence) to <code>&lt;workspace&gt;/.vortex-ado/config.json</code></li>
+        <li>Stores the PAT in the OS keychain under service <code>vortex-ado</code>, account <code>ado::{org}::{project}</code></li>
+        <li>Refuses to write into your home directory or a non-writable cwd (safety guard)</li>
+        <li>On re-run, preserves your manual edits to non-credential blocks (<code>testCaseTitle</code>, <code>personas</code>, <code>testPlanMapping</code>)</li>
+      </ul>
 
       <h3>Option 2: Manual edit</h3>
-      <p>Edit the credentials file directly:</p>
-      <pre><code>~/.vortex-ado/credentials.json</code></pre>
+      <p>Create <code>&lt;workspace&gt;/.vortex-ado/config.json</code> by hand:</p>
+      <pre><code>{
+  "version": 1,
+  "ado": {
+    "url": "https://dev.azure.com/YourOrg",
+    "org": "YourOrg",
+    "project": "Your Project"
+  }
+}</code></pre>
+      <p>Then store your PAT in the OS keychain under service <code>vortex-ado</code>, account <code>ado::YourOrg::Your Project</code>. See the <a href="/docs/conventions.md">full reference</a> for per-platform commands.</p>
 
       <div class="card">
-        <h3>Required fields</h3>
+        <h3>Required config fields</h3>
         <table>
           <thead><tr><th>Field</th><th>Description</th><th>Where to get it</th></tr></thead>
           <tbody>
-            <tr><td><code>ado_pat</code></td><td>Azure DevOps Personal Access Token</td><td>See "Creating Your ADO PAT" below</td></tr>
-            <tr><td><code>ado_org</code></td><td>Organization name</td><td>The part after <code>dev.azure.com/</code></td></tr>
-            <tr><td><code>ado_project</code></td><td>Project name</td><td>Your ADO project</td></tr>
+            <tr><td><code>ado.url</code></td><td>Full Azure DevOps URL</td><td><code>https://dev.azure.com/{org}</code></td></tr>
+            <tr><td><code>ado.org</code></td><td>Organization name</td><td>The part after <code>dev.azure.com/</code></td></tr>
+            <tr><td><code>ado.project</code></td><td>Project name</td><td>Your ADO project</td></tr>
           </tbody>
         </table>
 
-        <h3>Optional fields (Confluence)</h3>
+        <h3>Required keychain entry</h3>
         <table>
-          <thead><tr><th>Field</th><th>Description</th></tr></thead>
+          <thead><tr><th>Service</th><th>Account</th><th>Stores</th></tr></thead>
           <tbody>
-            <tr><td><code>confluence_base_url</code></td><td>Your Confluence instance URL (e.g. <code>https://yourteam.atlassian.net/wiki</code>)</td></tr>
-            <tr><td><code>confluence_email</code></td><td>Atlassian account email</td></tr>
-            <tr><td><code>confluence_api_token</code></td><td>See "Creating Your Confluence API Token" below</td></tr>
+            <tr><td><code>vortex-ado</code></td><td><code>ado::{org}::{project}</code></td><td>Your ADO Personal Access Token</td></tr>
           </tbody>
         </table>
+
+        <h3>Optional Confluence config</h3>
+        <table>
+          <thead><tr><th>Where</th><th>Field</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>config.json</code></td><td><code>confluence.url</code></td><td>e.g. <code>https://yourteam.atlassian.net/wiki</code></td></tr>
+            <tr><td><code>config.json</code></td><td><code>confluence.email</code></td><td>Atlassian account email</td></tr>
+            <tr><td>OS keychain</td><td><code>confluence::{org}::{project}</code></td><td>Confluence API token (see "Creating Your Confluence API Token" below)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip">
+        <strong>Legacy fallback.</strong> If you upgraded from a pre-Phase-1 install, an old <code>~/.vortex-ado/credentials.json</code> will still be read as a fallback. You'll see a one-time migration warning at MCP startup recommending you re-run <code>/ado-connect</code> per-workspace.
       </div>
 
       <!-- ADO PAT GENERATION -->
@@ -387,10 +418,11 @@
 
       <!-- CONVENTIONS CONFIG -->
       <h2 id="team-config">Team Configuration</h2>
-      <p>Vortex ADO adapts to your team's conventions via a single configuration file placed alongside the installation:</p>
-      <pre><code>~/.vortex-ado/conventions.config.json</code></pre>
+      <p>Vortex ADO adapts to your team's conventions via a per-workspace configuration file:</p>
+      <pre><code>&lt;workspace&gt;/.vortex-ado/config.json</code></pre>
 
-      <p>This file controls everything from test case title format to suite hierarchy rules. Settings are grouped into logical sections:</p>
+      <p>This file controls everything from test case title format to suite hierarchy rules. The MCP merges your workspace overlay on top of framework defaults — anything you don't specify uses the default. Settings are grouped into logical sections:</p>
+      <p>See <a href="#per-workspace-conventions">Per-Workspace Conventions</a> below for the edit-priority guide and multi-project scenario, or open <a href="/docs/conventions.md">docs/conventions.md</a> for the full annotated reference.</p>
 
       <!-- Test Case Format -->
       <div class="card">
@@ -430,7 +462,7 @@
       <div class="card">
         <h3>Fetching &amp; Image Processing</h3>
         <p>These settings live in the <code>images</code> and <code>context</code> sections of:</p>
-        <pre><code>~/.vortex-ado/conventions.config.json</code></pre>
+        <pre><code>&lt;workspace&gt;/.vortex-ado/config.json</code></pre>
         <p>Vortex ADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. The AI agent uses these images as visual reference when designing test cases, ensuring test scenarios accurately reflect the intended UI behavior, business flows, and acceptance criteria shown in diagrams.</p>
 
         <h3>Key settings</h3>
@@ -469,6 +501,54 @@
 
       <div class="tip">
         <strong>Recommended for most teams:</strong> Leave <strong>&#9733; enabled: true</strong> and <strong>&#9733; returnMcpImageParts: false</strong> (the defaults). The agent receives image metadata and links without consuming vision-model tokens. Turn <code>returnMcpImageParts</code> ON only when you need the AI to interpret diagram content or screenshot details directly.
+      </div>
+
+      <!-- PER-WORKSPACE CONVENTIONS -->
+      <h2 id="per-workspace-conventions">Per-Workspace Conventions</h2>
+      <p>As of Phase 1, all per-tenant configuration lives <strong>per-workspace</strong> at:</p>
+      <pre><code>&lt;workspace&gt;/.vortex-ado/config.json</code></pre>
+      <p>This unblocks the multi-project use case: a QA engineer working on <strong>Project_ABC</strong> in one Cursor window and <strong>Project_XYZ</strong> in another now gets two independent configs and two independent keychain entries — no more shared global state. Each Cursor window's MCP process reads the config from its own working directory.</p>
+
+      <p>Connection details (org, project, URL, Confluence) and team conventions (test case naming, personas, plan mappings) all live in this one file. The MCP merges your overlay on top of framework defaults, so you only specify what's project-specific.</p>
+
+      <p>For the canonical reference — full annotated schema, copy-pasteable starter template, and per-platform keychain commands — open <a href="/docs/conventions.md">docs/conventions.md</a> in the repo.</p>
+
+      <div class="card">
+        <h3>Edit-priority guide</h3>
+        <p>What to fill in first when setting up a new workspace:</p>
+        <table>
+          <thead><tr><th>Field</th><th>Priority</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><code>ado.url</code> / <code>ado.org</code> / <code>ado.project</code></td><td><strong>REQUIRED</strong></td><td>Wizard fills these. Needed to resolve the PAT in the OS keychain.</td></tr>
+            <tr><td><code>suiteStructure.testPlanMapping</code></td><td><strong>REQUIRED for /qa-publish</strong></td><td>Without it, push fails with <code>plan-resolution-failed</code>.</td></tr>
+            <tr><td><code>prerequisiteDefaults.personas</code></td><td><strong>RECOMMENDED</strong></td><td>Without it, drafted TCs render with an empty Persona section.</td></tr>
+            <tr><td><code>testCaseTitle.prefix</code></td><td><strong>RECOMMENDED</strong></td><td>Defaults to <code>TC</code>. Override for <code>TC_</code>, <code>TestCase_</code>, etc.</td></tr>
+            <tr><td><code>suiteStructure.sprintPrefix</code></td><td><strong>RECOMMENDED</strong></td><td>Defaults to <code>Sprint_</code>. Override for <code>Iteration_</code>, <code>SFTPM_</code>, etc.</td></tr>
+            <tr><td><code>ado.fieldRefs.prerequisite</code></td><td>SAFE-TO-LEAVE</td><td>Defaults to <code>Custom.PrerequisiteforTest</code>, falls back to <code>System.Description</code>.</td></tr>
+            <tr><td><code>additionalContextFields</code></td><td>SAFE-TO-LEAVE</td><td>Empty default. Set only if your team has custom rich-text ADO fields worth fetching.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Multi-project scenario</h3>
+        <p>Two ADO projects, two Cursor windows, two isolated configs:</p>
+        <table>
+          <thead><tr><th></th><th>Window 1: <code>~/code/project-abc</code></th><th>Window 2: <code>~/code/project-xyz</code></th></tr></thead>
+          <tbody>
+            <tr><td>Workspace config</td><td><code>.vortex-ado/config.json</code></td><td><code>.vortex-ado/config.json</code></td></tr>
+            <tr><td><code>ado.org</code></td><td><code>OrgA</code></td><td><code>OrgB</code></td></tr>
+            <tr><td><code>ado.project</code></td><td><code>Project_ABC</code></td><td><code>Project_XYZ</code></td></tr>
+            <tr><td>Sprint prefix</td><td><code>Sprint_</code></td><td><code>Iteration_</code></td></tr>
+            <tr><td>Personas</td><td>Cashier, Manager</td><td>Buyer, Approver</td></tr>
+            <tr><td>Keychain entry</td><td><code>vortex-ado / ado::OrgA::Project_ABC</code></td><td><code>vortex-ado / ado::OrgB::Project_XYZ</code></td></tr>
+          </tbody>
+        </table>
+        <p>Each MCP process picks up its own config from its <code>process.cwd()</code> and looks up its own PAT — they never see each other's state.</p>
+      </div>
+
+      <div class="tip">
+        <strong>Where credentials live (per-platform):</strong> macOS Keychain Access app, Windows Credential Manager, Linux libsecret (GNOME Keyring / KWallet). Service: <code>vortex-ado</code>. See <a href="/docs/conventions.md#6-where-credentials-live">conventions.md § 6</a> for inspection and deletion commands.
       </div>
 
       <!-- VERIFY -->

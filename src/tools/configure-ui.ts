@@ -1,13 +1,17 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
-import { writeFileSync, existsSync, readFileSync, mkdirSync } from "fs";
+import { writeFileSync, existsSync, readFileSync, mkdirSync, accessSync, constants } from "fs";
 import { join, dirname } from "path";
 import { homedir } from "os";
 import { exec } from "child_process";
 import { platform } from "os";
 import { basicAuthHeader } from "../helpers/basic-auth.ts";
+import { keychain } from "../keychain/keychain.ts";
+import { WorkspaceConfigSchema, type WorkspaceConfig } from "../config/schema.ts";
 
-const CREDENTIALS_DIR = join(homedir(), ".vortex-ado");
-const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
+// Legacy global path retained for migration READS only. New writes always go
+// to the per-workspace location.
+const LEGACY_CREDS_DIR = join(homedir(), ".vortex-ado");
+const LEGACY_CREDS_FILE = join(LEGACY_CREDS_DIR, "credentials.json");
 
 interface Credentials {
   ado_pat: string;
@@ -18,23 +22,103 @@ interface Credentials {
   confluence_api_token?: string;
 }
 
-function loadExistingCredentials(): Partial<Credentials> {
-  if (!existsSync(CREDENTIALS_FILE)) return {};
-  try {
-    const raw = readFileSync(CREDENTIALS_FILE, "utf-8");
-    const data = JSON.parse(raw);
-    const placeholders = ["your-personal-access-token", "your-organization-name", "your-project-name"];
+/**
+ * Per-workspace config path computed from process.cwd(). Each Cursor window's
+ * MCP process has its own cwd, so this isolates workspaces correctly.
+ */
+function workspaceDir(): string {
+  return join(process.cwd(), ".vortex-ado");
+}
+function workspaceConfigFile(): string {
+  return join(workspaceDir(), "config.json");
+}
+
+/**
+ * Defensive check before auto-creating .vortex-ado/ in cwd.
+ * Refuses to write into:
+ *   - the user's home directory (cwd === ~)
+ *   - non-writable paths
+ *   - paths that don't exist
+ *
+ * Why: if Cursor was launched without opening a folder, cwd may be the user's
+ * home dir or some app-internal path. Creating .vortex-ado/ there would be
+ * surprising and potentially leak project info into the wrong place.
+ */
+function isCwdSafeForWorkspaceWrite(): { ok: true } | { ok: false; reason: string } {
+  const cwd = process.cwd();
+  const home = homedir();
+
+  if (cwd === home) {
     return {
-      ado_pat: placeholders.includes(data.ado_pat) ? "" : data.ado_pat || "",
-      ado_org: placeholders.includes(data.ado_org) ? "" : data.ado_org || "",
-      ado_project: placeholders.includes(data.ado_project) ? "" : data.ado_project || "",
-      confluence_base_url: data.confluence_base_url || "",
-      confluence_email: data.confluence_email || "",
-      confluence_api_token: data.confluence_api_token || "",
+      ok: false,
+      reason:
+        "Cwd is your home directory. Open a project folder in Cursor first, then run /ado-connect from there.",
     };
-  } catch {
-    return {};
   }
+  try {
+    accessSync(cwd, constants.W_OK);
+  } catch {
+    return { ok: false, reason: `Cwd is not writable: ${cwd}` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Load existing per-workspace config (preferred) for re-runs of the wizard.
+ * Falls back to the legacy global file ONLY for first-time migrations from
+ * pre-Phase-1 installs — values are read but new writes go to workspace.
+ *
+ * Returns plain Partial<Credentials> shape used to pre-fill form fields.
+ * The PAT/Confluence-token are pulled from keychain when org+project are
+ * known so the user sees "(stored in keychain)" rather than a blank field.
+ */
+async function loadExistingCredentials(): Promise<Partial<Credentials> & { _patStored?: boolean; _confluenceTokenStored?: boolean }> {
+  // 1. Try per-workspace config + keychain.
+  const wsFile = workspaceConfigFile();
+  if (existsSync(wsFile)) {
+    try {
+      const raw = JSON.parse(readFileSync(wsFile, "utf-8"));
+      const ws = WorkspaceConfigSchema.parse(raw);
+      if (ws.ado?.org && ws.ado?.project) {
+        const pat = await keychain.getAdoToken(ws.ado.org, ws.ado.project);
+        const confluenceToken = await keychain.getConfluenceToken(ws.ado.org, ws.ado.project);
+        return {
+          ado_pat: "", // never pre-fill the PAT itself; UI shows "(stored)" indicator
+          ado_org: ws.ado.org,
+          ado_project: ws.ado.project,
+          confluence_base_url: ws.confluence?.url ?? "",
+          confluence_email: ws.confluence?.email ?? "",
+          confluence_api_token: "",
+          _patStored: pat !== null && pat.length > 0,
+          _confluenceTokenStored: confluenceToken !== null && confluenceToken.length > 0,
+        };
+      }
+    } catch {
+      // Malformed workspace config — fall through to legacy.
+    }
+  }
+
+  // 2. Migration fallback — read from legacy global credentials.json so
+  // the user can review and re-save into the new workspace location.
+  if (existsSync(LEGACY_CREDS_FILE)) {
+    try {
+      const raw = readFileSync(LEGACY_CREDS_FILE, "utf-8");
+      const data = JSON.parse(raw);
+      const placeholders = ["your-personal-access-token", "your-organization-name", "your-project-name"];
+      return {
+        ado_pat: placeholders.includes(data.ado_pat) ? "" : data.ado_pat || "",
+        ado_org: placeholders.includes(data.ado_org) ? "" : data.ado_org || "",
+        ado_project: placeholders.includes(data.ado_project) ? "" : data.ado_project || "",
+        confluence_base_url: data.confluence_base_url || "",
+        confluence_email: data.confluence_email || "",
+        confluence_api_token: data.confluence_api_token || "",
+      };
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
 }
 
 async function testAdoConnection(pat: string, org: string, project: string): Promise<{ success: boolean; message: string; details?: string }> {
@@ -166,21 +250,106 @@ async function testConfluenceConnection(baseUrl: string, email: string, apiToken
   }
 }
 
-function saveCredentials(creds: Credentials): void {
-  if (!existsSync(CREDENTIALS_DIR)) {
-    mkdirSync(CREDENTIALS_DIR, { recursive: true });
+/**
+ * Save the wizard's submission to per-workspace config + OS keychain.
+ *
+ * Flow:
+ *   1. Verify cwd is a safe writable project folder.
+ *   2. Load existing workspace config (if any) so non-credential fields
+ *      (testCaseTitle.prefix, personas, plan mappings, …) are preserved
+ *      across re-runs. Per the design: re-running the wizard updates only
+ *      the credential-related fields.
+ *   3. If org/project are CHANGING vs the existing config, log a warning
+ *      AND clean up the previous keychain entry so it isn't orphaned.
+ *   4. Write the merged config to <workspace>/.vortex-ado/config.json.
+ *   5. Write the PAT to keychain at vortex-ado/ado::{org}::{project}.
+ *   6. Write the Confluence token to keychain (if provided).
+ *
+ * Throws on any safety failure — caller surfaces to the wizard UI.
+ */
+async function saveCredentials(creds: Credentials): Promise<{ workspaceConfigPath: string; orgProjectChanged: boolean }> {
+  const safety = isCwdSafeForWorkspaceWrite();
+  if (!safety.ok) {
+    throw new Error(`Cannot save: ${safety.reason}`);
   }
-  
-  const data: Record<string, string> = {
-    ado_pat: creds.ado_pat,
-    ado_org: creds.ado_org,
-    ado_project: creds.ado_project,
-    confluence_base_url: creds.confluence_base_url || "",
-    confluence_email: creds.confluence_email || "",
-    confluence_api_token: creds.confluence_api_token || "",
+
+  const wsDir = workspaceDir();
+  const wsFile = workspaceConfigFile();
+  if (!existsSync(wsDir)) {
+    mkdirSync(wsDir, { recursive: true });
+  }
+
+  // Load existing config to preserve non-credential fields on re-run.
+  let existingConfig: WorkspaceConfig | null = null;
+  let previousOrg: string | undefined;
+  let previousProject: string | undefined;
+  if (existsSync(wsFile)) {
+    try {
+      const raw = JSON.parse(readFileSync(wsFile, "utf-8"));
+      existingConfig = WorkspaceConfigSchema.parse(raw);
+      previousOrg = existingConfig.ado?.org;
+      previousProject = existingConfig.ado?.project;
+    } catch {
+      // Malformed existing config — overwrite from scratch. The user is
+      // explicitly re-running the wizard so this is intentional.
+      existingConfig = null;
+    }
+  }
+
+  const orgProjectChanged =
+    previousOrg !== undefined &&
+    previousProject !== undefined &&
+    (previousOrg !== creds.ado_org || previousProject !== creds.ado_project);
+
+  // Merge: keep existing non-credential blocks, overwrite ado/confluence.
+  const merged: WorkspaceConfig = {
+    ...(existingConfig ?? { version: 1 }),
+    version: 1,
+    ado: {
+      url: `https://dev.azure.com/${creds.ado_org}`,
+      org: creds.ado_org,
+      project: creds.ado_project,
+      setupAt: new Date().toISOString(),
+      ...(existingConfig?.ado?.fieldRefs ? { fieldRefs: existingConfig.ado.fieldRefs } : {}),
+    },
+    ...(creds.confluence_base_url || creds.confluence_email
+      ? {
+          confluence: {
+            enabled: Boolean(creds.confluence_base_url && creds.confluence_email),
+            ...(creds.confluence_base_url ? { url: creds.confluence_base_url } : {}),
+            ...(creds.confluence_email ? { email: creds.confluence_email } : {}),
+          },
+        }
+      : existingConfig?.confluence
+        ? { confluence: existingConfig.confluence }
+        : {}),
   };
-  
-  writeFileSync(CREDENTIALS_FILE, JSON.stringify(data, null, 2) + "\n", "utf-8");
+
+  writeFileSync(wsFile, JSON.stringify(merged, null, 2) + "\n", "utf-8");
+
+  // Keychain: store the PAT under (org, project). If org/project changed,
+  // delete the old keychain entry so it isn't orphaned.
+  if (orgProjectChanged && previousOrg && previousProject) {
+    try {
+      await keychain.deleteAdoToken(previousOrg, previousProject);
+      await keychain.deleteConfluenceToken(previousOrg, previousProject);
+    } catch {
+      // Best-effort cleanup; don't block save if delete fails.
+    }
+  }
+
+  if (creds.ado_pat) {
+    await keychain.setAdoToken(creds.ado_org, creds.ado_project, creds.ado_pat);
+  }
+  if (creds.confluence_api_token) {
+    await keychain.setConfluenceToken(
+      creds.ado_org,
+      creds.ado_project,
+      creds.confluence_api_token,
+    );
+  }
+
+  return { workspaceConfigPath: wsFile, orgProjectChanged };
 }
 
 function getHtmlContent(existingCreds: Partial<Credentials>): string {
@@ -1377,7 +1546,7 @@ export async function startConfigServer(): Promise<{ port: number; close: () => 
 
       try {
         if (url === "/" && method === "GET") {
-          const existingCreds = loadExistingCredentials();
+          const existingCreds = await loadExistingCredentials();
           sendHtml(res, getHtmlContent(existingCreds));
         } else if (url === "/api/test-ado" && method === "POST") {
           const body = JSON.parse(await parseBody(req));
@@ -1389,8 +1558,20 @@ export async function startConfigServer(): Promise<{ port: number; close: () => 
           sendJson(res, result);
         } else if (url === "/api/save" && method === "POST") {
           const body = JSON.parse(await parseBody(req)) as Credentials;
-          saveCredentials(body);
-          sendJson(res, { success: true, message: "Credentials saved" });
+          try {
+            const saved = await saveCredentials(body);
+            sendJson(res, {
+              success: true,
+              message: `Credentials saved to ${saved.workspaceConfigPath} (PAT in OS keychain)`,
+              orgProjectChanged: saved.orgProjectChanged,
+            });
+          } catch (saveErr) {
+            sendJson(
+              res,
+              { success: false, message: saveErr instanceof Error ? saveErr.message : String(saveErr) },
+              400,
+            );
+          }
         } else if (url === "/api/shutdown" && method === "POST") {
           sendJson(res, { success: true, message: "Server shutting down" });
           // Close server after response is sent
