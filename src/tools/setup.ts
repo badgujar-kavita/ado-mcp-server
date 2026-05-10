@@ -13,6 +13,9 @@ import { dirname, join } from "path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { getCurrentVersion, getLatestChangelogHighlights, isNewerVersion } from "../version.ts";
 import { launchConfigUI } from "./configure-ui.ts";
+import { fetchClientRoots } from "../workspace/fetch-roots.ts";
+import { resolveWorkspace } from "../workspace/resolve.ts";
+import { WorkspaceError } from "../workspace/errors.ts";
 
 const INITIALIZED_FLAG = ".vortex-ado-initialized";
 
@@ -293,67 +296,88 @@ export function registerSetupTools(server: McpServer) {
       title: "Connect to Azure DevOps",
       description:
         "Open a guided web UI to configure ADO and Confluence credentials with real-time connection testing. " +
-        "Writes the connection config to <workspaceRoot>/.vortex-ado/config.json and stores the PAT in the OS keychain. " +
-        "REQUIRED: pass `workspaceRoot` as the absolute path of the project folder you're configuring — Cursor's MCP launches don't reliably set process.cwd() to the open folder, so the agent must supply this path explicitly.",
+        "Writes <workspace>/.vortex-ado/config.json and stores the PAT in the OS keychain. " +
+        "Resolves the target workspace via the MCP roots/list protocol (the workspace folder Cursor has open) " +
+        "with `workspaceRoot` as an optional override for testing or power-user multi-workspace flows.",
       inputSchema: {
         workspaceRoot: z
           .string()
           .min(1)
+          .optional()
           .describe(
-            "Absolute path of the project folder to configure (e.g. /Users/you/Projects/Project_ABC). " +
-              "The wizard writes <workspaceRoot>/.vortex-ado/config.json there. Refuses to write into your home directory or non-writable paths.",
+            "Optional override: absolute path of the project folder to configure. " +
+              "Normally the workspace is auto-detected via MCP roots/list (whatever folder Cursor has open). " +
+              "Pass this only to target a different folder, or when running from a client that doesn't expose roots.",
           ),
       },
     },
-    async ({ workspaceRoot }) => {
+    async ({ workspaceRoot }, extra) => {
       try {
-        // Validate that workspaceRoot is absolute. Relative paths can't be
-        // resolved deterministically from an MCP process whose cwd isn't
-        // necessarily the workspace.
-        if (!workspaceRoot.startsWith("/") && !/^[A-Za-z]:[\\/]/.test(workspaceRoot)) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text:
-                  `❌ Invalid workspaceRoot: must be an absolute path. Got: ${workspaceRoot}\n\n` +
-                  `Pass the full path of the project folder you're configuring.`,
-              },
-            ],
-            isError: true,
-          };
+        // 1. Try MCP roots/list first (Cursor's blessed mechanism).
+        // 2. Fall back to explicit `workspaceRoot` arg.
+        // 3. Hard fail with a clear error if neither resolves.
+        const clientRoots = await fetchClientRoots(extra ?? {});
+        let resolved: string;
+        try {
+          resolved = resolveWorkspace({
+            clientRoots,
+            explicit: workspaceRoot,
+          });
+        } catch (err) {
+          if (err instanceof WorkspaceError) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text:
+                    `❌ Could not determine the workspace to configure.\n\n` +
+                    `Reason: ${err.message}\n\n` +
+                    `Either open your project folder in Cursor (so MCP roots/list can resolve it) ` +
+                    `or pass \`workspaceRoot\` as an absolute path argument explicitly.`,
+                },
+              ],
+              isError: true,
+            };
+          }
+          throw err;
         }
 
-        const url = await launchConfigUI(workspaceRoot);
+        const url = await launchConfigUI(resolved);
+        const source = clientRoots.length > 0 ? "MCP roots/list" : "explicit workspaceRoot arg";
         return {
-          content: [{
-            type: "text" as const,
-            text: [
-              "🚀 Configuration UI launched!",
-              "",
-              `Opening in your browser: ${url}`,
-              "",
-              `Workspace target: ${workspaceRoot}`,
-              `Config will be written to: ${workspaceRoot}/.vortex-ado/config.json`,
-              `PAT will be stored in the OS keychain (account: ado::{org}::{project}).`,
-              "",
-              "In the configuration UI you can:",
-              "• Enter your Azure DevOps credentials (PAT, Organization, Project)",
-              "• Optionally configure Confluence integration",
-              "• Test connections before saving",
-              "",
-              "After saving, restart Cursor to apply the changes.",
-              "",
-              "💡 The server will automatically close after 10 minutes of inactivity.",
-            ].join("\n"),
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "🚀 Configuration UI launched!",
+                "",
+                `Opening in your browser: ${url}`,
+                "",
+                `Workspace: ${resolved}`,
+                `Resolved via: ${source}`,
+                `Config will be written to: ${resolved}/.vortex-ado/config.json`,
+                `PAT will be stored in the OS keychain (account: ado::{org}::{project}).`,
+                "",
+                "In the configuration UI you can:",
+                "• Enter your Azure DevOps credentials (PAT, Organization, Project)",
+                "• Optionally configure Confluence integration",
+                "• Test connections before saving",
+                "",
+                "After saving, restart Cursor to apply the changes.",
+                "",
+                "💡 The server will automatically close after 10 minutes of inactivity.",
+              ].join("\n"),
+            },
+          ],
         };
       } catch (err) {
         return {
-          content: [{
-            type: "text" as const,
-            text: `Failed to launch configuration UI: ${err}`,
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text: `Failed to launch configuration UI: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
           isError: true,
         };
       }
@@ -409,31 +433,45 @@ export function registerSetupTools(server: McpServer) {
       description:
         "Check if the VortexADO MCP server is fully configured and ready to use. " +
         "Returns a deterministic status table + Overall verdict + Next Actions list. " +
-        "Pass `workspaceRoot` (absolute path) to check the per-workspace config at that location; " +
-        "without it, the diagnostic falls back to the MCP-level boot-time credentials.",
+        "Resolves the target workspace via MCP roots/list automatically (whatever folder Cursor has open). " +
+        "Pass `workspaceRoot` only as an override to inspect a specific folder.",
       inputSchema: {
         workspaceRoot: z
           .string()
           .min(1)
           .optional()
           .describe(
-            "Absolute path of the project folder to check. When supplied, the diagnostic reads " +
-              "<workspaceRoot>/.vortex-ado/config.json and the matching keychain entry. Without it, " +
-              "shows the credentials the MCP loaded at startup.",
+            "Optional override: absolute path of the project folder to check. " +
+              "Normally auto-detected via MCP roots/list. Pass this to inspect a specific workspace " +
+              "different from the one Cursor has open.",
           ),
       },
     },
-    async ({ workspaceRoot }) => {
+    async ({ workspaceRoot }, extra) => {
       const currentVersion = getCurrentVersion();
 
-      // When workspaceRoot is supplied, freshly resolve credentials for that
-      // workspace (per-workspace config + keychain). Otherwise fall back to
-      // the cached startup-resolved credentials.
+      // Resolve the workspace via roots/list first, then explicit override.
+      // Unlike /ado-connect, /ado-check never hard-fails — if no workspace
+      // can be resolved, fall back to the boot-time credentials so we still
+      // show *something* useful.
+      const clientRoots = await fetchClientRoots(extra ?? {});
+      let resolvedWorkspace: string | null = null;
+      let workspaceResolutionSource: string | null = null;
+      try {
+        resolvedWorkspace = resolveWorkspace({
+          clientRoots,
+          explicit: workspaceRoot,
+        });
+        workspaceResolutionSource = clientRoots.length > 0 ? "MCP roots/list" : "explicit workspaceRoot arg";
+      } catch {
+        // Soft fall-through to boot-time creds.
+      }
+
       let creds: Credentials | null;
       let credsSource: string | null = null;
       let resolvedFromWorkspace = false;
-      if (workspaceRoot) {
-        const result = await loadCredentialsForWorkspace(workspaceRoot);
+      if (resolvedWorkspace) {
+        const result = await loadCredentialsForWorkspace(resolvedWorkspace);
         creds = result.credentials;
         credsSource = result.source;
         resolvedFromWorkspace = true;
@@ -444,8 +482,9 @@ export function registerSetupTools(server: McpServer) {
       const status = computeSetupStatus({ creds });
       const lines: string[] = [];
 
-      if (resolvedFromWorkspace) {
-        lines.push(`Workspace: ${workspaceRoot}`);
+      if (resolvedFromWorkspace && resolvedWorkspace) {
+        lines.push(`Workspace: ${resolvedWorkspace}`);
+        lines.push(`Resolved via: ${workspaceResolutionSource}`);
         lines.push(`Credentials source: ${credsSource ?? "(none found)"}`);
         lines.push("");
       }
@@ -467,11 +506,11 @@ export function registerSetupTools(server: McpServer) {
       } else {
         lines.push("VortexADO MCP — Setup Incomplete");
         lines.push("");
-        if (resolvedFromWorkspace) {
+        if (resolvedFromWorkspace && resolvedWorkspace) {
           lines.push(
-            `No per-workspace config found at ${workspaceRoot}/.vortex-ado/config.json, ` +
+            `No per-workspace config found at ${resolvedWorkspace}/.vortex-ado/config.json, ` +
               `and no legacy global credentials either. Run /vortex-ado/ado-connect ` +
-              `with workspaceRoot=${workspaceRoot} to set up.`,
+              `to set up — the workspace will be auto-detected from your open folder.`,
           );
         } else {
           lines.push("Core ADO tools will not work until this is resolved.");
