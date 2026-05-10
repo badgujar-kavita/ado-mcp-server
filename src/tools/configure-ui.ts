@@ -2179,27 +2179,58 @@ function getHtmlContent(
     }
     .modal-actions .btn { flex: 0 0 auto; padding: 0.65rem 1.25rem; }
 
-    /* Loading skeleton placeholder lines on Tab 2 while ADO probes run.
-       Shown by JS in activateConventionsTab() between fetch start and finish. */
-    .skeleton-block {
-      height: 14px;
-      width: 100%;
-      border-radius: 6px;
-      margin: 0.65rem 0;
-      background: linear-gradient(90deg, rgba(148, 163, 184, 0.06) 0%, rgba(148, 163, 184, 0.18) 50%, rgba(148, 163, 184, 0.06) 100%);
-      background-size: 200% 100%;
-      animation: skeletonShimmer 1.4s ease-in-out infinite;
+    /* Centered spinner loader for Tab 2 while ADO probes run. Replaces the
+       previous shimmering-skeleton approach which felt unfinished. */
+    .loader-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.85rem;
+      padding: 3rem 2rem !important;
+      text-align: center;
     }
-    .skeleton-status {
-      margin-top: 1rem;
+    .loader-spinner-wrap {
+      width: 56px;
+      height: 56px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader-spinner {
+      width: 56px;
+      height: 56px;
+      animation: loaderSpin 0.9s linear infinite;
+    }
+    .loader-spinner-track {
+      fill: none;
+      stroke: var(--bg-input);
+      stroke-width: 4;
+    }
+    .loader-spinner-arc {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 90 200;
+      transform-origin: center;
+    }
+    .loader-title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      letter-spacing: 0.01em;
+    }
+    .loader-status {
+      margin: 0;
       color: var(--text-muted);
       font-size: 0.88rem;
-      text-align: center;
-      font-style: italic;
+      max-width: 36ch;
     }
-    @keyframes skeletonShimmer {
-      0% { background-position: 100% 0; }
-      100% { background-position: -100% 0; }
+    @keyframes loaderSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
 
     /* Refresh button next to the Conventions card title — re-runs all probes
@@ -2405,21 +2436,16 @@ function getHtmlContent(
           </div>
         </div>
 
-        <!-- Loading skeleton — visible while ADO probes run on Tab 2 activation. -->
-        <div class="card" id="tab2-skeleton" style="display: none;">
-          <div class="card-header">
-            <div class="card-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);">
-              <svg class="spinner" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            </div>
-            <span class="card-title">Loading conventions…</span>
+        <!-- Spinner loader — visible while ADO probes run on Tab 2 activation. -->
+        <div class="card loader-card" id="tab2-skeleton" style="display: none;">
+          <div class="loader-spinner-wrap">
+            <svg class="loader-spinner" viewBox="0 0 50 50" aria-hidden="true">
+              <circle class="loader-spinner-track" cx="25" cy="25" r="20"></circle>
+              <circle class="loader-spinner-arc" cx="25" cy="25" r="20"></circle>
+            </svg>
           </div>
-          <div class="skeleton-block"></div>
-          <div class="skeleton-block" style="width: 70%"></div>
-          <div class="skeleton-block"></div>
-          <div class="skeleton-block" style="width: 85%"></div>
-          <div class="skeleton-block"></div>
-          <div class="skeleton-block" style="width: 60%"></div>
-          <p class="skeleton-status" id="skeleton-status">Probing your ADO project for plans, fields, and iterations…</p>
+          <h3 class="loader-title">Loading conventions…</h3>
+          <p class="loader-status" id="skeleton-status">Probing your ADO project for plans, fields, and iterations.</p>
         </div>
 
         <div class="card" id="tab2-card" style="display: none;">
@@ -3191,7 +3217,13 @@ function getHtmlContent(
     }
 
     function serializeConventionsForm() {
-      // Plan mappings
+      // Plan mappings — read every row's actual DOM state (no caching).
+      // Bugfix: the previous serializer required a non-empty fragment, which
+      // silently dropped any plan the user had checked but not yet typed an
+      // AreaPath fragment for. That matched the saved-empty-array symptom.
+      // Now: a checked plan with a missing fragment IS persisted with an
+      // empty areaPathContains array so the user sees their checkbox state
+      // preserved on reload and can fill in the fragment later.
       const testPlanMapping = [];
       document.querySelectorAll('#plan-mapping-list .plan-row').forEach(row => {
         const checkbox = row.querySelector('input[type="checkbox"]');
@@ -3203,14 +3235,14 @@ function getHtmlContent(
           if (isNaN(planId) || planId <= 0) return;
         } else {
           planId = parseInt(row.dataset.planId, 10);
+          if (isNaN(planId)) return;
         }
         const fragInput = row.querySelector('input[type="text"]');
-        const frag = (fragInput.value || '').trim();
-        if (!frag) return;
-        testPlanMapping.push({
-          planId,
-          areaPathContains: frag.split(',').map(s => s.trim()).filter(Boolean),
-        });
+        const frag = (fragInput?.value || '').trim();
+        const areaPathContains = frag
+          ? frag.split(',').map(s => s.trim()).filter(Boolean)
+          : [];
+        testPlanMapping.push({ planId, areaPathContains });
       });
 
       // Personas — read from the in-memory map maintained by the modal/cards.
