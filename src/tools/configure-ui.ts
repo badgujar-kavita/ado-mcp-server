@@ -23,42 +23,52 @@ interface Credentials {
 }
 
 /**
- * Per-workspace config path computed from process.cwd(). Each Cursor window's
- * MCP process has its own cwd, so this isolates workspaces correctly.
+ * Per-workspace config paths computed from an explicit workspace root.
+ *
+ * The workspace root MUST be passed in. Cursor's MCP launches don't reliably
+ * set process.cwd() to the open folder — the agent passes the workspace path
+ * explicitly via the tool's `workspaceRoot` argument (or in the future, via
+ * the MCP roots/list protocol). See workspace/resolve.ts for the full rules.
  */
-function workspaceDir(): string {
-  return join(process.cwd(), ".vortex-ado");
+function workspaceDir(workspaceRoot: string): string {
+  return join(workspaceRoot, ".vortex-ado");
 }
-function workspaceConfigFile(): string {
-  return join(workspaceDir(), "config.json");
+function workspaceConfigFile(workspaceRoot: string): string {
+  return join(workspaceDir(workspaceRoot), "config.json");
 }
 
 /**
- * Defensive check before auto-creating .vortex-ado/ in cwd.
- * Refuses to write into:
- *   - the user's home directory (cwd === ~)
+ * Defensive check before auto-creating .vortex-ado/ in the supplied workspace
+ * root. Refuses to write into:
+ *   - the user's home directory (~)
  *   - non-writable paths
  *   - paths that don't exist
  *
- * Why: if Cursor was launched without opening a folder, cwd may be the user's
- * home dir or some app-internal path. Creating .vortex-ado/ there would be
- * surprising and potentially leak project info into the wrong place.
+ * The agent should never pass home or a non-project path — but this guard
+ * exists so a typo or buggy client doesn't pollute the user's home directory.
  */
-function isCwdSafeForWorkspaceWrite(): { ok: true } | { ok: false; reason: string } {
-  const cwd = process.cwd();
+function isWorkspaceSafeForWrite(
+  workspaceRoot: string,
+): { ok: true } | { ok: false; reason: string } {
   const home = homedir();
 
-  if (cwd === home) {
+  if (workspaceRoot === home) {
     return {
       ok: false,
       reason:
-        "Cwd is your home directory. Open a project folder in Cursor first, then run /ado-connect from there.",
+        "Workspace root is your home directory. Open a project folder in Cursor first, then run /ado-connect from there.",
+    };
+  }
+  if (!existsSync(workspaceRoot)) {
+    return {
+      ok: false,
+      reason: `Workspace root does not exist: ${workspaceRoot}`,
     };
   }
   try {
-    accessSync(cwd, constants.W_OK);
+    accessSync(workspaceRoot, constants.W_OK);
   } catch {
-    return { ok: false, reason: `Cwd is not writable: ${cwd}` };
+    return { ok: false, reason: `Workspace root is not writable: ${workspaceRoot}` };
   }
   return { ok: true };
 }
@@ -72,9 +82,9 @@ function isCwdSafeForWorkspaceWrite(): { ok: true } | { ok: false; reason: strin
  * The PAT/Confluence-token are pulled from keychain when org+project are
  * known so the user sees "(stored in keychain)" rather than a blank field.
  */
-async function loadExistingCredentials(): Promise<Partial<Credentials> & { _patStored?: boolean; _confluenceTokenStored?: boolean }> {
+async function loadExistingCredentials(workspaceRoot: string): Promise<Partial<Credentials> & { _patStored?: boolean; _confluenceTokenStored?: boolean }> {
   // 1. Try per-workspace config + keychain.
-  const wsFile = workspaceConfigFile();
+  const wsFile = workspaceConfigFile(workspaceRoot);
   if (existsSync(wsFile)) {
     try {
       const raw = JSON.parse(readFileSync(wsFile, "utf-8"));
@@ -267,14 +277,17 @@ async function testConfluenceConnection(baseUrl: string, email: string, apiToken
  *
  * Throws on any safety failure — caller surfaces to the wizard UI.
  */
-async function saveCredentials(creds: Credentials): Promise<{ workspaceConfigPath: string; orgProjectChanged: boolean }> {
-  const safety = isCwdSafeForWorkspaceWrite();
+async function saveCredentials(
+  creds: Credentials,
+  workspaceRoot: string,
+): Promise<{ workspaceConfigPath: string; orgProjectChanged: boolean }> {
+  const safety = isWorkspaceSafeForWrite(workspaceRoot);
   if (!safety.ok) {
     throw new Error(`Cannot save: ${safety.reason}`);
   }
 
-  const wsDir = workspaceDir();
-  const wsFile = workspaceConfigFile();
+  const wsDir = workspaceDir(workspaceRoot);
+  const wsFile = workspaceConfigFile(workspaceRoot);
   if (!existsSync(wsDir)) {
     mkdirSync(wsDir, { recursive: true });
   }
@@ -1525,10 +1538,21 @@ function openBrowser(url: string): void {
   exec(cmd);
 }
 
-export async function startConfigServer(): Promise<{ port: number; close: () => void }> {
+/**
+ * Start the wizard's local HTTP server.
+ *
+ * The `workspaceRoot` is bound in closure so every save operation lands in
+ * the same workspace folder, regardless of what process.cwd() is when
+ * Cursor's MCP launches. Pass an absolute path that points at the project
+ * folder the user is configuring — the agent should source it from the
+ * /ado-connect tool's input arg.
+ */
+export async function startConfigServer(
+  workspaceRoot: string,
+): Promise<{ port: number; close: () => void }> {
   return new Promise((resolve, reject) => {
     let serverInstance: ReturnType<typeof createServer>;
-    
+
     serverInstance = createServer(async (req, res) => {
       const url = req.url || "/";
       const method = req.method || "GET";
@@ -1546,7 +1570,7 @@ export async function startConfigServer(): Promise<{ port: number; close: () => 
 
       try {
         if (url === "/" && method === "GET") {
-          const existingCreds = await loadExistingCredentials();
+          const existingCreds = await loadExistingCredentials(workspaceRoot);
           sendHtml(res, getHtmlContent(existingCreds));
         } else if (url === "/api/test-ado" && method === "POST") {
           const body = JSON.parse(await parseBody(req));
@@ -1559,7 +1583,7 @@ export async function startConfigServer(): Promise<{ port: number; close: () => 
         } else if (url === "/api/save" && method === "POST") {
           const body = JSON.parse(await parseBody(req)) as Credentials;
           try {
-            const saved = await saveCredentials(body);
+            const saved = await saveCredentials(body, workspaceRoot);
             sendJson(res, {
               success: true,
               message: `Credentials saved to ${saved.workspaceConfigPath} (PAT in OS keychain)`,
@@ -1603,10 +1627,19 @@ export async function startConfigServer(): Promise<{ port: number; close: () => 
   });
 }
 
-export async function launchConfigUI(): Promise<string> {
-  const { port, close } = await startConfigServer();
+/**
+ * Launch the wizard, returning the URL the browser opens at.
+ *
+ * The caller MUST pass an absolute path to the workspace folder. /ado-connect
+ * is responsible for resolving that path (from the tool's `workspaceRoot` arg
+ * and, in a future change, from MCP roots/list). The wizard writes
+ * <workspaceRoot>/.vortex-ado/config.json and stores the PAT in the OS
+ * keychain.
+ */
+export async function launchConfigUI(workspaceRoot: string): Promise<string> {
+  const { port, close } = await startConfigServer(workspaceRoot);
   const url = `http://127.0.0.1:${port}`;
-  
+
   openBrowser(url);
 
   // Auto-close after 10 minutes

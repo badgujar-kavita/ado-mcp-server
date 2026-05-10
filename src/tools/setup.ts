@@ -1,9 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 import {
   createCredentialsTemplate,
   getCredentialsPath,
   getTcDraftsDir,
   loadCredentials,
+  loadCredentialsForWorkspace,
   credentialsFileExists,
   type Credentials,
 } from "../credentials.ts";
@@ -289,12 +291,40 @@ export function registerSetupTools(server: McpServer) {
     "ado_connect",
     {
       title: "Connect to Azure DevOps",
-      description: "Open a beautiful web UI to configure ADO and Confluence credentials with real-time connection testing. This is the recommended way to set up your credentials.",
-      inputSchema: {},
+      description:
+        "Open a guided web UI to configure ADO and Confluence credentials with real-time connection testing. " +
+        "Writes the connection config to <workspaceRoot>/.vortex-ado/config.json and stores the PAT in the OS keychain. " +
+        "REQUIRED: pass `workspaceRoot` as the absolute path of the project folder you're configuring — Cursor's MCP launches don't reliably set process.cwd() to the open folder, so the agent must supply this path explicitly.",
+      inputSchema: {
+        workspaceRoot: z
+          .string()
+          .min(1)
+          .describe(
+            "Absolute path of the project folder to configure (e.g. /Users/you/Projects/Project_ABC). " +
+              "The wizard writes <workspaceRoot>/.vortex-ado/config.json there. Refuses to write into your home directory or non-writable paths.",
+          ),
+      },
     },
-    async () => {
+    async ({ workspaceRoot }) => {
       try {
-        const url = await launchConfigUI();
+        // Validate that workspaceRoot is absolute. Relative paths can't be
+        // resolved deterministically from an MCP process whose cwd isn't
+        // necessarily the workspace.
+        if (!workspaceRoot.startsWith("/") && !/^[A-Za-z]:[\\/]/.test(workspaceRoot)) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  `❌ Invalid workspaceRoot: must be an absolute path. Got: ${workspaceRoot}\n\n` +
+                  `Pass the full path of the project folder you're configuring.`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const url = await launchConfigUI(workspaceRoot);
         return {
           content: [{
             type: "text" as const,
@@ -303,11 +333,14 @@ export function registerSetupTools(server: McpServer) {
               "",
               `Opening in your browser: ${url}`,
               "",
+              `Workspace target: ${workspaceRoot}`,
+              `Config will be written to: ${workspaceRoot}/.vortex-ado/config.json`,
+              `PAT will be stored in the OS keychain (account: ado::{org}::{project}).`,
+              "",
               "In the configuration UI you can:",
               "• Enter your Azure DevOps credentials (PAT, Organization, Project)",
               "• Optionally configure Confluence integration",
               "• Test connections before saving",
-              "• Save credentials securely to ~/.vortex-ado/credentials.json",
               "",
               "After saving, restart Cursor to apply the changes.",
               "",
@@ -373,15 +406,49 @@ export function registerSetupTools(server: McpServer) {
     "ado_check",
     {
       title: "Check ADO Setup Status",
-      description: "Check if the VortexADO MCP server is fully configured and ready to use. Returns a deterministic status table + Overall verdict + Next Actions list.",
-      inputSchema: {},
+      description:
+        "Check if the VortexADO MCP server is fully configured and ready to use. " +
+        "Returns a deterministic status table + Overall verdict + Next Actions list. " +
+        "Pass `workspaceRoot` (absolute path) to check the per-workspace config at that location; " +
+        "without it, the diagnostic falls back to the MCP-level boot-time credentials.",
+      inputSchema: {
+        workspaceRoot: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Absolute path of the project folder to check. When supplied, the diagnostic reads " +
+              "<workspaceRoot>/.vortex-ado/config.json and the matching keychain entry. Without it, " +
+              "shows the credentials the MCP loaded at startup.",
+          ),
+      },
     },
-    async () => {
+    async ({ workspaceRoot }) => {
       const currentVersion = getCurrentVersion();
-      const status = computeSetupStatus();
-      const creds = loadCredentials();
 
+      // When workspaceRoot is supplied, freshly resolve credentials for that
+      // workspace (per-workspace config + keychain). Otherwise fall back to
+      // the cached startup-resolved credentials.
+      let creds: Credentials | null;
+      let credsSource: string | null = null;
+      let resolvedFromWorkspace = false;
+      if (workspaceRoot) {
+        const result = await loadCredentialsForWorkspace(workspaceRoot);
+        creds = result.credentials;
+        credsSource = result.source;
+        resolvedFromWorkspace = true;
+      } else {
+        creds = loadCredentials();
+      }
+
+      const status = computeSetupStatus({ creds });
       const lines: string[] = [];
+
+      if (resolvedFromWorkspace) {
+        lines.push(`Workspace: ${workspaceRoot}`);
+        lines.push(`Credentials source: ${credsSource ?? "(none found)"}`);
+        lines.push("");
+      }
 
       // Preserve first-run welcome + version-update framing. These precede
       // the status block but never replace it — the table + Next Actions
@@ -400,7 +467,15 @@ export function registerSetupTools(server: McpServer) {
       } else {
         lines.push("VortexADO MCP — Setup Incomplete");
         lines.push("");
-        lines.push("Core ADO tools will not work until this is resolved.");
+        if (resolvedFromWorkspace) {
+          lines.push(
+            `No per-workspace config found at ${workspaceRoot}/.vortex-ado/config.json, ` +
+              `and no legacy global credentials either. Run /vortex-ado/ado-connect ` +
+              `with workspaceRoot=${workspaceRoot} to set up.`,
+          );
+        } else {
+          lines.push("Core ADO tools will not work until this is resolved.");
+        }
         lines.push("");
       }
 

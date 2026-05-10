@@ -226,3 +226,53 @@ export function __resetCredentialsCacheForTests(): void {
   _credentialsSource = null;
   _bootstrapped = false;
 }
+
+/**
+ * One-shot lookup for credentials at an explicit workspace path.
+ *
+ * Unlike `loadCredentials()` (which returns the cached startup-resolved
+ * value), this freshly reads `<workspaceRoot>/.vortex-ado/config.json` and
+ * fetches the matching keychain entry. Used by /ado-check (and Phase 1
+ * tools) when the agent supplies `workspaceRoot` explicitly.
+ *
+ * Falls back to legacy global on miss, same as bootstrap.
+ */
+export async function loadCredentialsForWorkspace(
+  workspaceRoot: string,
+): Promise<{ credentials: Credentials | null; source: string | null }> {
+  const wsPath = join(workspaceRoot, ".vortex-ado", "config.json");
+  if (existsSync(wsPath)) {
+    try {
+      const raw = JSON.parse(readFileSync(wsPath, "utf-8"));
+      const ws = WorkspaceConfigSchema.parse(raw);
+      if (ws.ado?.org && ws.ado?.project) {
+        const pat = await keychain.getAdoToken(ws.ado.org, ws.ado.project);
+        const confluenceToken = ws.confluence?.enabled
+          ? await keychain.getConfluenceToken(ws.ado.org, ws.ado.project)
+          : null;
+
+        if (pat) {
+          return {
+            credentials: {
+              ado_pat: pat,
+              ado_org: ws.ado.org,
+              ado_project: ws.ado.project,
+              ...(ws.confluence?.url ? { confluence_base_url: ws.confluence.url } : {}),
+              ...(ws.confluence?.email ? { confluence_email: ws.confluence.email } : {}),
+              ...(confluenceToken ? { confluence_api_token: confluenceToken } : {}),
+            },
+            source: `workspace+keychain (${wsPath})`,
+          };
+        }
+      }
+    } catch {
+      // Fall through to legacy.
+    }
+  }
+
+  const legacy = loadLegacyCredentialsSync();
+  return {
+    credentials: legacy,
+    source: legacy ? `legacy (${LEGACY_CREDS_FILE})` : null,
+  };
+}

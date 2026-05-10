@@ -9,13 +9,25 @@ import {
 export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("ado-connect", {
     title: "Connect to Azure DevOps",
-    description: "Set up ADO and Confluence credentials via a guided web UI",
+    description: "Set up ADO and Confluence credentials via a guided web UI (per-workspace)",
   }, async () => ({
     messages: [{
       role: "user" as const,
       content: {
         type: "text" as const,
-        text: "Launch the configuration UI using the ado_connect tool. This opens a web interface where I can enter my Azure DevOps and Confluence credentials, test the connections, and save them securely.",
+        text: [
+          "Launch the configuration UI using the ado_connect tool.",
+          "",
+          "**REQUIRED — workspaceRoot.** The ado_connect tool requires a `workspaceRoot` argument: the absolute path of the project folder being configured. Why: Cursor's MCP launches don't reliably set process.cwd() to the open folder, so the agent must pass the workspace path explicitly.",
+          "",
+          "Resolve workspaceRoot in this priority order:",
+          "  1. The workspace folder open in the user's editor (Cursor exposes this in your conversation context — typically the top-level folder containing the user's repo / project files).",
+          "  2. If you cannot determine it confidently, ASK the user: 'Which folder is your ADO project in? Reply with the absolute path (e.g. /Users/jane/Projects/Project_ABC).'",
+          "",
+          "Do NOT use `~/.vortex-ado` or your home directory as the workspaceRoot — the wizard will refuse and surface an error. Pass the actual project folder.",
+          "",
+          "After the wizard saves: tell me where the config landed (`<workspaceRoot>/.vortex-ado/config.json`) and remind me to restart Cursor / refresh the MCP so the changes take effect.",
+        ].join("\n"),
       },
     }],
   }));
@@ -29,7 +41,13 @@ export function registerAllPrompts(server: McpServer) {
       content: {
         type: "text" as const,
         text: [
-          "Check if the VortexADO MCP server is fully configured using the ado_check tool. Show the current setup status and, when appropriate, the first-run welcome or version update message.",
+          "Check if the VortexADO MCP server is fully configured using the ado_check tool.",
+          "",
+          "**Pass `workspaceRoot`** (absolute path of the user's open project folder) when you have it — that triggers a per-workspace check that reads `<workspaceRoot>/.vortex-ado/config.json` and the matching keychain entry. Without `workspaceRoot`, the diagnostic falls back to whatever credentials the MCP loaded at boot time, which may not match the user's current workspace.",
+          "",
+          "Resolve workspaceRoot from your conversation context (Cursor exposes the open folder). If unsure, you can omit the argument — the diagnostic still works against the boot-time credentials, just with less precision about which workspace it pertains to.",
+          "",
+          "Show the current setup status and, when appropriate, the first-run welcome or version update message.",
           "",
           DIAGNOSTIC_CONTRACT,
         ].join("\n"),
