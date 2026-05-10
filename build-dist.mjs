@@ -49,9 +49,11 @@ async function main() {
     //     at module load, which esbuild can't inline into an ESM bundle.
     //   - `node-html-parser` behaves cleanly when bundled, but we keep it
     //     external for symmetry and so npm handles version resolution.
+    //   - `keytar` is a native module (.node binary) that esbuild's bundler
+    //     cannot inline. Must be installed at runtime via npm install.
     // The installer runs `npm install` inside ~/.vortex-ado/ so these
     // resolve from the installed node_modules at runtime.
-    external: ["jimp", "node-html-parser"],
+    external: ["jimp", "node-html-parser", "keytar"],
   });
 
   copyFileSync(join(ROOT, "bin", "bootstrap.mjs"), join(OUT, "bin", "bootstrap.mjs"));
@@ -108,7 +110,7 @@ alwaysApply: true
   // Only the runtime deps marked `external:` in the esbuild call above need to
   // be in the dist-package package.json. `@modelcontextprotocol/sdk`, `dotenv`,
   // and `zod` are inlined into dist/index.js.
-  const EXTERNAL_RUNTIME_DEPS = ["jimp", "node-html-parser"];
+  const EXTERNAL_RUNTIME_DEPS = ["jimp", "node-html-parser", "keytar"];
   const distDeps = {};
   for (const name of EXTERNAL_RUNTIME_DEPS) {
     const version = pkg.dependencies?.[name];
