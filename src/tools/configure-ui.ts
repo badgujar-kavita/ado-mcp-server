@@ -2769,10 +2769,15 @@ function getHtmlContent(
       blocked.style.display = 'none';
       if (tab2Activated && !forceReload) return; // load once unless forced
 
-      // Show overlay while probes run; hide the populated card if reloading.
+      // Show full-screen loader overlay while probes run. The card stays
+      // hidden ONLY on first activation (no content yet); on reload it
+      // stays visible underneath the overlay so dismissing the overlay
+      // doesn't expose a blank page during the render phase.
       overlay.classList.add('show');
-      card.style.display = 'none';
-      footer.style.display = 'none';
+      if (!tab2Activated) {
+        card.style.display = 'none';
+        footer.style.display = 'none';
+      }
       if (skelStatus) skelStatus.textContent = 'Probing your ADO project for plans, fields, and iterations…';
 
       // 1. Silently revalidate the keychain PAT (returning user) OR use the
@@ -2855,19 +2860,15 @@ function getHtmlContent(
       const inFlight = serializeConventionsForm();
 
       try {
-        // Force re-probe; activate handles skeleton + render + footer toggle.
+        // Manual refresh — re-probe ADO and re-render the form with the
+        // user's in-flight values preserved. The card stays visible
+        // underneath the overlay so dismissing the overlay doesn't briefly
+        // flash a blank state.
         tab2Activated = false;
-        // Override fetch results: instead of going through /api/load-existing,
-        // pass the user's current form state as if it were "existing".
-        // Easiest path: monkey-patch existingConventions by replacing the
-        // load-existing fetch via a temporary override. Cleanest: inline the
-        // refresh logic so it doesn't re-read the file.
-        const card = document.getElementById('tab2-card');
         const overlay = document.getElementById('tab2-loader-overlay');
-        const footer = document.getElementById('tab2-footer');
+        const skelStatus = document.getElementById('skeleton-status');
+        if (skelStatus) skelStatus.textContent = 'Re-fetching plans, fields, and iterations from ADO…';
         overlay.classList.add('show');
-        card.style.display = 'none';
-        footer.style.display = 'none';
 
         const org = document.getElementById('ado_org').value.trim();
         const project = document.getElementById('ado_project').value.trim();
@@ -2900,8 +2901,6 @@ function getHtmlContent(
         }
 
         overlay.classList.remove('show');
-        card.style.display = 'block';
-        footer.style.display = 'flex';
         tab2Activated = true;
       } finally {
         if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
@@ -3435,27 +3434,44 @@ function getHtmlContent(
       tab2Activated = false;
       if (reuse) {
         // Reuse existing — let activate fetch /api/load-existing as usual.
+        // activateConventionsTab handles the loader overlay itself.
         await activateConventionsTab(true);
       } else {
-        // Start fresh — clear existing conventions in memory before re-render
-        // by passing an empty existing payload. We achieve this by calling the
-        // render directly with empty payload after the probes complete.
-        const card = document.getElementById('tab2-card');
-        card.style.display = 'none';
-        // Fetch probes only, skip /api/load-existing.
+        // Start fresh — show the loader overlay during probes (so the user
+        // doesn't stare at a stale form), fetch probes, render with an
+        // empty existing payload, then hide the overlay.
+        const overlay = document.getElementById('tab2-loader-overlay');
+        const footer = document.getElementById('tab2-footer');
+        const skelStatus = document.getElementById('skeleton-status');
+        if (skelStatus) skelStatus.textContent = 'Re-fetching plans, fields, and iterations for the new project…';
+        overlay.classList.add('show');
+        footer.style.display = 'none';
+
         const org = document.getElementById('ado_org').value.trim();
         const project = document.getElementById('ado_project').value.trim();
         const probeBody = JSON.stringify({ pat: activePat, org, project });
-        const [plans, fields] = await Promise.all([
+        const [plans, fields, iterations] = await Promise.all([
           fetch('/api/probe-plans', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
           fetch('/api/probe-fields', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
+          fetch('/api/probe-iterations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: probeBody }).then(r => r.json()).catch(() => ({ ok: false })),
         ]);
         probedPlans = plans.ok ? (plans.data || []) : [];
         probedFields = fields.ok ? fields.data : { prerequisiteCandidates: [], solutionDesignCandidates: [], contextCandidates: [] };
+
         renderConventionsForm({}); // empty → fresh start
+
+        // Surface the iteration probe's suggested sprint prefix when available.
+        if (iterations.ok && iterations.data && iterations.data.suggestedPrefix) {
+          const input = document.getElementById('sprint-prefix-input');
+          const status = document.getElementById('sprint-prefix-status');
+          if (!input.value.trim()) input.value = iterations.data.suggestedPrefix;
+          status.textContent = 'Detected from your iterations: ' + iterations.data.suggestedPrefix + ' — edit if your team uses a different prefix.';
+          status.className = 'probe-status ok';
+        }
+
         conventionsSnapshot = serializeConventionsForm();
-        card.style.display = 'block';
-        document.getElementById('tab2-footer').style.display = 'flex';
+        overlay.classList.remove('show');
+        footer.style.display = 'flex';
         tab2Activated = true;
       }
     }
