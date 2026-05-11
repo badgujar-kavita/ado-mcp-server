@@ -2179,27 +2179,40 @@ function getHtmlContent(
     }
     .modal-actions .btn { flex: 0 0 auto; padding: 0.65rem 1.25rem; }
 
-    /* Centered spinner loader for Tab 2 while ADO probes run. Replaces the
-       previous shimmering-skeleton approach which felt unfinished. */
-    .loader-card {
-      display: flex;
-      flex-direction: column;
+    /* Full-screen spinner overlay shown while ADO probes run on Tab 2
+       activation/refresh. Sits above the page (z-index 1500), below any
+       confirmation modals (which use 1000-1100). The user sees the entire
+       wizard dimmed with a single centered spinner, no doubt that work
+       is in progress. */
+    .loader-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
       align-items: center;
       justify-content: center;
-      gap: 0.85rem;
-      padding: 3rem 2rem !important;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 2rem;
+      background: rgba(6, 9, 15, 0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 1500;
       text-align: center;
     }
+    .loader-overlay.show {
+      display: flex;
+      animation: loaderFadeIn 200ms ease;
+    }
     .loader-spinner-wrap {
-      width: 56px;
-      height: 56px;
+      width: 72px;
+      height: 72px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
     }
     .loader-spinner {
-      width: 56px;
-      height: 56px;
+      width: 72px;
+      height: 72px;
       animation: loaderSpin 0.9s linear infinite;
     }
     .loader-spinner-track {
@@ -2217,7 +2230,7 @@ function getHtmlContent(
     }
     .loader-title {
       margin: 0;
-      font-size: 1.05rem;
+      font-size: 1.15rem;
       font-weight: 600;
       color: var(--text-bright);
       letter-spacing: 0.01em;
@@ -2225,12 +2238,16 @@ function getHtmlContent(
     .loader-status {
       margin: 0;
       color: var(--text-muted);
-      font-size: 0.88rem;
-      max-width: 36ch;
+      font-size: 0.9rem;
+      max-width: 42ch;
     }
     @keyframes loaderSpin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
+    }
+    @keyframes loaderFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     /* Refresh button next to the Conventions card title — re-runs all probes
@@ -2436,17 +2453,9 @@ function getHtmlContent(
           </div>
         </div>
 
-        <!-- Spinner loader — visible while ADO probes run on Tab 2 activation. -->
-        <div class="card loader-card" id="tab2-skeleton" style="display: none;">
-          <div class="loader-spinner-wrap">
-            <svg class="loader-spinner" viewBox="0 0 50 50" aria-hidden="true">
-              <circle class="loader-spinner-track" cx="25" cy="25" r="20"></circle>
-              <circle class="loader-spinner-arc" cx="25" cy="25" r="20"></circle>
-            </svg>
-          </div>
-          <h3 class="loader-title">Loading conventions…</h3>
-          <p class="loader-status" id="skeleton-status">Probing your ADO project for plans, fields, and iterations.</p>
-        </div>
+        <!-- Loading state for Tab 2 lives in #tab2-loader-overlay (a top-level
+             full-screen overlay, sibling of the confirmation modal) so it
+             escapes the tab-panel sizing. JS toggles its .show class. -->
 
         <div class="card" id="tab2-card" style="display: none;">
           <div class="card-header">
@@ -2617,6 +2626,18 @@ function getHtmlContent(
     </div>
   </div>
 
+  <!-- Full-screen loader overlay — covers the wizard while ADO probes run -->
+  <div class="loader-overlay" id="tab2-loader-overlay" role="status" aria-live="polite">
+    <div class="loader-spinner-wrap">
+      <svg class="loader-spinner" viewBox="0 0 50 50" aria-hidden="true">
+        <circle class="loader-spinner-track" cx="25" cy="25" r="20"></circle>
+        <circle class="loader-spinner-arc" cx="25" cy="25" r="20"></circle>
+      </svg>
+    </div>
+    <h3 class="loader-title">Loading conventions…</h3>
+    <p class="loader-status" id="skeleton-status">Probing your ADO project for plans, fields, and iterations.</p>
+  </div>
+
   <!-- Success Overlay -->
   <div class="success-overlay" id="success-overlay">
     <div class="success-content">
@@ -2733,14 +2754,14 @@ function getHtmlContent(
     // refresh button and the org/project change Reuse-vs-Fresh flow.
     async function activateConventionsTab(forceReload = false) {
       const card = document.getElementById('tab2-card');
-      const skeleton = document.getElementById('tab2-skeleton');
+      const overlay = document.getElementById('tab2-loader-overlay');
       const footer = document.getElementById('tab2-footer');
       const blocked = document.getElementById('tab2-blocked-message');
       const skelStatus = document.getElementById('skeleton-status');
 
       if (!connectionSaved) {
         blocked.style.display = 'block';
-        skeleton.style.display = 'none';
+        overlay.classList.remove('show');
         card.style.display = 'none';
         footer.style.display = 'none';
         return;
@@ -2748,8 +2769,8 @@ function getHtmlContent(
       blocked.style.display = 'none';
       if (tab2Activated && !forceReload) return; // load once unless forced
 
-      // Show skeleton while probes run; hide the populated card if reloading.
-      skeleton.style.display = 'block';
+      // Show overlay while probes run; hide the populated card if reloading.
+      overlay.classList.add('show');
       card.style.display = 'none';
       footer.style.display = 'none';
       if (skelStatus) skelStatus.textContent = 'Probing your ADO project for plans, fields, and iterations…';
@@ -2760,7 +2781,7 @@ function getHtmlContent(
         const check = await fetch('/api/check-keychain-pat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
         if (!check.ok) {
           showStatus('ado-status', 'error', 'PAT validation failed', check.message || 'Update your PAT on Tab 1.');
-          skeleton.style.display = 'none';
+          overlay.classList.remove('show');
           card.style.display = 'none';
           footer.style.display = 'none';
           return;
@@ -2812,8 +2833,8 @@ function getHtmlContent(
 
       conventionsSnapshot = serializeConventionsForm();
 
-      // Swap skeleton for populated card.
-      skeleton.style.display = 'none';
+      // Swap overlay for populated card.
+      overlay.classList.remove('show');
       card.style.display = 'block';
       footer.style.display = 'flex';
       tab2Activated = true;
@@ -2842,9 +2863,9 @@ function getHtmlContent(
         // load-existing fetch via a temporary override. Cleanest: inline the
         // refresh logic so it doesn't re-read the file.
         const card = document.getElementById('tab2-card');
-        const skeleton = document.getElementById('tab2-skeleton');
+        const overlay = document.getElementById('tab2-loader-overlay');
         const footer = document.getElementById('tab2-footer');
-        skeleton.style.display = 'block';
+        overlay.classList.add('show');
         card.style.display = 'none';
         footer.style.display = 'none';
 
@@ -2878,7 +2899,7 @@ function getHtmlContent(
           status.className = 'probe-status ok';
         }
 
-        skeleton.style.display = 'none';
+        overlay.classList.remove('show');
         card.style.display = 'block';
         footer.style.display = 'flex';
         tab2Activated = true;
