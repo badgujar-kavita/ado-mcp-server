@@ -82,7 +82,7 @@ function isWorkspaceSafeForWrite(
  * The PAT/Confluence-token are pulled from keychain when org+project are
  * known so the user sees "(stored in keychain)" rather than a blank field.
  */
-async function loadExistingCredentials(workspaceRoot: string): Promise<Partial<Credentials> & { _patStored?: boolean; _confluenceTokenStored?: boolean }> {
+export async function loadExistingCredentials(workspaceRoot: string): Promise<Partial<Credentials> & { _patStored?: boolean; _confluenceTokenStored?: boolean }> {
   // 1. Try per-workspace config + keychain.
   const wsFile = workspaceConfigFile(workspaceRoot);
   if (existsSync(wsFile)) {
@@ -332,7 +332,7 @@ export async function probeAdoPlans(
  *
  * Falls back to the full areaPath when it's a single segment, or empty.
  */
-function extractAreaPathFragment(areaPath: string, _project: string): string {
+export function extractAreaPathFragment(areaPath: string, _project: string): string {
   if (!areaPath) return "";
   // ADO area paths use backslash separators.
   const segments = areaPath.split("\\").filter(Boolean);
@@ -487,7 +487,7 @@ export async function probeIterationPrefix(
  * Returns { ok, pat? } — when ok=true, the caller has a verified PAT to
  * reuse for further probes without re-prompting the user.
  */
-async function checkKeychainPat(
+export async function checkKeychainPat(
   workspaceRoot: string,
 ): Promise<{ ok: boolean; message?: string; pat?: string; org?: string; project?: string }> {
   const wsFile = workspaceConfigFile(workspaceRoot);
@@ -532,7 +532,7 @@ async function checkKeychainPat(
  *
  * Throws on any safety failure — caller surfaces to the wizard UI.
  */
-async function saveCredentials(
+export async function saveCredentials(
   creds: Credentials,
   workspaceRoot: string,
 ): Promise<{ workspaceConfigPath: string; orgProjectChanged: boolean }> {
@@ -3001,6 +3001,9 @@ function getHtmlContent(
      * Derive a clean JSON key from a persona's display label.
      * "Key Account Manager (KAM) User" → "KeyAccountManagerKAMUser"
      * Strips spaces, punctuation, keeps alphanumerics. Fallback "Persona1".
+     *
+     * Mirrors src/tools/wizard-form-helpers.ts → derivePersonaKey.
+     * Tests for this logic live there; keep both copies in lockstep.
      */
     function derivePersonaKey(label, fallbackIndex) {
       const cleaned = String(label || '').replace(/[^A-Za-z0-9]/g, '');
@@ -3065,6 +3068,7 @@ function getHtmlContent(
       if (!key) key = derivePersonaKey(label, personaOrder.length);
 
       // Disambiguate against existing keys (excluding the entry we're editing).
+      // Mirrors src/tools/wizard-form-helpers.ts → assignUniquePersonaKey.
       let unique = key;
       let suffix = 2;
       while (currentPersonas[unique] && unique !== editingPersonaKey) {
@@ -3309,6 +3313,7 @@ function getHtmlContent(
     }
 
     // Stable canonicalization for diff comparison — sort keys, strip empty strings/arrays/objects.
+    // Mirrors src/tools/wizard-form-helpers.ts → canonicalize. Tests live there.
     function canonicalize(v) {
       if (Array.isArray(v)) return v.map(canonicalize).filter(x => x !== undefined);
       if (v && typeof v === 'object') {

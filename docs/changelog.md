@@ -89,6 +89,11 @@ The TC title format is locked to `TC_<userStoryId>_<NN> -> <featureTags> -> <use
 
 14 new tests in `src/tools/configure-ui.test.ts` covering: probe parsing (plans / fields / iterations), `saveConventions` merge semantics, refuses-without-base-config, and `additionalContextFields` replace-not-merge. Total test count: **344 → 358**.
 
+Follow-up coverage rounds (Tier 1 + Tier 2) brought the wizard test count from **358 → 418**:
+
+- **Tier 1 — backend gaps (+20 tests in `src/tools/configure-ui.test.ts`):** `extractAreaPathFragment` edge cases, `checkKeychainPat` revalidation paths, `loadExistingCredentials` keychain-flag reporting, and `saveCredentials` org/project-change scenarios (old keychain entry deleted; new entry written; `orgProjectChanged` flag set correctly).
+- **Tier 2 — frontend pure-helper extraction (+40 tests in new `src/tools/wizard-form-helpers.{ts,test.ts}`):** the diff/serialization logic that was previously inline in the wizard's `<script>` block — `canonicalize`, `isFormChanged`, `derivePersonaKey`, `assignUniquePersonaKey`, `serializePlanMapping` — now lives in a typed module with unit tests for canonical-form stripping, key-collision walking, persona-key fallback, and the empty-fragment-checked-row bugfix. The browser-side copies inside `getHtmlContent()` are kept verbatim and carry pointers back to the typed module.
+
 **Docs updated:**
 
 - `docs/changelog.md` (this entry).
