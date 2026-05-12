@@ -197,7 +197,7 @@ const FRAMEWORK_DEFAULTS: FrameworkDefaults = {
   },
 
   images: {
-    enabled: true,
+    enabled: false,
     maxPerUserStory: 20,
     maxBytesPerImage: 2_097_152,
     maxTotalBytesPerResponse: 4_194_304,

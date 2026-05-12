@@ -350,6 +350,40 @@ test("saveConventions: writes additionalContextFields (replace, not merge)", asy
   rmSync(workspaceDir, { recursive: true, force: true });
 });
 
+test("saveConventions: writes images.enabled=true when toggled on", async () => {
+  writeBaseConfig();
+  await saveConventions({ imagesEnabled: true }, workspaceDir);
+  const written = JSON.parse(readFileSync(configFilePath(), "utf-8"));
+  assert.equal(written.images?.enabled, true);
+  // Other image fields untouched (stay framework-default at load time).
+  assert.equal(written.images?.maxBytesPerImage, undefined);
+  // Other config blocks untouched.
+  assert.equal(written.ado.org, "MyOrg");
+  rmSync(workspaceDir, { recursive: true, force: true });
+});
+
+test("saveConventions: writes images.enabled=false when toggled off", async () => {
+  writeBaseConfig();
+  // Pre-seed an existing on state so we know the off save actually overwrites.
+  await saveConventions({ imagesEnabled: true }, workspaceDir);
+  await saveConventions({ imagesEnabled: false }, workspaceDir);
+  const written = JSON.parse(readFileSync(configFilePath(), "utf-8"));
+  assert.equal(written.images?.enabled, false);
+  rmSync(workspaceDir, { recursive: true, force: true });
+});
+
+test("saveConventions: imagesEnabled omitted leaves existing images block untouched", async () => {
+  writeBaseConfig();
+  // Seed enabled=true.
+  await saveConventions({ imagesEnabled: true }, workspaceDir);
+  // Now save unrelated payload — images.enabled must be preserved.
+  await saveConventions({ sprintPrefix: "Sprint_" }, workspaceDir);
+  const written = JSON.parse(readFileSync(configFilePath(), "utf-8"));
+  assert.equal(written.images?.enabled, true);
+  assert.equal(written.suiteStructure?.sprintPrefix, "Sprint_");
+  rmSync(workspaceDir, { recursive: true, force: true });
+});
+
 test("saveConventions: empty payload only refreshes file (no field changes)", async () => {
   writeBaseConfig();
   const before = readFileSync(configFilePath(), "utf-8");

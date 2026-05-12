@@ -36,7 +36,7 @@ test("mergeConfig: empty workspace yields full framework defaults", () => {
   assert.equal(merged.testCaseDefaults.state, "Design");
   assert.equal(merged.testCaseDefaults.priority, 2);
   assert.equal(merged.allFields?.passThrough, true);
-  assert.equal(merged.images?.enabled, true);
+  assert.equal(merged.images?.enabled, false);
   assert.equal(merged.images?.maxPerUserStory, 20);
   assert.equal(merged.context?.maxConfluencePagesPerUserStory, 10);
 });
@@ -297,6 +297,15 @@ test("mergeConfig: image budget override flows through", () => {
   assert.equal(merged.images?.downscaleQuality, 60);
   // Other image fields fall back to framework.
   assert.equal(merged.images?.maxBytesPerImage, 2_097_152);
+  assert.equal(merged.images?.enabled, false);
+});
+
+test("mergeConfig: images.enabled tenant override (true) wins over framework default (false)", () => {
+  const ws: WorkspaceConfig = {
+    version: 1,
+    images: { enabled: true },
+  };
+  const merged = mergeConfig(ws);
   assert.equal(merged.images?.enabled, true);
 });
 

@@ -52,6 +52,9 @@ before(() => {
             fetchImages: true,
           },
         ],
+        // Image extraction tests below assume the kill switch is on.
+        // Framework default flipped to false (opt-in); explicit override here.
+        images: { enabled: true },
       },
       null,
       2,
@@ -345,6 +348,48 @@ test("ADO <img> attachments in Description are recorded in embeddedImages", asyn
     assert.equal(img.skipped, undefined);
   } finally {
     restore();
+  }
+});
+
+test("images.enabled=false short-circuits image extraction (kill switch)", async () => {
+  // Spin up a separate fixture workspace where images.enabled is explicitly
+  // false. extractUserStoryContext should return zero embedded images even
+  // though the Description contains a fetchable <img>. This is the bugfix
+  // for the previously-dead `enabled` flag.
+  const killFixture = mkdtempSync(join(tmpdir(), "ado-kill-images-"));
+  mkdirSync(join(killFixture, ".vortex-ado"), { recursive: true });
+  writeFileSync(
+    join(killFixture, ".vortex-ado", "config.json"),
+    JSON.stringify({
+      version: 1,
+      ado: { url: "https://dev.azure.com/myorg", org: "myorg", project: "myproj" },
+      images: { enabled: false },
+    }),
+  );
+  const savedCwd = process.cwd();
+  process.chdir(killFixture);
+  __resetConventionsCacheForTests();
+
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const guid = "ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee";
+  // Mock would throw if hit — proving the gate prevents the fetch entirely.
+  const restore = mockFetch(() => {
+    throw new Error("Should not have attempted to fetch image when images.enabled=false");
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": `<p><img src="https://dev.azure.com/myorg/myproj/_apis/wit/attachments/${guid}?fileName=should-not-fetch.png&api-version=7.0" alt="w"/></p>`,
+      },
+    });
+    const ctx = await extractUserStoryContext(item, adoClient, null);
+    assert.deepEqual(ctx.embeddedImages, []);
+  } finally {
+    restore();
+    process.chdir(savedCwd);
+    rmSync(killFixture, { recursive: true, force: true });
+    __resetConventionsCacheForTests();
   }
 });
 

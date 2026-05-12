@@ -656,6 +656,12 @@ interface ConventionsPayload {
     fetchLinks?: boolean;
     fetchImages?: boolean;
   }>;
+  /**
+   * Image fetching kill switch. Default `false` — tenants opt in via Tab 2.
+   * When false, `ado_story` skips fetching attachments from ADO HTML fields
+   * and from linked Confluence pages.
+   */
+  imagesEnabled?: boolean;
 }
 
 export async function saveConventions(
@@ -747,6 +753,17 @@ export async function saveConventions(
     // additionalContextFields — replace wholesale (empty array clears).
     ...(payload.additionalContextFields !== undefined
       ? { additionalContextFields: payload.additionalContextFields }
+      : {}),
+
+    // images.enabled — kill switch toggled from Tab 2. Other image fields
+    // stay framework-default; we only write the boolean.
+    ...(payload.imagesEnabled !== undefined
+      ? {
+          images: {
+            ...(existingConfig.images ?? {}),
+            enabled: payload.imagesEnabled,
+          },
+        }
       : {}),
   };
 
@@ -2526,6 +2543,18 @@ function getHtmlContent(
             <div id="ctx-fields-list"></div>
             <button type="button" class="row-add-btn" onclick="addContextField()">+ Add context field</button>
           </div>
+
+          <!-- Image fetching kill switch -->
+          <div class="form-group">
+            <div class="subsection-title">
+              Fetch images from ADO &amp; Confluence
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">When enabled, /ado-story downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and includes them inline in the agent context. Default OFF — opt in if your team relies on screenshots in user stories. Other image budgets (size caps, downscale quality) stay at framework defaults; this toggle is the single on/off switch.</span></span>
+            </div>
+            <label class="checkbox-row" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="checkbox" id="images-enabled-checkbox" />
+              <span>Enable image fetching</span>
+            </label>
+          </div>
         </div>
 
         <div class="footer" id="tab2-footer" style="display: none;">
@@ -2938,6 +2967,10 @@ function getHtmlContent(
       const ctxList = document.getElementById('ctx-fields-list');
       ctxList.innerHTML = '';
       (existingConventions.additionalContextFields || []).forEach(f => addContextField(f));
+
+      // Image fetching kill switch — defaults OFF when no value persisted yet.
+      const imagesCheckbox = document.getElementById('images-enabled-checkbox');
+      if (imagesCheckbox) imagesCheckbox.checked = existingConventions.imagesEnabled === true;
     }
 
     function addManualPlanRow() {
@@ -3253,6 +3286,9 @@ function getHtmlContent(
         });
       });
 
+      const imagesCheckbox = document.getElementById('images-enabled-checkbox');
+      const imagesEnabled = imagesCheckbox ? imagesCheckbox.checked : false;
+
       return {
         sprintPrefix: document.getElementById('sprint-prefix-input').value.trim(),
         testPlanMapping,
@@ -3260,6 +3296,7 @@ function getHtmlContent(
         prerequisiteFieldRef: document.getElementById('prereq-field-select').value || undefined,
         solutionDesignFieldRef: document.getElementById('solution-field-select').value || undefined,
         additionalContextFields,
+        imagesEnabled,
       };
     }
 
@@ -3599,6 +3636,7 @@ export async function startConfigServer(
                 prerequisiteFieldRef: cfg.ado?.fieldRefs?.prerequisite,
                 solutionDesignFieldRef: cfg.ado?.fieldRefs?.solutionDesign,
                 additionalContextFields: cfg.additionalContextFields,
+                imagesEnabled: cfg.images?.enabled,
               };
             }
             sendJson(res, { success: true, existingConventions });

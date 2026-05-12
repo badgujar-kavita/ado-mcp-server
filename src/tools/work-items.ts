@@ -408,8 +408,14 @@ export async function extractUserStoryContext(
   }
 
   // ── Image guardrails (shared between Confluence + ADO extractors) ────────
+  // Kill switch: when `images.enabled === false` we set the per-US cap to 0,
+  // which makes both the Confluence and ADO fetch loops below skip naturally
+  // (every `if (countKept() >= maxPerUS) break` and `remaining > 0` gate fires
+  // immediately). Default in framework defaults is `false` — tenants opt in
+  // via the wizard's "Enable image fetching" toggle on Tab 2.
   const imagesCfg = config.images;
-  const maxPerUS = imagesCfg?.maxPerUserStory ?? 20;
+  const imagesEnabled = imagesCfg?.enabled !== false;
+  const maxPerUS = imagesEnabled ? (imagesCfg?.maxPerUserStory ?? 20) : 0;
   const imageGuardrails = {
     maxBytesPerImage: imagesCfg?.maxBytesPerImage ?? 2097152,
     minBytesToKeep: imagesCfg?.minBytesToKeep ?? 4096,

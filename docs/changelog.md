@@ -6,6 +6,20 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-12 — Image fetching kill switch (Tab 2)
+
+**Bug fix + small wizard enhancement.**
+
+- 🐞 **Bugfix — `images.enabled` was dead code.** The flag was defined in the schema, framework defaults, and merge layer, but no consumer read it. Setting `images.enabled: false` in `config.json` did nothing. Now `extractUserStoryContext` (`src/tools/work-items.ts`) honors the flag — when disabled, image fetching short-circuits before any HTTP call to ADO or Confluence.
+- ✨ **New Tab 2 field — "Enable image fetching".** Single checkbox toggle. The wizard reads/writes `images.enabled` only; all other image budgets (byte caps, downscale quality, MIME allowlist) stay at framework defaults — those are framework tuning, not project conventions.
+- ⚠️ **Default flipped from `true` to `false`.** Image fetching is now opt-in. Tenants who want it must tick the Tab 2 checkbox or hand-edit `images.enabled: true`. Safe at this stage because the MCP isn't live yet — no in-flight tenants to disrupt.
+- 🧪 **Tests added (5 new, 418 → 423):**
+  - `mergeConfig`: framework default is now `false`; tenant override `true` flows through.
+  - `saveConventions`: writes `images.enabled=true` and `=false`; preserves existing value when payload omits the field.
+  - `extractUserStoryContext`: kill switch verified — when `enabled=false`, embedded images return `[]` and no fetch is attempted.
+
+**Docs updated:** `docs/conventions.md` § 4.5 (kill switch documented); `docs/setup-guide.md` (added the checkbox to the Tab 2 field list); this changelog.
+
 ### 2026-05-12 — Persona modal polish
 
 - **Permission Set Group field relabeled to "Permission Set/Permission Set Group"** in the persona modal and on the persona card. Help text rewritten — dropped the `PSG` abbreviation in favor of spelled-out copy. UI-only; the underlying schema field is still `psg` and the configurable label `personaPsgLabel` defaults to `"Permission Set Group"` exactly as before.
@@ -45,6 +59,7 @@ For returning users with a valid stored PAT, Tab 2 is effectively unlocked immed
 | Prerequisite field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `Prerequisite` or `Pre-requisite`. Default: `System.Description`. |
 | Solution Design field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `solution`, `technical`, `design`, or `spec`. Optional. |
 | Additional context fields | Add/remove rows | Each row is a dropdown of probed `Custom.*` html / string / plainText fields plus a free-text display label. |
+| Enable image fetching | Checkbox (off by default) | When on, `/ado-story` downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and inlines them in the agent context. Single kill switch — other image budgets (byte caps, downscale quality, MIME allowlist) stay at framework defaults. |
 
 **Confirmation modal on Tab 2 save (diff-based).**
 
