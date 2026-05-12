@@ -194,6 +194,7 @@ Order in JSON determines display order. Without any personas, drafted TCs render
 
 | Field | Required? | What it does |
 |---|---|---|
+| `solutionDesign.uiLabel` | SAFE-TO-LEAVE | Human-readable label printed alongside the Solution Design value in `ado_story` output (e.g. `**Solution Notes:** ...`). Defaults to `"Solution Notes"`. Override only if your ADO field is named something else and you want the prompt output to read naturally. 🚫 Hand-edit only — not collected by the wizard. |
 | `additionalContextFields` | SAFE-TO-LEAVE | Array of extra ADO fields to include in `ado_story` context. Useful when your team uses custom rich-text fields (Impact Assessment, Reference Documentation, etc.). Empty by default. |
 
 Element shape:
