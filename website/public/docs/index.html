@@ -424,6 +424,10 @@
       <p>This file controls everything from test case title format to suite hierarchy rules. The MCP merges your workspace overlay on top of framework defaults — anything you don't specify uses the default. Settings are grouped into logical sections:</p>
       <p>See <a href="#per-workspace-conventions">Per-Workspace Conventions</a> below for the edit-priority guide and multi-project scenario, or open <a href="/docs/conventions.md">docs/conventions.md</a> for the full annotated reference.</p>
 
+      <div class="tip">
+        <strong>Recommended for most teams:</strong> Tick <strong>"Enable image fetching"</strong> in the <code>/ado-connect</code> wizard if your User Stories carry meaningful screenshots or diagrams the agent should see while drafting test cases. Otherwise leave it off — image processing adds time and bytes to every <code>/qa-draft</code> run.
+      </div>
+
       <!-- Test Case Format -->
       <div class="card">
         <h3>Test Case Format</h3>
@@ -461,46 +465,41 @@
       <!-- Fetching & Images -->
       <div class="card">
         <h3>Fetching &amp; Image Processing</h3>
-        <p>These settings live in the <code>images</code> and <code>context</code> sections of:</p>
-        <pre><code>&lt;workspace&gt;/.vortex-ado/config.json</code></pre>
-        <p>Vortex ADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. The AI agent uses these images as visual reference when designing test cases, ensuring test scenarios accurately reflect the intended UI behavior, business flows, and acceptance criteria shown in diagrams.</p>
+        <p>Vortex ADO can extract and process images embedded in ADO rich-text fields and Confluence page attachments — wireframes, flow diagrams, UI mockups. The AI agent uses these images as visual reference when designing test cases.</p>
+        <p><strong>Image fetching is OFF by default.</strong> Turn it on with the <strong>"Enable image fetching"</strong> checkbox in Tab 2 of the <code>/ado-connect</code> wizard. That single toggle is the only image setting tenants need to think about — every other image budget (size caps, downscale quality, MIME allowlist) stays at framework defaults that work for most teams.</p>
 
-        <h3>Key settings</h3>
+        <h3>The kill switch</h3>
         <table>
-          <thead><tr><th></th><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+          <thead><tr><th>Setting</th><th>Default</th><th>How to change it</th><th>What it does</th></tr></thead>
           <tbody>
-            <tr><td>&#9733;</td><td><strong>enabled</strong></td><td>ON</td><td>Master switch. When OFF, no images are fetched or processed at all.</td></tr>
-            <tr><td>&#9733;</td><td><strong>returnMcpImageParts</strong></td><td>OFF</td><td>When ON, sends actual image pixel data to the AI agent (requires a vision-capable model). When OFF, only image metadata and URLs are included — the agent references images by link.</td></tr>
-            <tr><td></td><td><strong>saveLocally</strong></td><td>OFF</td><td>When ON, saves downloaded images to your workspace alongside the draft files.</td></tr>
-            <tr><td></td><td><strong>maxPerUserStory</strong></td><td>20</td><td>Maximum images processed per user story fetch.</td></tr>
-            <tr><td></td><td><strong>maxTotalBytesPerResponse</strong></td><td>4 MB</td><td>Aggregate budget — prevents context overflow.</td></tr>
-            <tr><td></td><td><strong>maxConfluencePagesPerUserStory</strong></td><td>10</td><td>Maximum linked Confluence pages to fetch. Excess are surfaced as links.</td></tr>
-            <tr><td></td><td><strong>maxTotalFetchSeconds</strong></td><td>45s</td><td>Time budget for all external fetches (pages + images).</td></tr>
+            <tr><td><strong>images.enabled</strong></td><td>OFF</td><td>Tab 2 checkbox</td><td>Master switch. When OFF, no images are fetched or processed at all — neither from ADO HTML fields nor from linked Confluence pages.</td></tr>
           </tbody>
         </table>
-        <p style="font-size:13px; color:var(--muted);">&#9733; = most important settings to review</p>
 
         <details style="margin-top:16px;">
-          <summary style="cursor:pointer; color:var(--blue-2); font-weight:500; font-size:14px;">Advanced image settings (usually fine as defaults)</summary>
+          <summary style="cursor:pointer; color:var(--blue-2); font-weight:500; font-size:14px;">Framework-default image settings (hand-edit only if needed)</summary>
+          <p style="font-size:13px; color:var(--muted); margin-top:8px;">These live in <code>&lt;workspace&gt;/.vortex-ado/config.json</code> under <code>images</code> / <code>context</code> — not exposed in the wizard. Defaults work for most teams; override only if you have a specific reason.</p>
           <table style="margin-top:12px;">
             <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
             <tbody>
+              <tr><td>maxPerUserStory</td><td>20</td><td>Maximum images processed per user story fetch</td></tr>
               <tr><td>maxBytesPerImage</td><td>2 MB</td><td>Images larger than this are downscaled before processing</td></tr>
+              <tr><td>maxTotalBytesPerResponse</td><td>4 MB</td><td>Aggregate budget — prevents context overflow</td></tr>
               <tr><td>minBytesToKeep</td><td>4 KB</td><td>Images smaller than this are skipped (likely icons or tracking pixels)</td></tr>
               <tr><td>downscaleLongSidePx</td><td>1600 px</td><td>Oversized images are downscaled so the longest side fits this value</td></tr>
               <tr><td>downscaleQuality</td><td>85</td><td>JPEG quality after downscaling (1–100)</td></tr>
               <tr><td>mimeAllowlist</td><td>PNG, JPEG, GIF, SVG</td><td>Only these image types are processed; others are skipped</td></tr>
               <tr><td>inlineSvgAsText</td><td>ON</td><td>SVG diagrams delivered as both image and inline XML text</td></tr>
+              <tr><td>returnMcpImageParts</td><td>OFF</td><td>When ON, sends raw image pixel data alongside the inline markdown (requires a vision-capable model). Most teams leave this OFF — the inline markdown already carries image content for the agent.</td></tr>
+              <tr><td>saveLocally</td><td>OFF</td><td>When ON, saves downloaded images to your workspace alongside the draft files</td></tr>
               <tr><td>savePathTemplate</td><td>tc-drafts/US_{usId}/attachments</td><td>Where local images are saved when saveLocally is ON</td></tr>
+              <tr><td>maxConfluencePagesPerUserStory</td><td>10</td><td>Maximum linked Confluence pages to fetch. Excess are surfaced as links</td></tr>
+              <tr><td>maxTotalFetchSeconds</td><td>45s</td><td>Time budget for all external fetches (pages + images)</td></tr>
               <tr><td>passThrough (allFields)</td><td>ON</td><td>Include all populated ADO fields beyond the primary ones</td></tr>
               <tr><td>omitSystemNoise (allFields)</td><td>ON</td><td>Filter out revision metadata and internal tracking fields</td></tr>
             </tbody>
           </table>
         </details>
-      </div>
-
-      <div class="tip">
-        <strong>Recommended for most teams:</strong> Leave <strong>&#9733; enabled: true</strong> and <strong>&#9733; returnMcpImageParts: false</strong> (the defaults). The agent receives image metadata and links without consuming vision-model tokens. Turn <code>returnMcpImageParts</code> ON only when you need the AI to interpret diagram content or screenshot details directly.
       </div>
 
       <!-- PER-WORKSPACE CONVENTIONS -->

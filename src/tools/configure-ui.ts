@@ -2548,11 +2548,11 @@ function getHtmlContent(
           <div class="form-group">
             <div class="subsection-title">
               Fetch images from ADO &amp; Confluence
-              <span class="info-tip" tabindex="0">i<span class="info-bubble">When enabled, /ado-story downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and includes them inline in the agent context. Default OFF — opt in if your team relies on screenshots in user stories. Other image budgets (size caps, downscale quality) stay at framework defaults; this toggle is the single on/off switch.</span></span>
+              <span class="info-tip" tabindex="0">i<span class="info-bubble">When enabled, /qa-draft downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and includes them inline in the agent context for the AI to reference when authoring test cases. Default OFF — opt in if your User Stories carry meaningful screenshots or diagrams. Other image budgets (size caps, downscale quality) stay at framework defaults; this toggle is the single on/off switch.</span></span>
             </div>
-            <label class="checkbox-row" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-              <input type="checkbox" id="images-enabled-checkbox" />
-              <span>Enable image fetching</span>
+            <label class="checkbox-row" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; white-space: nowrap; margin: 0;">
+              <input type="checkbox" id="images-enabled-checkbox" style="width: auto; padding: 0; margin: 0;" />
+              <span style="white-space: nowrap;">Enable image fetching</span>
             </label>
           </div>
         </div>

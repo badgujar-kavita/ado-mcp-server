@@ -135,7 +135,7 @@ This opens a two-tab web interface.
 - **Prerequisite field reference** — dropdown filtered to `Custom.*` fields whose name contains `Prerequisite` or `Pre-requisite`. Defaults to `System.Description`.
 - **Solution Design field reference** — dropdown filtered to `Custom.*` fields whose name contains `solution`, `technical`, `design`, or `spec`. Optional.
 - **Additional context fields** — add/remove rows; each row picks an HTML / string / plainText custom field plus a display label.
-- **Enable image fetching** — checkbox; off by default. When on, `/ado-story` downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and inlines them in the agent context. Leave off if your team doesn't rely on screenshots in user stories.
+- **Enable image fetching** — checkbox; off by default. When on, `/qa-draft` downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and inlines them in the agent context so the AI can reference screenshots and diagrams while drafting test cases. Leave off if your team doesn't rely on screenshots in user stories.
 
 The Test Case title format is shown read-only on Tab 2 — it's locked to `TC_<userStoryId>_<NN> -> <featureTags> -> <use case>` so the draft → ADO sync parser can round-trip cleanly. Custom prefixes are deferred to a future phase.
 

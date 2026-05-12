@@ -212,7 +212,7 @@ Element shape:
 
 These live in framework defaults and are usually fine to leave alone. If you do want to override, see [setup-guide.md → Step 2c](setup-guide.md#step-2c-tune-context-richness-optional) for the full list of keys.
 
-**One exception — `images.enabled` (kill switch).** Default is `false`. When enabled, `/ado-story` downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and inlines them in the agent context. Toggle it on via the **"Enable image fetching"** checkbox on Tab 2 (the only image-related field the wizard exposes). All other image budgets — byte caps, downscale quality, MIME allowlist — stay at framework defaults.
+**One exception — `images.enabled` (kill switch).** Default is `false`. When enabled, `/qa-draft` downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and inlines them in the agent context so the AI can reference screenshots and diagrams while authoring test cases. Toggle it on via the **"Enable image fetching"** checkbox on Tab 2 (the only image-related field the wizard exposes). All other image budgets — byte caps, downscale quality, MIME allowlist — stay at framework defaults.
 
 ---
 

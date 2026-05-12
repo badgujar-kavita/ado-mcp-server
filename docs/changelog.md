@@ -59,7 +59,7 @@ For returning users with a valid stored PAT, Tab 2 is effectively unlocked immed
 | Prerequisite field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `Prerequisite` or `Pre-requisite`. Default: `System.Description`. |
 | Solution Design field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `solution`, `technical`, `design`, or `spec`. Optional. |
 | Additional context fields | Add/remove rows | Each row is a dropdown of probed `Custom.*` html / string / plainText fields plus a free-text display label. |
-| Enable image fetching | Checkbox (off by default) | When on, `/ado-story` downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and inlines them in the agent context. Single kill switch — other image budgets (byte caps, downscale quality, MIME allowlist) stay at framework defaults. |
+| Enable image fetching | Checkbox (off by default) | When on, `/qa-draft` downloads embedded images from ADO HTML fields and any linked Confluence pages, downscales them, and inlines them in the agent context so the AI can reference screenshots and diagrams while authoring test cases. Single kill switch — other image budgets (byte caps, downscale quality, MIME allowlist) stay at framework defaults. |
 
 **Confirmation modal on Tab 2 save (diff-based).**
 
