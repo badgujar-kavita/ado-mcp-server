@@ -2023,29 +2023,6 @@ function getHtmlContent(
       margin-top: 0.4rem;
       min-height: 1.2em;
     }
-    .persona-modal .pm-advanced {
-      margin-top: 0.25rem;
-      border-top: 1px dashed var(--border);
-      padding-top: 0.85rem;
-    }
-    .persona-modal .pm-advanced-toggle {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-family: inherit;
-      font-size: 0.8rem;
-      cursor: pointer;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-    }
-    .persona-modal .pm-advanced-toggle:hover { color: var(--text); }
-    .persona-modal .pm-advanced-body {
-      margin-top: 0.7rem;
-      display: none;
-    }
-    .persona-modal .pm-advanced-body.show { display: block; }
     .persona-modal .pm-actions {
       display: flex;
       gap: 0.6rem;
@@ -2602,23 +2579,12 @@ function getHtmlContent(
         <span class="pm-help">Comma-separated role(s) assigned to this user. Used to verify access in test prerequisites.</span>
       </div>
       <div class="pm-field">
-        <label for="pm-psg">Permission Set Group</label>
+        <label for="pm-psg">Permission Set/Permission Set Group</label>
         <input type="text" id="pm-psg" placeholder="e.g. Sales_Standard_PSG" autocomplete="off" />
-        <span class="pm-help">The PSG (or permission set bundle) granted to this persona.</span>
+        <span class="pm-help">The Permission Set or Permission Set Group granted to this persona.</span>
       </div>
       <div class="pm-error" id="pm-error"></div>
-      <div class="pm-advanced">
-        <button type="button" class="pm-advanced-toggle" id="pm-advanced-toggle" onclick="togglePersonaAdvanced()">
-          <span id="pm-advanced-caret">▸</span> Advanced (internal key)
-        </button>
-        <div class="pm-advanced-body" id="pm-advanced-body">
-          <div class="pm-field" style="margin-bottom: 0;">
-            <label for="pm-key">Internal key</label>
-            <input type="text" id="pm-key" placeholder="auto-generated from label" autocomplete="off" />
-            <span class="pm-help">JSON key used internally (e.g. "StandardUser"). Leave blank to auto-derive from the label — most teams never need to set this.</span>
-          </div>
-        </div>
-      </div>
+      <input type="hidden" id="pm-key" value="" />
       <div class="pm-actions">
         <button type="button" class="btn btn-secondary" onclick="closePersonaModal()">Cancel</button>
         <button type="button" class="btn btn-primary" onclick="savePersonaFromModal()">Save persona</button>
@@ -3022,9 +2988,6 @@ function getHtmlContent(
       document.getElementById('pm-psg').value = p.psg || '';
       document.getElementById('pm-key').value = isEdit ? existingKey : '';
       document.getElementById('pm-error').textContent = '';
-      // Collapse Advanced by default when opening
-      document.getElementById('pm-advanced-body').classList.remove('show');
-      document.getElementById('pm-advanced-caret').textContent = '▸';
       document.getElementById('persona-modal').classList.add('show');
       // Focus the label field for fast entry
       setTimeout(() => document.getElementById('pm-label').focus(), 0);
@@ -3033,13 +2996,6 @@ function getHtmlContent(
     function closePersonaModal() {
       document.getElementById('persona-modal').classList.remove('show');
       editingPersonaKey = null;
-    }
-
-    function togglePersonaAdvanced() {
-      const body = document.getElementById('pm-advanced-body');
-      const caret = document.getElementById('pm-advanced-caret');
-      const isOpen = body.classList.toggle('show');
-      caret.textContent = isOpen ? '▾' : '▸';
     }
 
     /**
@@ -3134,7 +3090,7 @@ function getHtmlContent(
         <div class="persona-card-fields">
           \${fieldCell('Profile', p.profile)}
           \${fieldCell('Role(s)', p.roles)}
-          \${fieldCell('Permission Set Group', p.psg)}
+          \${fieldCell('Permission Set/Permission Set Group', p.psg)}
         </div>
       \`;
       list.appendChild(card);
