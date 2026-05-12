@@ -6,6 +6,34 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-12 — Persona injection in /qa-draft (config personas now reach the agent)
+
+**Bug fix.**
+
+The `/qa-draft` slash-command prompt previously instructed the agent to "use the configured default personas" but never gave it the actual list — so the agent had no source for which personas exist in this workspace. As a result, the Common Persona table at the top of every drafted markdown file showed invented personas (e.g. `System Administrator` with profile `System Admin`) instead of the personas the user had configured in `config.json` via the `/ado-connect` Tab 2 wizard.
+
+**Fix.** A new helper `buildPersonaInjection()` in `src/prompts/index.ts` reads `prerequisiteDefaults.personas` from the merged workspace config and inlines a concrete persona list at the top of the `/qa-draft` prompt text. The agent now sees, e.g.:
+
+```
+PERSONA list for this project (from <workspace>/.vortex-ado/config.json):
+  - **Admin** | Profile: Admin | Roles: Admin User | Permission Set Group: Admin_PSG
+  - **Sales Rep** | Profile: Sales_Rep | Roles: Sales_Rep | Permission Set Group: Sale_Rep_PSG
+
+Use ONLY these personas in the Common Persona table at the top of the draft. Do NOT invent additional personas …
+```
+
+The existing rule 5 ("Prerequisites rules") was tightened to point at the injected list explicitly.
+
+**System Administrator placeholder.** Admin-validation TCs (the "verify a new field exists in Setup" pattern) remain a special case: they may use a `System Administrator` persona even when it's not in the configured list, because that persona represents elevated Setup access required for the verification, not a project-specific role. To make this transparent, every draft that includes admin-validation TCs now carries a verbatim note:
+
+> *Note: Admin-validation TCs use a "System Administrator" persona. This is a placeholder representing elevated Setup access and is not drawn from your project's configured personas. To use your team's admin terminology, add an admin persona via `/ado-connect` Tab 2.*
+
+**Empty-state.** If the workspace config has no personas at all, the injection block tells the agent to render the table with zero rows and surface a one-line message asking the user to run `/ado-connect` Tab 2.
+
+**Tests added (+7, total 423 → 430).** New `src/prompts/persona-injection.test.ts` covers: full-list rendering, "use ONLY" instruction present, System Administrator note present, empty-state instruction, custom `personaRolesLabel` / `personaPsgLabel` propagate, empty fields are omitted cleanly, persona order preserved.
+
+**No schema, formatter, or renderer changes.** The publish-time HTML render (`src/helpers/prerequisites.ts`) was already reading config personas correctly — that path was never the bug. This change only fixes the draft-time markdown produced by the agent.
+
 ### 2026-05-12 — Image fetching kill switch (Tab 2)
 
 **Bug fix + small wizard enhancement.**
