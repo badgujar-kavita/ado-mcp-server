@@ -235,6 +235,41 @@ export function __resetConventionsCacheForTests(): void {
   _configSource = null;
 }
 
+/**
+ * Load conventions for an EXPLICIT workspace path.
+ *
+ * Unlike `loadConventionsConfig()`, this:
+ *   - Takes the workspace root as an argument (no `process.cwd()` lookup).
+ *   - Has NO module-level cache — safe to call from any tool handler that
+ *     received its workspace via `roots/list`. Different workspaces in
+ *     different Cursor windows return different configs from the same
+ *     MCP process without interference.
+ *   - Has NO legacy / bundled fallbacks. Reads only
+ *     `<workspaceRoot>/.vortex-ado/config.json`. If absent, returns the
+ *     merged framework defaults (i.e. an empty workspace overlay).
+ *
+ * This is the right entry point for tools that already plumb the workspace
+ * through (e.g. `qa_draft_save`, `ado_story`, `qa_publish_push`). The
+ * cwd-based `loadConventionsConfig()` remains for callers that don't yet
+ * have workspace plumbing — those should migrate to this function over
+ * time.
+ *
+ * Throws if `<workspaceRoot>/.vortex-ado/config.json` exists but is
+ * malformed — surfaces the parse error clearly so the user can fix their
+ * config rather than silently falling back to defaults.
+ */
+export function loadConventionsConfigForWorkspace(
+  workspaceRoot: string,
+): ConventionsConfig {
+  const wsConfigPath = join(workspaceRoot, ".vortex-ado", "config.json");
+  if (!existsSync(wsConfigPath)) {
+    return mergeConfig({ version: 1 });
+  }
+  const raw = JSON.parse(readFileSync(wsConfigPath, "utf-8"));
+  const workspace = WorkspaceConfigSchema.parse(raw) as WorkspaceConfig;
+  return mergeConfig(workspace);
+}
+
 /** Diagnostic — what file (if any) was the loaded config read from? */
 export function getConventionsConfigSource(): string | null {
   if (!_config) loadConventionsConfig();

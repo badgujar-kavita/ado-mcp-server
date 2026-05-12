@@ -7,7 +7,7 @@
 import { loadConventionsConfig } from "../config.ts";
 import { getSystemUsername } from "./system-username.ts";
 import { buildTcTitle } from "./tc-title-builder.ts";
-import type { PersonaConfig } from "../types.ts";
+import type { PersonaConfig, ConventionsConfig } from "../types.ts";
 
 export interface TcDraftTestCase {
   tcNumber: number;
@@ -77,8 +77,23 @@ export interface TcDraftData {
   };
 }
 
-export function formatTcDraftToMarkdown(data: TcDraftData): string {
-  const config = loadConventionsConfig();
+/**
+ * Render a TcDraftData payload into the reviewable markdown shape on disk.
+ *
+ * `config` is optional for backward compatibility — callers that already
+ * resolve the workspace via roots/list (e.g. the qa_draft_save tool
+ * handler) MUST pass it explicitly so the persona table reflects the
+ * tenant's `<workspace>/.vortex-ado/config.json`. Callers that don't
+ * supply a config fall back to the cwd-based `loadConventionsConfig()`,
+ * which (when MCP is launched by Cursor) resolves to the installer dir
+ * and produces a generic placeholder persona — usable for unit tests but
+ * NOT what tenants want at runtime. Migrate callers one at a time until
+ * the fallback can be removed entirely.
+ */
+export function formatTcDraftToMarkdown(
+  data: TcDraftData,
+  config: ConventionsConfig = loadConventionsConfig(),
+): string {
   const lines: string[] = [];
 
   // Header

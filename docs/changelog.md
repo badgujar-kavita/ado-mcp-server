@@ -6,6 +6,34 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-12 — Persona table now reflects tenant config.json (Phase 1+2)
+
+**Bug fix.** Drafted test cases were rendering a generic `System Administrator | System Admin | — | —` row in the Common Persona table even when the tenant's `<workspace>/.vortex-ado/config.json` had real personas configured. Root cause: the formatter called `loadConventionsConfig()`, which resolves the workspace via `process.cwd()`. For MCP processes Cursor spawns, cwd is `~/.vortex-ado/` (the installer dir) — never the user's project folder. The cwd-based loader fell through to the legacy `~/.vortex-ado/conventions.config.json` (or the bundled fallback), which only ships a single placeholder persona named "System Administrator".
+
+**Phase 1 — workspace-aware loader (`src/config.ts`).**
+
+New export `loadConventionsConfigForWorkspace(workspaceRoot)`:
+
+- Takes the workspace path as an explicit argument — no `process.cwd()` lookup.
+- No module-level cache — safe to call from any tool handler that resolved its workspace via MCP `roots/list`. Two Cursor windows on two projects can call this from the same MCP process and get different configs without interference.
+- No legacy / bundled fallbacks. Reads only `<workspaceRoot>/.vortex-ado/config.json`. If absent, returns merged framework defaults (empty workspace overlay).
+- Throws on malformed `config.json` rather than silently masking the error.
+
+The cwd-based `loadConventionsConfig()` still exists for callers that haven't been migrated yet. Phase 3 will move them off; Phase 4 will delete the legacy entry point and the `~/.vortex-ado/conventions.config.json` + bundled `conventions.config.json` fallbacks entirely.
+
+**Phase 2 — wire `qa_draft_save` to use it.**
+
+- New private helper `resolveConfigForCall(extra, workspaceRoot)` in `src/tools/tc-drafts.ts`. Tries `roots/list` first, then explicit `workspaceRoot` arg, then falls back to the legacy cwd loader (during the migration window).
+- `qa_draft_save` handler resolves the config per-call and passes it through to `formatTcDraftToMarkdown(data, config)`.
+- `formatTcDraftToMarkdown` accepts an optional second argument `config: ConventionsConfig`. When supplied, it's used directly. When omitted, falls back to the legacy `loadConventionsConfig()` so existing tests and callers don't break — same migration pattern as Phase 1.
+
+**Tests added (+9, total 423 → 432).**
+
+- `src/config-workspace.test.ts` — 5 tests for `loadConventionsConfigForWorkspace`: reads the right file, returns framework defaults when absent, throws on malformed JSON, never leaks across workspaces, merges framework defaults under tenant overlay.
+- `src/helpers/tc-draft-formatter-personas.test.ts` — 4 tests for `formatTcDraftToMarkdown` honoring the passed config: renders configured persona rows, empty config yields empty rows (no invention), respects custom `personaRolesLabel` / `personaPsgLabel`, preserves persona insertion order.
+
+**Pending follow-up.** Phase 3 (migrate other consumers — `qa_publish_push`, `qa_tc_update`, `ado_story`, helpers) and Phase 4 (delete legacy + bundled `conventions.config.json` and the cwd loader) are not in this commit. Tracked separately. The current Phase 1+2 fix unblocks the persona-table bug for `/qa-draft` while leaving the rest of the codebase on the legacy loader.
+
 ### 2026-05-12 — Image fetching kill switch (Tab 2)
 
 **Bug fix + small wizard enhancement.**

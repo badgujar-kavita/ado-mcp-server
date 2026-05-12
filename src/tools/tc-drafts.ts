@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
 import { join, resolve } from "path";
+import { fileURLToPath } from "url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdoClient } from "../ado-client.ts";
-import type { AdoWorkItem } from "../types.ts";
+import type { AdoWorkItem, ConventionsConfig } from "../types.ts";
 import { getTcDraftsDir } from "../credentials.ts";
+import { loadConventionsConfigForWorkspace, loadConventionsConfig } from "../config.ts";
+import { fetchClientRoots } from "../workspace/fetch-roots.ts";
 import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from "../helpers/tc-draft-formatter.ts";
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
@@ -128,6 +131,49 @@ export function applyPostPushEditsInPlace(
 }
 
 /**
+ * Resolve the conventions config for the active call.
+ *
+ * Priority:
+ *   1. MCP `roots/list` (Cursor's open workspace) — preferred. Reads
+ *      `<root>/.vortex-ado/config.json`. This is the only path that
+ *      works correctly for tenants because the MCP process runs from
+ *      `~/.vortex-ado/` (its installer dir), so `process.cwd()` is
+ *      WRONG and the legacy cwd loader can't find their config.
+ *   2. Explicit `workspaceRoot` arg from the agent — for power-users or
+ *      tests that want to point at a specific folder.
+ *   3. Last-resort fallback to the cwd-based loader, which (in the rare
+ *      case roots/list and the explicit arg both yield nothing) reads
+ *      from cwd / legacy / bundled. Plumbing migration will eventually
+ *      make this unreachable.
+ */
+async function resolveConfigForCall(
+  extra: { sendRequest?: unknown } | undefined,
+  workspaceRoot?: string | null,
+): Promise<ConventionsConfig> {
+  // Step 1 — roots/list.
+  const roots = await fetchClientRoots(extra ?? {});
+  for (const root of roots) {
+    if (!root.uri.startsWith("file://")) continue;
+    try {
+      const path = fileURLToPath(root.uri);
+      return loadConventionsConfigForWorkspace(path);
+    } catch {
+      // Malformed file URI or malformed config — try next root.
+    }
+  }
+  // Step 2 — explicit arg.
+  if (workspaceRoot?.trim()) {
+    try {
+      return loadConventionsConfigForWorkspace(resolve(workspaceRoot.trim()));
+    } catch {
+      // Fall through to legacy.
+    }
+  }
+  // Step 3 — legacy.
+  return loadConventionsConfig();
+}
+
+/**
  * Resolve tc-drafts directory. No hardcoded default.
  * Priority: draftsPath (user choice) > workspaceRoot/tc-drafts > credentials/env.
  * Creates folder if it doesn't exist.
@@ -240,11 +286,16 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
       description: "Save a test case draft to tc-drafts/US_<id>/ as markdown only. JSON is created only when pushing to ADO. Pass workspaceRoot (open folder) or draftsPath (user-specified location). Creates tc-drafts/US_<id>/ folder if missing. No hardcoded default path.",
       inputSchema: SaveTcDraftShape,
     },
-    async (input) => {
+    async (input, extra) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(input.workspaceRoot, input.draftsPath);
         const usFolder = resolveUsFolder(tcDraftsDir, input.userStoryId);
         mkdirSync(usFolder, { recursive: true });
+
+        // Resolve conventions for THIS call so the persona table reflects
+        // the tenant's <workspace>/.vortex-ado/config.json — not the
+        // installer dir's stale fallback.
+        const config = await resolveConfigForCall(extra, input.workspaceRoot);
 
         const now = new Date().toISOString().slice(0, 10);
         const data: TcDraftData = {
@@ -270,7 +321,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
 
         const mdPath = join(usFolder, `US_${input.userStoryId}_test_cases.md`);
 
-        const markdown = formatTcDraftToMarkdown(data);
+        const markdown = formatTcDraftToMarkdown(data, config);
         writeFileSync(mdPath, markdown, "utf-8");
 
         const fileName = `US_${input.userStoryId}_test_cases.md`;
