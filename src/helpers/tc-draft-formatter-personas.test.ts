@@ -107,7 +107,7 @@ test("formatTcDraftToMarkdown: persona table is empty when config has no persona
 
   // Header still emitted, but no rows.
   assert.match(md, /### Persona/);
-  assert.match(md, /\| Role \| Profile \| Roles \| Permission Set Group \|/);
+  assert.match(md, /\| Persona \| Profile \| Roles \| Permission Set Group \|/);
   // No invented personas.
   assert.doesNotMatch(md, /System Administrator/);
   assert.doesNotMatch(md, /\| Admin \|/);
@@ -122,7 +122,7 @@ test("formatTcDraftToMarkdown: respects config personaRolesLabel and personaPsgL
 
   const md = formatTcDraftToMarkdown(baseDraft(), cfg);
   // Header row reflects custom labels.
-  assert.match(md, /\| Role \| Profile \| TPM Roles \| PSG \|/);
+  assert.match(md, /\| Persona \| Profile \| TPM Roles \| PSG \|/);
 });
 
 test("formatTcDraftToMarkdown: persona-row order matches config insertion order", () => {

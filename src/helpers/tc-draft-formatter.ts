@@ -201,7 +201,11 @@ export function formatTcDraftToMarkdown(
   const personaRows = buildPersonaTableRows(undefined, defaults.personas);
   const rolesLabel = defaults.personaRolesLabel ?? "Roles";
   const psgLabel = defaults.personaPsgLabel ?? "Permission Set Group";
-  lines.push(`| Role | Profile | ${rolesLabel} | ${psgLabel} |`);
+  // Header column 1 used to be "Role" but the cell holds the persona's
+  // display label (e.g. "Admin", "Sales Rep") — same row also has a "Roles"
+  // column for the actual role assignments. "Role | ... | Roles |" was
+  // confusing. Renamed to "Persona" for clarity.
+  lines.push(`| Persona | Profile | ${rolesLabel} | ${psgLabel} |`);
   lines.push("|---|---|---|---|");
   for (const row of personaRows) {
     lines.push(`| ${row.role} | ${row.profile} | ${row.roles} | ${row.psg} |`);
