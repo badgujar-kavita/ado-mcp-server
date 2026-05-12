@@ -1,7 +1,4 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { join } from "node:path";
 import {
   INTERACTIVE_READ_CONTRACT,
   DIAGNOSTIC_CONTRACT,
@@ -9,58 +6,7 @@ import {
   OPTION_SELECTION_CONTRACT,
 } from "./shared-contracts.ts";
 import { loadConventionsConfig } from "../config.ts";
-import { fetchClientRoots } from "../workspace/fetch-roots.ts";
-import { mergeConfig } from "../config/merge.ts";
-import { WorkspaceConfigSchema } from "../config/schema.ts";
 import type { PersonaConfig } from "../types.ts";
-
-/**
- * Read the workspace's conventions config WITHOUT the module-level cache.
- *
- * Why a separate path: `loadConventionsConfig()` resolves the workspace via
- * `process.cwd()`, which is `~/.vortex-ado/` for MCP processes Cursor spawns —
- * NOT the user's open project folder. That made persona injection see an
- * empty config and fall back to framework defaults, which led the agent to
- * invent "System Administrator" rows in the Common Persona table.
- *
- * This loader takes the workspace path explicitly (resolved via MCP
- * roots/list inside the prompt callback) and reads the file directly.
- */
-function loadConventionsForWorkspace(workspaceRoot: string) {
-  const wsConfigPath = join(workspaceRoot, ".vortex-ado", "config.json");
-  if (!existsSync(wsConfigPath)) return null;
-  try {
-    const raw = JSON.parse(readFileSync(wsConfigPath, "utf-8"));
-    const workspace = WorkspaceConfigSchema.parse(raw);
-    return mergeConfig(workspace);
-  } catch {
-    // Malformed config — fall back to module-cached loader (framework defaults).
-    return null;
-  }
-}
-
-/**
- * Resolve workspace via roots/list and load its conventions. Returns null
- * if no workspace can be resolved or no config exists at that workspace.
- *
- * Test seam: re-exported below as `resolveWorkspaceConventionsForTests`.
- */
-async function resolveWorkspaceConventions(
-  extra: { sendRequest?: unknown } | undefined,
-): Promise<ReturnType<typeof mergeConfig> | null> {
-  const roots = await fetchClientRoots(extra ?? {});
-  for (const root of roots) {
-    if (!root.uri.startsWith("file://")) continue;
-    try {
-      const path = fileURLToPath(root.uri);
-      const cfg = loadConventionsForWorkspace(path);
-      if (cfg) return cfg;
-    } catch {
-      // Malformed file:// URI — try next root.
-    }
-  }
-  return null;
-}
 
 /**
  * Build the persona-injection block for /qa-draft.
@@ -126,9 +72,6 @@ export function buildPersonaInjection(
   );
   return lines.join("\n");
 }
-
-/** Test-only re-export of the workspace-resolution helper. */
-export const resolveWorkspaceConventionsForTests = resolveWorkspaceConventions;
 
 export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("ado-connect", {
@@ -355,18 +298,14 @@ export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("qa-draft", {
     title: "Draft Test Cases",
     description: "Draft test cases as reviewable markdown — never pushes to ADO",
-  }, async (extra) => {
+  }, async () => {
     // Inject the workspace's actual persona list into the prompt so the
     // agent uses real configured personas in the draft Common Persona
-    // table. Resolve workspace via MCP roots/list — process.cwd() is the
-    // installer dir (~/.vortex-ado), NOT the user's project folder, so
-    // a cwd-based config load misses the user's personas and the agent
-    // ends up inventing "System Administrator" rows.
+    // table. Without this the agent has only an abstract reference to
+    // "configured default personas" and tends to invent placeholders.
     let personaInjection: string;
     try {
-      const cfg =
-        (await resolveWorkspaceConventions(extra)) ??
-        loadConventionsConfig(); /* legacy fallback */
+      const cfg = loadConventionsConfig();
       personaInjection = buildPersonaInjection(
         cfg.prerequisiteDefaults.personas,
         cfg.prerequisiteDefaults.personaRolesLabel ?? "Roles",

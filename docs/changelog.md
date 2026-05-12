@@ -6,20 +6,6 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
-### 2026-05-12 — /qa-draft: persona injection now resolves the workspace via roots/list
-
-**Follow-up bugfix to the earlier persona-injection commit.**
-
-The first attempt at persona injection used `loadConventionsConfig()`, which resolves the workspace via `process.cwd()`. That returns `~/.vortex-ado` for MCP processes Cursor spawns — NOT the user's open project folder. Result: `loadConventionsConfig()` couldn't find the user's `config.json`, fell back to framework defaults (no personas), and the agent went right back to inventing "System Administrator" rows.
-
-**Fix.** `qa-draft` now resolves the workspace via the MCP `roots/list` request inside the prompt callback (using the existing `fetchClientRoots()` helper). It reads `<workspace>/.vortex-ado/config.json` directly from the resolved root, merges it with framework defaults, and feeds those personas into `buildPersonaInjection()`. Falls back to `loadConventionsConfig()` only if `roots/list` yields nothing — same behavior as before.
-
-A new `resolveWorkspaceConventionsForTests` test seam exposes the resolver so unit tests can cover: roots/list reading the right config file, empty-roots returning null, missing-config returning null, and skipping non-file:// roots.
-
-**Tests added (+4, total 430 → 434).** All in `src/prompts/persona-injection.test.ts`.
-
-**No public API change.** `loadConventionsConfig()` is unchanged and remains the right entry point for the rest of the codebase (tools that already get `extra` should migrate to roots/list resolution similarly when they need persona/convention data, but that's separate cleanup work).
-
 ### 2026-05-12 — Persona injection in /qa-draft (config personas now reach the agent)
 
 **Bug fix.**

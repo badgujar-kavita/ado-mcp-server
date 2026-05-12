@@ -9,14 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import {
-  buildPersonaInjection,
-  resolveWorkspaceConventionsForTests,
-} from "./index.ts";
+import { buildPersonaInjection } from "./index.ts";
 
 test("buildPersonaInjection: renders all configured personas", () => {
   const block = buildPersonaInjection(
@@ -103,100 +96,6 @@ test("buildPersonaInjection: omits empty fields cleanly", () => {
   assert.doesNotMatch(block, /Profile:/);
   assert.doesNotMatch(block, /Roles:/);
   assert.doesNotMatch(block, /Permission Set Group:/);
-});
-
-// ── resolveWorkspaceConventions: workspace path comes from roots/list ──
-
-test("resolveWorkspaceConventions: reads <root>/.vortex-ado/config.json from roots/list", async () => {
-  // Simulate Cursor's MCP-spawned process: cwd is the installer dir, but
-  // roots/list reports the user's actual project folder. We must read
-  // config.json from the root, not from cwd.
-  const ws = mkdtempSync(join(tmpdir(), "qa-draft-roots-"));
-  mkdirSync(join(ws, ".vortex-ado"), { recursive: true });
-  writeFileSync(
-    join(ws, ".vortex-ado", "config.json"),
-    JSON.stringify({
-      version: 1,
-      ado: { url: "https://dev.azure.com/myorg", org: "myorg", project: "myproj" },
-      prerequisiteDefaults: {
-        personas: {
-          Admin: { label: "Admin", profile: "Admin", roles: "Admin User", psg: "Admin_PSG" },
-          SalesRep: {
-            label: "Sales Rep",
-            profile: "Sales_Rep",
-            roles: "Sales_Rep",
-            psg: "Sale_Rep_PSG",
-          },
-        },
-      },
-    }),
-  );
-
-  const fakeExtra = {
-    sendRequest: async () => ({
-      roots: [{ uri: pathToFileURL(ws).href, name: "MyProject" }],
-    }),
-  };
-
-  try {
-    const cfg = await resolveWorkspaceConventionsForTests(fakeExtra);
-    assert.ok(cfg, "expected resolveWorkspaceConventions to return a config");
-    const personas = cfg.prerequisiteDefaults.personas;
-    assert.deepEqual(Object.keys(personas), ["Admin", "SalesRep"]);
-    assert.equal(personas.Admin.psg, "Admin_PSG");
-    assert.equal(personas.SalesRep.label, "Sales Rep");
-  } finally {
-    rmSync(ws, { recursive: true, force: true });
-  }
-});
-
-test("resolveWorkspaceConventions: returns null when roots/list yields nothing", async () => {
-  const fakeExtra = { sendRequest: async () => ({ roots: [] }) };
-  const cfg = await resolveWorkspaceConventionsForTests(fakeExtra);
-  assert.equal(cfg, null);
-});
-
-test("resolveWorkspaceConventions: returns null when root has no .vortex-ado/config.json", async () => {
-  const ws = mkdtempSync(join(tmpdir(), "qa-draft-noconfig-"));
-  const fakeExtra = {
-    sendRequest: async () => ({ roots: [{ uri: pathToFileURL(ws).href }] }),
-  };
-  try {
-    const cfg = await resolveWorkspaceConventionsForTests(fakeExtra);
-    assert.equal(cfg, null);
-  } finally {
-    rmSync(ws, { recursive: true, force: true });
-  }
-});
-
-test("resolveWorkspaceConventions: skips non-file:// roots and tries the next valid one", async () => {
-  const ws = mkdtempSync(join(tmpdir(), "qa-draft-multiroot-"));
-  mkdirSync(join(ws, ".vortex-ado"), { recursive: true });
-  writeFileSync(
-    join(ws, ".vortex-ado", "config.json"),
-    JSON.stringify({
-      version: 1,
-      ado: { url: "https://dev.azure.com/x", org: "x", project: "y" },
-      prerequisiteDefaults: {
-        personas: { Foo: { label: "Foo", profile: "p", roles: "r", psg: "g" } },
-      },
-    }),
-  );
-  const fakeExtra = {
-    sendRequest: async () => ({
-      roots: [
-        { uri: "https://example.com/not-a-file" },
-        { uri: pathToFileURL(ws).href },
-      ],
-    }),
-  };
-  try {
-    const cfg = await resolveWorkspaceConventionsForTests(fakeExtra);
-    assert.ok(cfg);
-    assert.equal(cfg.prerequisiteDefaults.personas.Foo.label, "Foo");
-  } finally {
-    rmSync(ws, { recursive: true, force: true });
-  }
 });
 
 test("buildPersonaInjection: preserves persona insertion order", () => {
