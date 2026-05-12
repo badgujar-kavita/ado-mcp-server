@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdoClient } from "../ado-client.ts";
-import type { AdoTestSuite, AdoTestSuiteListResponse, AdoTestPlan, AdoWorkItem, SuiteHierarchyResult } from "../types.ts";
+import type { AdoTestSuite, AdoTestSuiteListResponse, AdoTestPlan, AdoWorkItem, SuiteHierarchyResult, ConventionsConfig } from "../types.ts";
+import { resolveConfigForCall } from "../workspace/config-for-call.ts";
 import {
   buildSprintFolderName,
   buildParentUsFolderName,
@@ -29,9 +30,10 @@ export function registerTestSuiteTools(server: McpServer, client: AdoClient) {
         confirmMismatch: z.boolean().optional().describe("Set to true to force creation when override doesn't match the US's auto-derived plan/sprint"),
       },
     },
-    async ({ userStoryId, planId, sprintNumber, confirmMismatch }) => {
+    async ({ userStoryId, planId, sprintNumber, confirmMismatch }, extra) => {
       try {
-        const result = await ensureSuiteHierarchyForUs(client, userStoryId, planId, sprintNumber, confirmMismatch);
+        const config = await resolveConfigForCall(extra);
+        const result = await ensureSuiteHierarchyForUs(client, userStoryId, planId, sprintNumber, confirmMismatch, config);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
         };
@@ -324,7 +326,8 @@ export async function ensureSuiteHierarchyForUs(
   userStoryId: number,
   overridePlanId?: number,
   overrideSprintNumber?: number,
-  confirmMismatch?: boolean
+  confirmMismatch?: boolean,
+  config?: ConventionsConfig,
 ): Promise<SuiteHierarchyResult> {
   const usItem = await client.get<AdoWorkItem>(
     `/_apis/wit/workitems/${userStoryId}`,
@@ -346,14 +349,14 @@ export async function ensureSuiteHierarchyForUs(
     );
   }
 
-  const planId = overridePlanId ?? resolvePlanIdFromAreaPath(areaPath);
-  const sprintNumber = overrideSprintNumber ?? resolveSprintFromIteration(iterationPath);
+  const planId = overridePlanId ?? resolvePlanIdFromAreaPath(areaPath, config);
+  const sprintNumber = overrideSprintNumber ?? resolveSprintFromIteration(iterationPath, config);
 
   // Cross-validate BEFORE creating anything: block on mismatch
   const mismatches: string[] = [];
   if (overridePlanId && areaPath) {
     try {
-      const autoPlanId = resolvePlanIdFromAreaPath(areaPath);
+      const autoPlanId = resolvePlanIdFromAreaPath(areaPath, config);
       if (autoPlanId !== overridePlanId) {
         mismatches.push(
           `Plan ID mismatch: US ${userStoryId} AreaPath "${areaPath}" auto-derives to plan ${autoPlanId}, but override is ${overridePlanId}.`
@@ -365,7 +368,7 @@ export async function ensureSuiteHierarchyForUs(
   }
   if (overrideSprintNumber && iterationPath) {
     try {
-      const autoSprint = resolveSprintFromIteration(iterationPath);
+      const autoSprint = resolveSprintFromIteration(iterationPath, config);
       if (autoSprint !== overrideSprintNumber) {
         mismatches.push(
           `Sprint mismatch: US ${userStoryId} Iteration "${iterationPath}" auto-derives to sprint ${autoSprint}, but override is ${overrideSprintNumber}.`
@@ -379,14 +382,15 @@ export async function ensureSuiteHierarchyForUs(
     throw new Error(`OVERRIDE_MISMATCH:${JSON.stringify({ mismatches, userStoryId, overridePlanId, overrideSprintNumber })}`);
   }
 
-  return ensureSuiteHierarchy(client, planId, sprintNumber, userStoryId);
+  return ensureSuiteHierarchy(client, planId, sprintNumber, userStoryId, config);
 }
 
 async function ensureSuiteHierarchy(
   client: AdoClient,
   planId: number,
   sprintNumber: number,
-  userStoryId: number
+  userStoryId: number,
+  config?: ConventionsConfig,
 ): Promise<SuiteHierarchyResult> {
   const created: string[] = [];
   const existing: string[] = [];
@@ -420,7 +424,7 @@ async function ensureSuiteHierarchy(
   }
 
   // Level 1: Sprint folder
-  const sprintName = buildSprintFolderName(sprintNumber);
+  const sprintName = buildSprintFolderName(sprintNumber, config);
   const sprintResult = await findOrCreateSuite(client, planId, rootSuiteId, sprintName, "staticTestSuite");
   (sprintResult.created ? created : existing).push(sprintName);
   if (sprintResult.warning) warnings.push(sprintResult.warning);
@@ -429,17 +433,17 @@ async function ensureSuiteHierarchy(
   let level2Result: FindOrCreateResult;
   let level2Name: string;
   if (parentId && parentTitle) {
-    level2Name = buildParentUsFolderName(parentId, parentTitle);
+    level2Name = buildParentUsFolderName(parentId, parentTitle, config);
   } else {
-    level2Name = getNonEpicFolderName();
+    level2Name = getNonEpicFolderName(config);
   }
   level2Result = await findOrCreateSuite(client, planId, sprintResult.suite.id, level2Name, "staticTestSuite");
   (level2Result.created ? created : existing).push(level2Name);
   if (level2Result.warning) warnings.push(level2Result.warning);
 
   // Level 3: US folder (query-based suite)
-  const usName = buildUsFolderName(userStoryId, usTitle);
-  const queryString = buildSuiteQueryString(userStoryId, planAreaPath);
+  const usName = buildUsFolderName(userStoryId, usTitle, config);
+  const queryString = buildSuiteQueryString(userStoryId, planAreaPath, config);
   const usResult = await findOrCreateSuite(
     client, planId, level2Result.suite.id, usName, "dynamicTestSuite", queryString
   );

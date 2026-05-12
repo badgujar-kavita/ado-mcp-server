@@ -95,16 +95,9 @@ alwaysApply: true
   if (existsSync(join(ROOT, "AGENTS.md"))) {
     copyFileSync(join(ROOT, "AGENTS.md"), join(OUT, "AGENTS.md"));
   }
-  // Bundled conventions defaults — Phase 1 transitional artifact.
-  // Loader resolution order: (1) <workspace>/.vortex-ado/config.json,
-  // (2) ~/.vortex-ado/conventions.config.json (legacy fallback),
-  // (3) THIS BUNDLED FILE, (4) framework defaults in src/config/defaults.ts.
-  // This file is sanitized — generic placeholders only, no team-specific values.
-  // Will be removed in a follow-up commit once all tests inject fixtures and
-  // the legacy fallback is dropped.
-  if (existsSync(join(ROOT, "conventions.config.json"))) {
-    copyFileSync(join(ROOT, "conventions.config.json"), join(OUT, "conventions.config.json"));
-  }
+  // Note: the bundled conventions.config.json was removed in Phase 4. The
+  // server now reads conventions ONLY from <workspace>/.vortex-ado/config.json
+  // (written by /ado-connect Tab 2). No global or bundled fallback.
 
   const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
   // Only the runtime deps marked `external:` in the esbuild call above need to

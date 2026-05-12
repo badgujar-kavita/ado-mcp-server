@@ -3,8 +3,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdoClient } from "../ado-client.ts";
 import { AdoClientError } from "../ado-client.ts";
 import type { ConfluenceClient } from "../confluence-client.ts";
-import type { AdoWorkItem, JsonPatchOperation, TestCaseResult } from "../types.ts";
+import type { AdoWorkItem, JsonPatchOperation, TestCaseResult, ConventionsConfig } from "../types.ts";
 import { loadConventionsConfig } from "../config.ts";
+import { resolveConfigForCall } from "../workspace/config-for-call.ts";
 import { buildTcTitle } from "../helpers/tc-title-builder.ts";
 import { buildPrerequisitesHtml } from "../helpers/prerequisites.ts";
 import { buildStepsXml } from "../helpers/steps-builder.ts";
@@ -132,14 +133,14 @@ export function registerTestCaseTools(
         acknowledgeCrossUs: z.boolean().optional().describe("Set to true only when the user has seen the per-US breakdown of a cross-US bulk update and explicitly confirmed. Skipped for single-ID calls. Defaults to false."),
       },
     },
-    async ({ workItemId, title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath, acknowledgeCrossUs }) => {
-      const config = loadConventionsConfig();
+    async ({ workItemId, title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath, acknowledgeCrossUs }, extra) => {
+      const config = await resolveConfigForCall(extra);
       const prereqField = config.prerequisiteFieldRef ?? "System.Description";
 
       // Build the JSON Patch ops once — identical for every ID in the batch (uniform semantics).
       const ops: JsonPatchOperation[] = [];
       if (title) ops.push({ op: "replace", path: "/fields/System.Title", value: title });
-      const prereqHtml = prerequisites ? buildPrerequisitesHtml(prerequisites) : description;
+      const prereqHtml = prerequisites ? buildPrerequisitesHtml(prerequisites, config) : description;
       if (prereqHtml) ops.push({ op: "replace", path: `/fields/${prereqField}`, value: prereqHtml });
       if (steps) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: buildStepsXml(steps) });
       if (priority) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority });
@@ -564,9 +565,11 @@ export interface CreateTestCaseParams {
   tags?: string[];
 }
 
-export async function createTestCase(client: AdoClient, params: CreateTestCaseParams): Promise<TestCaseResult> {
-  const config = loadConventionsConfig();
-
+export async function createTestCase(
+  client: AdoClient,
+  params: CreateTestCaseParams,
+  config: ConventionsConfig = loadConventionsConfig(),
+): Promise<TestCaseResult> {
   const usItem = await client.get<AdoWorkItem>(
     `/_apis/wit/workitems/${params.userStoryId}`,
     "7.0",
@@ -575,9 +578,9 @@ export async function createTestCase(client: AdoClient, params: CreateTestCasePa
   const usAreaPath = (usItem.fields["System.AreaPath"] as string) || "";
   const usIterationPath = (usItem.fields["System.IterationPath"] as string) || "";
 
-  const tcNumber = params.tcNumber ?? await getNextTcNumber(client, params.userStoryId, usAreaPath);
-  const title = buildTcTitle(params.userStoryId, tcNumber, params.featureTags, params.useCaseSummary);
-  const description = buildPrerequisitesHtml(params.prerequisites);
+  const tcNumber = params.tcNumber ?? await getNextTcNumber(client, params.userStoryId, usAreaPath, config);
+  const title = buildTcTitle(params.userStoryId, tcNumber, params.featureTags, params.useCaseSummary, config);
+  const description = buildPrerequisitesHtml(params.prerequisites, config);
   const stepsXml = buildStepsXml(params.steps);
   // Prefer User Story's paths (live from ADO) to avoid TF401347 Invalid tree name - draft parsing can differ
   const areaPath = usAreaPath || params.areaPath || "";
@@ -643,11 +646,11 @@ export async function createTestCase(client: AdoClient, params: CreateTestCasePa
 export async function updateTestCaseFromParams(
   client: AdoClient,
   workItemId: number,
-  params: CreateTestCaseParams
+  params: CreateTestCaseParams,
+  config: ConventionsConfig = loadConventionsConfig(),
 ): Promise<TestCaseResult> {
-  const config = loadConventionsConfig();
-  const title = buildTcTitle(params.userStoryId, params.tcNumber ?? 0, params.featureTags, params.useCaseSummary);
-  const prereqHtml = buildPrerequisitesHtml(params.prerequisites);
+  const title = buildTcTitle(params.userStoryId, params.tcNumber ?? 0, params.featureTags, params.useCaseSummary, config);
+  const prereqHtml = buildPrerequisitesHtml(params.prerequisites, config);
   const stepsXml = buildStepsXml(params.steps);
   const prereqField = config.prerequisiteFieldRef ?? "System.Description";
   const priority = params.priority ?? config.testCaseDefaults.priority;
@@ -680,13 +683,21 @@ export async function updateTestCaseFromParams(
   };
 }
 
-async function getNextTcNumber(client: AdoClient, usId: number, areaPath: string): Promise<number> {
+async function getNextTcNumber(
+  client: AdoClient,
+  usId: number,
+  areaPath: string,
+  config: ConventionsConfig,
+): Promise<number> {
+  // The WIQL prefix mirrors `suiteStructure.tcTitlePrefix` so the lookup
+  // matches whatever the team uses for query-based suites.
+  const prefix = config.suiteStructure.tcTitlePrefix ?? "TC";
   const wiql = {
     query:
       `SELECT [System.Id] FROM WorkItems ` +
       `WHERE [System.WorkItemType] = 'Test Case' ` +
       `AND [System.AreaPath] UNDER '${areaPath}' ` +
-      `AND [System.Title] CONTAINS 'TC_${usId}_' ` +
+      `AND [System.Title] CONTAINS '${prefix}_${usId}_' ` +
       `ORDER BY [System.Title] DESC`,
   };
 

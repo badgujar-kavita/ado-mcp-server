@@ -125,9 +125,10 @@ After setup, VortexADO MCP is available globally in all workspaces. Each workspa
 │   ├── skills/       # QA architect methodology (draft, TO BE TESTED FOR, prerequisites)
 │   └── rules/        # Draft formatting, deployment rules
 ├── docs/              # Documentation
-├── conventions.config.json  # Test case naming, prerequisite structure
 └── package.json
 ```
+
+> Per-workspace conventions (test case naming, prerequisite structure, etc.) live in each tenant's `<workspace>/.vortex-ado/config.json`, overlaid on framework defaults in `src/config/defaults.ts`. See [docs/conventions.md](docs/conventions.md).
 
 ---
 

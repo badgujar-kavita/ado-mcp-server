@@ -16,6 +16,8 @@ import {
 } from "../helpers/confluence-url.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { loadConventionsConfig } from "../config.ts";
+import { resolveConfigForCall } from "../workspace/config-for-call.ts";
+import type { ConventionsConfig } from "../types.ts";
 import { stripHtml } from "../helpers/strip-html.ts";
 import { extractAndFetchAdoImages } from "../helpers/ado-attachments.ts";
 import { fetchCurrentVersionAttachments } from "../helpers/confluence-attachments.ts";
@@ -96,7 +98,7 @@ export function registerWorkItemTools(
       },
       outputSchema: READ_OUTPUT_SCHEMA,
     },
-    async ({ workItemId }) => {
+    async ({ workItemId }, extra) => {
       try {
         const item = await client.get<AdoWorkItem>(
           `/_apis/wit/workitems/${workItemId}`,
@@ -104,8 +106,8 @@ export function registerWorkItemTools(
           { "$expand": "relations" }
         );
 
-        const context = await extractUserStoryContext(item, client, confluenceClient);
-        const config = loadConventionsConfig();
+        const config = await resolveConfigForCall(extra);
+        const context = await extractUserStoryContext(item, client, confluenceClient, config);
         const { content, withUrl } = buildGetUserStoryResponse(context, {
           webUrl: adoWorkItemUrl(client, context.id),
           returnMcpImageParts: config.images?.returnMcpImageParts === true,
@@ -232,9 +234,9 @@ export function registerWorkItemTools(
 export async function extractUserStoryContext(
   item: AdoWorkItem,
   adoClient: AdoClient,
-  confluenceClient: ConfluenceClient | null
+  confluenceClient: ConfluenceClient | null,
+  config: ConventionsConfig = loadConventionsConfig(),
 ): Promise<UserStoryContext> {
-  const config = loadConventionsConfig();
   const fields = item.fields;
   const relations = item.relations ?? [];
 

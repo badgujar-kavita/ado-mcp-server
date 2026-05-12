@@ -1,7 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadCredentials, bootstrapCredentials, credentialsFileExists } from "./credentials.ts";
-import { loadConventionsConfig } from "./config.ts";
 import { AdoClient } from "./ado-client.ts";
 import { createConfluenceClient } from "./confluence-client.ts";
 import { registerAllTools } from "./tools/index.ts";
@@ -16,8 +15,6 @@ async function main() {
   // Bootstrap credentials FIRST — must be async because keychain reads are
   // async, and we want subsequent loadCredentials() calls to be sync-cached.
   await bootstrapCredentials();
-
-  loadConventionsConfig();
 
   // One-time migration warning: if legacy global files exist, tell the
   // user the new layout (without forcing migration). See Commit 6.
@@ -67,24 +64,22 @@ async function main() {
 }
 
 /**
- * Emit a one-line migration warning when legacy global config/credential
- * files are detected. Helps tenants who upgraded from a pre-Phase-1 install
- * understand they should run /ado-connect per workspace going forward.
+ * Emit a one-line migration warning when legacy global credentials/config
+ * files are detected. The legacy `conventions.config.json` is no longer
+ * read by the server; this warning just nudges users to clean up.
  */
 function emitLegacyMigrationWarning(): void {
   const legacyConventions = join(homedir(), ".vortex-ado", "conventions.config.json");
-  const legacyCreds = join(homedir(), ".vortex-ado", "credentials.json");
   const wsConfig = join(process.cwd(), ".vortex-ado", "config.json");
 
-  // Only warn if legacy files exist AND no per-workspace config has been set up.
   const hasLegacy = existsSync(legacyConventions) || credentialsFileExists();
   const hasWorkspace = existsSync(wsConfig);
   if (hasLegacy && !hasWorkspace) {
     console.error(
-      "[VortexADO] Legacy global config detected at ~/.vortex-ado/. " +
-        "Phase 1 uses per-workspace configs. Run /vortex-ado/ado-connect " +
-        "in this project folder to set up. Legacy files remain readable " +
-        "as a fallback for now and are safe to delete after migration.",
+      "[VortexADO] Legacy ~/.vortex-ado/ files detected but no workspace " +
+        "config found in this folder. Run /vortex-ado/ado-connect to set up. " +
+        "Note: ~/.vortex-ado/conventions.config.json is no longer read by " +
+        "the server and can be safely deleted.",
     );
   }
 }

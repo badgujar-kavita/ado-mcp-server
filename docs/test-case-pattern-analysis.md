@@ -1,7 +1,7 @@
 # Test Case Writing Pattern Analysis — Generic Reference
 
 **Source:** Generic, mock test cases modeled on a Salesforce CRM application (illustrative only — no real plan or work-item IDs)  
-**Purpose:** Document observed test-case patterns so AI drafts match the team's house style. Use this as a structural reference; substitute real project entities, fields, and personas from the active project's Acceptance Criteria, Solution Design, and `conventions.config.json`.
+**Purpose:** Document observed test-case patterns so AI drafts match the team's house style. Use this as a structural reference; substitute real project entities, fields, and personas from the active project's Acceptance Criteria, Solution Design, and `<workspace>/.vortex-ado/config.json`.
 
 > **About the examples:** Every USID, TC ID, account name, persona, status value, and field name in this document is fictional. They demonstrate the *shape* of titles, prerequisites, and steps — not real data. Treat them the way you'd treat sample data in API documentation.
 
@@ -46,7 +46,7 @@ Persona:
    - Group = Business User Group
 ```
 
-> The labels above (`Admin Persona`, `Business Persona`, `Standard_Admin_Profile`, `Group`) are placeholders. Real projects supply the persona names, profile names, and group/permission-set label via `conventions.config.json` (see the `personas` block and the `personaRolesLabel` setting). The fourth line in each persona block (`Group = ...` here) is whatever the project uses to scope record-level access — it could be a Permission Set Group, a Permission Set, a Public Group, a Role, or any equivalent grouping construct.
+> The labels above (`Admin Persona`, `Business Persona`, `Standard_Admin_Profile`, `Group`) are placeholders. Real projects supply the persona names, profile names, and group/permission-set label via `<workspace>/.vortex-ado/config.json` (see the `personas` block and the `personaRolesLabel` setting). The fourth line in each persona block (`Group = ...` here) is whatever the project uses to scope record-level access — it could be a Permission Set Group, a Permission Set, a Public Group, a Role, or any equivalent grouping construct.
 
 **Variations observed:**
 - `<TeamPrefix> "Admin Persona" User` (some TCs prefix the persona label with a short team / cloud code)
@@ -108,7 +108,7 @@ Persona:
 | **Admin Persona** | User setup, workflow config, Permission Set setup |
 | **System Administrator** | Setup/config TCs (e.g., Order Template, Quote Template) |
 
-> Persona labels above are placeholders. Replace with the configured roles for the active project (see `conventions.config.json` → `personas`).
+> Persona labels above are placeholders. Replace with the configured roles for the active project (see `<workspace>/.vortex-ado/config.json` → `personas`).
 
 ---
 
@@ -168,18 +168,18 @@ Persona:
 When drafting test cases for any Salesforce-style application:
 
 - [ ] **Title:** Use `TC_{USID}_{##} -> {Area} -> {Sub-context} -> [Persona/As Persona] -> Verify {validation}`; include hierarchy in quotes when relevant; ≤256 chars
-- [ ] **Persona:** Admin Persona + Business Persona at minimum (use the configured names from `conventions.config.json` → `personas`); add System Administrator when setup/config TC
+- [ ] **Persona:** Admin Persona + Business Persona at minimum (use the configured names from `<workspace>/.vortex-ado/config.json` → `personas`); add System Administrator when setup/config TC
 - [ ] **Pre-requisite:** Lead with the most-scoping condition for the scenario (e.g., `User.<ScopeField> = <Value>`); follow with `Object.Field = Value` rows; highlight config variations
 - [ ] **Test Data:** Inline in steps when filter/search; or separate TEST DATA block in prerequisites
 - [ ] **Steps:** Imperative; "you should be able to do so" for setup; "Verify" for validation; support "Repeat Steps #N-M"
 - [ ] **Expected:** "should" form; multi-part numbered when needed
-- [ ] **Common data:** Pull Account names, Sales Org, status values, and Order/Quote types from the active project's AC, Solution Design, and `conventions.config.json` — do not reuse the mock values in this document
+- [ ] **Common data:** Pull Account names, Sales Org, status values, and Order/Quote types from the active project's AC, Solution Design, and `<workspace>/.vortex-ado/config.json` — do not reuse the mock values in this document
 
 ---
 
 ## Appendix: How to Adapt This Reference to a Real Project
 
-1. **Replace persona labels** (`Admin Persona`, `Business Persona`) with the personas in `conventions.config.json` → `personas`.
+1. **Replace persona labels** (`Admin Persona`, `Business Persona`) with the personas in `<workspace>/.vortex-ado/config.json` → `personas`.
 2. **Replace business object names** (`Order`, `Quote`, `Account Business Plan`) with the entities documented in the active US's AC and Solution Design.
 3. **Replace status values** (`Draft`, `Submitted`, `Approved`) with the lifecycle states from the project's workflow definition.
 4. **Replace mock account/org values** (`ACME CORPORATION`, `1000`) with the test data the team actually uses.

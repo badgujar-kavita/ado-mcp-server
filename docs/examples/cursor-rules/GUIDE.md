@@ -20,7 +20,7 @@ This is the right place to put anything that is:
 
 It is **not** the right place for:
 
-- **Mechanical settings** — field reference names, title prefixes, sprint naming — those live in `conventions.config.json`
+- **Mechanical settings** — field reference names, title prefixes, sprint naming — those live in `<workspace>/.vortex-ado/config.json`
 - **Hard safety rails** — never-push-without-YES, destructive-action confirmations — those live in the MCP prompts and can't be overridden
 - **Sensitive data** — credentials, API tokens, PII — those belong in `~/.vortex-ado/credentials.json`
 
@@ -34,7 +34,7 @@ When the agent runs a command, three layers of instruction converge. They resolv
 |---|---|---|---|
 | **1. MCP prompt (hardest)** | `src/prompts/index.ts` (server code) | Safety rails, tool-call protocol, consent vocabulary, destructive-action gates | **No** — rules augment, never override |
 | **2. Tenant `.mdc` rules** | `.cursor/rules/*.mdc` in your repo | Team policy, coverage, priority, naming additions, category definitions | **This layer** |
-| **3. `conventions.config.json`** | `conventions.config.json` in your repo | Mechanical settings honored by MCP code (field refs, prefixes, testPlanMapping) | N/A — config is the data, not policy |
+| **3. `<workspace>/.vortex-ado/config.json`** | `<workspace>/.vortex-ado/config.json` in your repo | Mechanical settings honored by MCP code (field refs, prefixes, testPlanMapping) | N/A — config is the data, not policy |
 
 **Plain-English rule:** *Safety always wins. Team policy layers on top. Config gives the machine-readable knobs.*
 
@@ -57,7 +57,8 @@ your-project-root/
 │       ├── regression-policy.mdc       # your team's rules
 │       ├── sit-coverage.mdc
 │       └── e2e-scope.mdc
-├── conventions.config.json             # machine settings (unchanged)
+├── .vortex-ado/
+│   └── config.json                     # machine settings (per-workspace)
 └── tc-drafts/                          # where drafts land
 ```
 
@@ -523,7 +524,7 @@ When the US touches [your project's critical areas], always include:
 
 - **Ready-to-copy example files:** see the `.mdc` files in this same folder — standalone, copy-edit-use. The [README](./README.md) in this folder has a "which ones do I need?" matrix to help you pick.
 - **MCP prompt source:** `src/prompts/index.ts` in the MCP distribution — useful to understand what safety rails exist.
-- **Config reference:** `conventions.config.json` — useful to understand what machine settings already exist (don't duplicate in rules).
+- **Config reference:** `<workspace>/.vortex-ado/config.json` (overlay) and `src/config/defaults.ts` (framework defaults) — useful to understand what machine settings already exist (don't duplicate in rules).
 - **Need something rules can't do?** File an issue or talk to the MCP maintainers. New safety rails and new tool capabilities belong upstream; team policy belongs in rules.
 
 ---

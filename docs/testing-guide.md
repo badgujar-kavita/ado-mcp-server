@@ -449,15 +449,15 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 
 | Issue | Fix |
 |---|---|
-| `conventions.config.json` validation error | Check JSON syntax; compare with the schema in `src/config.ts` |
+| `<workspace>/.vortex-ado/config.json` validation error | Check JSON syntax; compare with the schema in `src/config.ts` |
 | Test case number always starts at 1 | The auto-increment queries existing TCs by title pattern; if no matches found, starts at 1 |
-| Prerequisites are empty | Persona always uses all three from config; pre-conditions must be generated per user story (never from config). Check `conventions.config.json` > `prerequisiteDefaults.personas` |
+| Prerequisites are empty | Persona always uses all three from config; pre-conditions must be generated per user story (never from config). Check `<workspace>/.vortex-ado/config.json` > `prerequisiteDefaults.personas` |
 | `US {id} — existing test cases detected` (A/B/C prompt, pre-Phase-B) | Legacy duplicate-TC preflight. **Replaced in Phase B** by `existing-tcs-unmapped` (see below). Kept for historical reference — sessions running an older server will still show this wording. |
 | `existing-tcs-unmapped` (⚠️ WARN, A/B/C) | Phase B replacement for the old duplicate preflight. US has linked TCs but the draft has no ADO IDs. **A.** Attempt mapping by TC number — agent re-runs with `attemptMapping: true`, returns a `mapping-preview` for the user to confirm (reply YES → `acknowledgeMapping: true` + `userConfirmedMapping: [...]`). **B.** Create new alongside with `insertAnyway: true`. **C.** Cancel. See `docs/repush-workflow.md` (Option C). |
 | `mapping-preview` / `mapping-drift` / `tc-number-mismatch` / `extras-in-ado` / `mixed-update-create` / `draft-ids-not-linked` | Phase B consent gates — each one maps to a specific draft/ADO state. See the `qa_publish_push` row in the tools table above for the full option list, and `docs/repush-workflow.md` Option C for the mapping flow end-to-end. |
 | Confluence images show `skipped: "fetch-failed"` | Token lacks `read:attachment.download:confluence` scope. Use a classic unscoped token or add the scope at https://id.atlassian.com/manage-profile/security/api-tokens. |
 | ADO images show `skipped: "fetch-failed"` | Usually transient; retry. If persistent, verify PAT has `vso.work` scope. |
-| Response has only 1 content part despite images being present | `images.returnMcpImageParts` defaults to `false`. Flip to `true` in `conventions.config.json` and restart the MCP. |
+| Response has only 1 content part despite images being present | `images.returnMcpImageParts` defaults to `false`. Flip to `true` in `<workspace>/.vortex-ado/config.json` and restart the MCP. |
 | Images appear as `skipped: "response-budget"` | Total base64 payload exceeds `images.maxTotalBytesPerResponse` (default 4 MiB). Raise the cap or reduce image count. |
 | `unfetchedLinks` contains cross-instance Confluence | The URL points at a different Atlassian tenant than configured in `confluence_base_url`. MCP only fetches the configured instance. |
 | Tool response shows structuredContent but I expected plain text | MCP clients that speak the full MCP protocol receive both `content: [{type:"text", text: ...}]` and `structuredContent: {...}`. Older clients ignore `structuredContent`. The `text` field is preserved byte-for-byte across every read tool -- reading `response.content[0].text` continues to work exactly as before. |

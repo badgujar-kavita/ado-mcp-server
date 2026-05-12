@@ -7,7 +7,7 @@
 
 import { loadConventionsConfig } from "../config.ts";
 import type { TcDraftData, TcDraftTestCase, CoverageInsightRow } from "./tc-draft-formatter.ts";
-import type { PrereqTable } from "../types.ts";
+import type { PrereqTable, ConventionsConfig } from "../types.ts";
 
 function unescape(s: string): string {
   return String(s)
@@ -112,8 +112,18 @@ function parseStepsTable(section: string): Array<{ action: string; expectedResul
   });
 }
 
-export function parseTcDraftFromMarkdown(mdContent: string): TcDraftData | null {
-  const config = loadConventionsConfig();
+/**
+ * Parse a draft markdown file back into structured TcDraftData.
+ *
+ * `config` is optional during the workspace-aware migration. The parser
+ * only uses it to read `testCaseDefaults.priority` (when a TC has no
+ * priority cell) — pass it explicitly from migrated callers; the cwd
+ * fallback is a transitional shim removed in Phase 4.
+ */
+export function parseTcDraftFromMarkdown(
+  mdContent: string,
+  config: ConventionsConfig = loadConventionsConfig(),
+): TcDraftData | null {
 
   // Extract header section: from start to first ## heading (robust against new sections like Supporting Documents)
   const firstH2 = mdContent.indexOf("\n## ");

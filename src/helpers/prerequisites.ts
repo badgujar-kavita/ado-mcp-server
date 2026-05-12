@@ -1,13 +1,21 @@
 import { loadConventionsConfig } from "../config.ts";
-import type { Prerequisites, PersonaConfig } from "../types.ts";
+import type { Prerequisites, PersonaConfig, ConventionsConfig } from "../types.ts";
 import { formatContentForHtml, buildAdoTable } from "./format-html.ts";
 
 /**
  * Builds the HTML Description field content from prerequisites input,
  * merging config defaults with caller overrides.
+ *
+ * `config` is optional during the workspace-aware migration. Tool
+ * handlers that already resolved the workspace via roots/list MUST pass
+ * it explicitly so the persona block + section ordering reflect the
+ * tenant's `<workspace>/.vortex-ado/config.json`. The cwd fallback is
+ * a transitional shim — Phase 4 will make this argument required.
  */
-export function buildPrerequisitesHtml(input?: Prerequisites): string {
-  const config = loadConventionsConfig();
+export function buildPrerequisitesHtml(
+  input?: Prerequisites,
+  config: ConventionsConfig = loadConventionsConfig(),
+): string {
   const { prerequisites: prereqConfig, prerequisiteDefaults: defaults } = config;
 
   const lines: string[] = [];

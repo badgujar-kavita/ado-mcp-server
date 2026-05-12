@@ -1,13 +1,11 @@
 import { z } from "zod";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
 import { join, resolve } from "path";
-import { fileURLToPath } from "url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AdoClient } from "../ado-client.ts";
-import type { AdoWorkItem, ConventionsConfig } from "../types.ts";
+import type { AdoWorkItem } from "../types.ts";
 import { getTcDraftsDir } from "../credentials.ts";
-import { loadConventionsConfigForWorkspace, loadConventionsConfig } from "../config.ts";
-import { fetchClientRoots } from "../workspace/fetch-roots.ts";
+import { resolveConfigForCall } from "../workspace/config-for-call.ts";
 import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from "../helpers/tc-draft-formatter.ts";
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
@@ -128,49 +126,6 @@ export function applyPostPushEditsInPlace(
   }
 
   return { updatedMd: updated, statusFlipped, titlesUpdated, titlesSkipped };
-}
-
-/**
- * Resolve the conventions config for the active call.
- *
- * Priority:
- *   1. MCP `roots/list` (Cursor's open workspace) — preferred. Reads
- *      `<root>/.vortex-ado/config.json`. This is the only path that
- *      works correctly for tenants because the MCP process runs from
- *      `~/.vortex-ado/` (its installer dir), so `process.cwd()` is
- *      WRONG and the legacy cwd loader can't find their config.
- *   2. Explicit `workspaceRoot` arg from the agent — for power-users or
- *      tests that want to point at a specific folder.
- *   3. Last-resort fallback to the cwd-based loader, which (in the rare
- *      case roots/list and the explicit arg both yield nothing) reads
- *      from cwd / legacy / bundled. Plumbing migration will eventually
- *      make this unreachable.
- */
-async function resolveConfigForCall(
-  extra: { sendRequest?: unknown } | undefined,
-  workspaceRoot?: string | null,
-): Promise<ConventionsConfig> {
-  // Step 1 — roots/list.
-  const roots = await fetchClientRoots(extra ?? {});
-  for (const root of roots) {
-    if (!root.uri.startsWith("file://")) continue;
-    try {
-      const path = fileURLToPath(root.uri);
-      return loadConventionsConfigForWorkspace(path);
-    } catch {
-      // Malformed file URI or malformed config — try next root.
-    }
-  }
-  // Step 2 — explicit arg.
-  if (workspaceRoot?.trim()) {
-    try {
-      return loadConventionsConfigForWorkspace(resolve(workspaceRoot.trim()));
-    } catch {
-      // Fall through to legacy.
-    }
-  }
-  // Step 3 — legacy.
-  return loadConventionsConfig();
 }
 
 /**
@@ -354,7 +309,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
       },
       outputSchema: READ_OUTPUT_SCHEMA,
     },
-    async ({ userStoryId, workspaceRoot, draftsPath }) => {
+    async ({ userStoryId, workspaceRoot, draftsPath }, extra) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
         const mdPath = resolveTestCasesMdPath(tcDraftsDir, userStoryId);
@@ -365,11 +320,12 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
         const content = readFileSync(mdPath, "utf-8");
+        const config = await resolveConfigForCall(extra, workspaceRoot);
         // Append an ADO Links section when the draft has ADO IDs. The file on disk
         // stays unchanged — this is an agent-display convenience so clickable links
         // surface in chat without round-tripping URLs through the markdown format
         // (the parser regex for `(ADO #\d+)` requires `)` right after the digits).
-        const parsed = parseTcDraftFromMarkdown(content);
+        const parsed = parseTcDraftFromMarkdown(content, config);
         const tcsWithIds = parsed?.testCases.filter((tc) => tc.adoWorkItemId != null) ?? [];
         let display = content;
         if (tcsWithIds.length > 0 && parsed) {
@@ -610,7 +566,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         })).optional().describe("Phase B: the exact mapping the user confirmed — each entry must match a mappingProposal entry returned in the mapping-preview response. Required together with acknowledgeMapping."),
       },
     },
-    async ({ userStoryId, workspaceRoot, draftsPath, repush, insertAnyway, approveAndPush, resetToDraft, planId: planIdOverride, sprintNumber, confirmMismatch, attemptMapping, acknowledgeMapping, acknowledgeExtras, acknowledgeMixedOp, proceedWithUnlinkedIds, userConfirmedMapping }) => {
+    async ({ userStoryId, workspaceRoot, draftsPath, repush, insertAnyway, approveAndPush, resetToDraft, planId: planIdOverride, sprintNumber, confirmMismatch, attemptMapping, acknowledgeMapping, acknowledgeExtras, acknowledgeMixedOp, proceedWithUnlinkedIds, userConfirmedMapping }, extra) => {
       try {
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
         const mdPath = resolveTestCasesMdPath(tcDraftsDir, userStoryId);
@@ -622,8 +578,14 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
 
+        // Resolve workspace conventions ONCE for this push so the parser,
+        // create/update helpers, and suite-structure helpers all see the
+        // tenant's <workspace>/.vortex-ado/config.json — not the cwd
+        // fallback. Pass through to every config-dependent helper below.
+        const config = await resolveConfigForCall(extra, workspaceRoot);
+
         const mdContent = readFileSync(mdPath, "utf-8");
-        const data = parseTcDraftFromMarkdown(mdContent);
+        const data = parseTcDraftFromMarkdown(mdContent, config);
 
         if (!data) {
           return {
@@ -1029,7 +991,8 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
             userStoryId,
             effectivePlanIdOverride,
             sprintNumber,
-            confirmMismatch
+            confirmMismatch,
+            config,
           );
           planId = hierarchyResult.planId;
         } catch (err) {
@@ -1132,8 +1095,8 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           // No ID → authorized create. We do NOT retry on failure — surface a clear error.
           try {
             const result = tc.adoWorkItemId
-              ? await updateTestCaseFromParams(adoClient, tc.adoWorkItemId, params)
-              : await createTestCase(adoClient, params);
+              ? await updateTestCaseFromParams(adoClient, tc.adoWorkItemId, params, config)
+              : await createTestCase(adoClient, params, config);
             results.push({
               tcNumber: tc.tcNumber,
               id: result.id,

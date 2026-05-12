@@ -1,189 +1,70 @@
 /**
  * Per-workspace conventions config loader.
  *
- * Resolution order:
- *   1. Per-workspace config at `<workspace>/.vortex-ado/config.json`
- *      (workspace = process.cwd(), which Cursor sets to the open folder).
- *      Merged with framework defaults from src/config/defaults.ts.
- *   2. Legacy global config at `~/.vortex-ado/conventions.config.json`.
- *      Read as-is (no merge) for backward compatibility during migration.
- *   3. Framework defaults only (no tenant overrides at all).
+ * Phase 4 final shape — no legacy fallbacks. The server reads:
  *
- * Multi-project safety: each Cursor window spawns its own MCP process with
- * its own `process.cwd()`, so two windows with two projects open get two
- * different per-workspace configs. They never interfere with each other.
+ *   1. `<workspace>/.vortex-ado/config.json` (the workspace overlay, written
+ *      by `/ado-connect` Tab 2). Merged on top of framework defaults.
+ *   2. Framework defaults (`src/config/defaults.ts`) when no workspace
+ *      config is found.
  *
- * The legacy fallback is intentional during Phase 1 of the migration: tenants
- * who haven't yet run /ado-connect in their workspace still see the old
- * behavior. The startup migration warning (Commit 6) tells them what to do.
+ * Two entry points:
+ *
+ *   - `loadConventionsConfigForWorkspace(workspaceRoot)` — preferred. Takes
+ *     the workspace path explicitly. No module cache. Safe to call from
+ *     any tool handler that resolved its workspace via `roots/list`.
+ *   - `loadConventionsConfig()` — legacy, cwd-based. Module-cached. The
+ *     only remaining caller pattern is the optional-arg fallback in
+ *     helpers (`config: ConventionsConfig = loadConventionsConfig()`).
+ *     The cwd path can be wrong for MCP processes Cursor spawns (cwd is
+ *     `~/.vortex-ado/` — the installer dir, not the user's project), so
+ *     this is best-effort. Tool handlers should call
+ *     `resolveConfigForCall()` instead.
+ *
+ * The legacy `~/.vortex-ado/conventions.config.json` and bundled
+ * `conventions.config.json` fallbacks were removed in Phase 4. If those
+ * files exist on a user's machine they are ignored; users can delete
+ * them safely.
  */
 
 import { existsSync, readFileSync } from "fs";
-import { dirname, join, resolve } from "path";
-import { fileURLToPath } from "url";
-import { homedir } from "os";
-import { z } from "zod";
+import { join } from "path";
 import type { ConventionsConfig } from "./types.ts";
 import { mergeConfig } from "./config/merge.ts";
 import { WorkspaceConfigSchema, type WorkspaceConfig } from "./config/schema.ts";
 
-const PersonaConfigSchema = z.preprocess(
-  (v) => {
-    if (v && typeof v === "object" && v !== null) {
-      const obj = v as Record<string, unknown>;
-      if (!("roles" in obj) && "tpmRoles" in obj) {
-        return { ...obj, roles: obj.tpmRoles };
-      }
-    }
-    return v;
-  },
-  z.object({
-    label: z.string(),
-    profile: z.string(),
-    user: z.string().optional(),
-    roles: z.string(),
-    psg: z.string(),
-  }),
-);
-
-const AdditionalContextFieldSchema = z.object({
-  adoFieldRef: z.string(),
-  label: z.string(),
-  fetchLinks: z.boolean().optional().default(true),
-  fetchImages: z.boolean().optional().default(true),
-});
-
-const AllFieldsSchema = z.object({
-  passThrough: z.boolean().optional().default(true),
-  omitSystemNoise: z.boolean().optional().default(true),
-  omitExtraRefs: z.array(z.string()).optional().default([]),
-});
-
-const ImagesSchema = z.object({
-  enabled: z.boolean().optional().default(true),
-  maxPerUserStory: z.number().int().positive().optional().default(20),
-  maxBytesPerImage: z.number().int().positive().optional().default(2097152),
-  maxTotalBytesPerResponse: z.number().int().positive().optional().default(4194304),
-  minBytesToKeep: z.number().int().positive().optional().default(4096),
-  downscaleLongSidePx: z.number().int().positive().optional().default(1600),
-  downscaleQuality: z.number().int().min(1).max(100).optional().default(85),
-  mimeAllowlist: z.array(z.string()).optional().default(["image/png", "image/jpeg", "image/gif", "image/svg+xml"]),
-  inlineSvgAsText: z.boolean().optional().default(true),
-  returnMcpImageParts: z.boolean().optional().default(false),
-  saveLocally: z.boolean().optional().default(false),
-  savePathTemplate: z.string().optional().default("tc-drafts/US_{usId}/attachments"),
-});
-
-const ContextBudgetsSchema = z.object({
-  maxConfluencePagesPerUserStory: z.number().int().positive().optional().default(10),
-  maxTotalFetchSeconds: z.number().int().positive().optional().default(45),
-});
-
-/**
- * Legacy schema — matches the shipped conventions.config.json shape.
- * Used only when reading the legacy global file during migration.
- */
-const LegacyConventionsConfigSchema = z.object({
-  testCaseTitle: z.object({
-    prefix: z.string(),
-    separator: z.string(),
-    numberPadding: z.number().int().min(1),
-    template: z.string(),
-    maxLength: z.number().int().min(1).optional(),
-  }),
-  prerequisites: z.object({
-    heading: z.string(),
-    sections: z.array(
-      z.object({ key: z.string(), label: z.string(), required: z.boolean() }),
-    ),
-    preConditionFormat: z.object({
-      style: z.string(),
-      description: z.string(),
-      operators: z.array(z.string()),
-      examples: z.array(z.string()),
-    }).optional(),
-  }),
-  prerequisiteDefaults: z.object({
-    personas: z.record(PersonaConfigSchema),
-    personaRolesLabel: z.string().optional(),
-    personaPsgLabel: z.string().optional(),
-    commonPreConditions: z.array(z.string()),
-    toBeTested: z.union([z.null(), z.array(z.string())]),
-    testData: z.string(),
-  }),
-  suiteStructure: z.object({
-    sprintPrefix: z.string(),
-    parentUsSeparator: z.string(),
-    parentUsTemplate: z.string(),
-    usTemplate: z.string(),
-    nonEpicFolderName: z.string(),
-    tcTitlePrefix: z.string().optional().default("TC"),
-    testPlanMapping: z.array(z.object({
-      planId: z.number().int().positive(),
-      areaPathContains: z.union([z.string(), z.array(z.string())]),
-    })).optional(),
-  }),
-  testCaseDefaults: z.object({
-    state: z.string(),
-    priority: z.number().int().min(1).max(4),
-  }),
-  prerequisiteFieldRef: z.string().optional(),
-  solutionDesign: z.object({
-    adoFieldRef: z.string(),
-    uiLabel: z.string(),
-    usageRules: z.object({
-      useFor: z.array(z.string()),
-      ignore: z.array(z.string()),
-      adminValidationTemplate: z.string(),
-    }),
-    extractionHints: z.array(z.string()),
-  }).optional(),
-  additionalContextFields: z.array(AdditionalContextFieldSchema).optional(),
-  allFields: AllFieldsSchema.optional(),
-  images: ImagesSchema.optional(),
-  context: ContextBudgetsSchema.optional(),
-});
-
-/** Cache by resolved config source path so each Cursor window's process gets its own copy. */
+/** Module cache for `loadConventionsConfig()`'s cwd-based path. */
 let _config: ConventionsConfig | null = null;
 let _configSource: string | null = null;
 
 /**
  * Path of the per-workspace config file, computed from process.cwd().
  * Each Cursor window's MCP process has its own cwd, so this returns the
- * right per-workspace path automatically.
+ * right per-workspace path automatically — when cwd is the workspace.
+ * For MCP processes spawned by Cursor (cwd = `~/.vortex-ado/`), this
+ * resolves to a non-existent file and the loader falls back to
+ * framework defaults.
  */
 function workspaceConfigPath(): string {
   return join(process.cwd(), ".vortex-ado", "config.json");
 }
 
 /**
- * Path of the legacy global config file.
- */
-function legacyConventionsPath(): string {
-  return join(homedir(), ".vortex-ado", "conventions.config.json");
-}
-
-/**
- * Bundled (shipped) config that lives next to dist/. Kept as a last-resort
- * fallback during Phase 1 — Commit 6 will delete this and rely solely on
- * framework defaults + workspace overrides.
- */
-function bundledConventionsPath(): string {
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-  return resolve(__dirname, "..", "conventions.config.json");
-}
-
-/**
- * Load the conventions config for the current workspace.
+ * Load the conventions config for the current cwd.
  *
- * No-arg signature preserved so the ~30 existing callsites don't change.
- * The function reads `process.cwd()` internally to determine the workspace.
+ * Resolution order:
+ *   1. `<cwd>/.vortex-ado/config.json` (when cwd is the user's workspace).
+ *   2. Framework defaults (no overlay).
+ *
+ * Module-cached — first call wins; tests use `__resetConventionsCacheForTests`.
+ *
+ * Most callers should use `loadConventionsConfigForWorkspace(root)` or
+ * `resolveConfigForCall(extra, workspaceRoot)` instead — those don't
+ * depend on `process.cwd()` being correct.
  */
 export function loadConventionsConfig(): ConventionsConfig {
   if (_config) return _config;
 
-  // Step 1: per-workspace config (canonical new location).
   const wsPath = workspaceConfigPath();
   if (existsSync(wsPath)) {
     try {
@@ -193,37 +74,12 @@ export function loadConventionsConfig(): ConventionsConfig {
       _configSource = wsPath;
       return _config;
     } catch (err) {
-      // Surface the schema/parse failure clearly instead of silently falling
-      // back to legacy. A malformed workspace config is a user-fixable issue
-      // we want to be loud about.
       throw new Error(
         `Failed to parse workspace config at ${wsPath}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
 
-  // Step 2: legacy global config (backward compat during Phase 1).
-  const legacyPath = legacyConventionsPath();
-  if (existsSync(legacyPath)) {
-    const raw = JSON.parse(readFileSync(legacyPath, "utf-8"));
-    _config = LegacyConventionsConfigSchema.parse(raw) as ConventionsConfig;
-    _configSource = legacyPath;
-    return _config;
-  }
-
-  // Step 3: bundled shipped config (legacy install fallback). Goes away in Commit 6.
-  const bundledPath = bundledConventionsPath();
-  if (existsSync(bundledPath)) {
-    const raw = JSON.parse(readFileSync(bundledPath, "utf-8"));
-    _config = LegacyConventionsConfigSchema.parse(raw) as ConventionsConfig;
-    _configSource = bundledPath;
-    return _config;
-  }
-
-  // Step 4: framework defaults only (truly no tenant config anywhere).
-  // Empty workspace config produces a config with empty Category-1 fields
-  // (testCaseTitle.prefix=""", personas={}, sprintPrefix="", etc.). Tools
-  // surface clear errors when they hit empty Category-1 values.
   _config = mergeConfig({ version: 1 });
   _configSource = "(framework defaults only)";
   return _config;
@@ -239,24 +95,16 @@ export function __resetConventionsCacheForTests(): void {
  * Load conventions for an EXPLICIT workspace path.
  *
  * Unlike `loadConventionsConfig()`, this:
- *   - Takes the workspace root as an argument (no `process.cwd()` lookup).
+ *   - Takes the workspace root as an argument — no `process.cwd()` lookup.
  *   - Has NO module-level cache — safe to call from any tool handler that
- *     received its workspace via `roots/list`. Different workspaces in
- *     different Cursor windows return different configs from the same
- *     MCP process without interference.
- *   - Has NO legacy / bundled fallbacks. Reads only
- *     `<workspaceRoot>/.vortex-ado/config.json`. If absent, returns the
- *     merged framework defaults (i.e. an empty workspace overlay).
- *
- * This is the right entry point for tools that already plumb the workspace
- * through (e.g. `qa_draft_save`, `ado_story`, `qa_publish_push`). The
- * cwd-based `loadConventionsConfig()` remains for callers that don't yet
- * have workspace plumbing — those should migrate to this function over
- * time.
- *
- * Throws if `<workspaceRoot>/.vortex-ado/config.json` exists but is
- * malformed — surfaces the parse error clearly so the user can fix their
- * config rather than silently falling back to defaults.
+ *     received its workspace via `roots/list`. Two Cursor windows on two
+ *     different projects can call this from the same MCP process and get
+ *     different configs without interference.
+ *   - Reads ONLY `<workspaceRoot>/.vortex-ado/config.json`. No legacy or
+ *     bundled fallbacks. If the file is absent, returns the merged
+ *     framework defaults (an empty workspace overlay).
+ *   - Throws on malformed `config.json` rather than silently masking the
+ *     error — surface real bugs to the user.
  */
 export function loadConventionsConfigForWorkspace(
   workspaceRoot: string,

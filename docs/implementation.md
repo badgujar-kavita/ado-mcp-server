@@ -51,7 +51,7 @@ flowchart LR
 
 ## Test Suite Folder Structure Convention
 
-The MCP server enforces the team's ADO test suite hierarchy. One or more test plans are configured in `conventions.config.json` (see `suiteStructure.testPlanMapping`); within each plan, suites are organized as:
+The MCP server enforces the team's ADO test suite hierarchy. One or more test plans are configured in `<workspace>/.vortex-ado/config.json` (see `suiteStructure.testPlanMapping`); within each plan, suites are organized as:
 
 ```mermaid
 flowchart TD
@@ -75,7 +75,7 @@ flowchart TD
 
 **Naming rules:**
 
-- Sprint folder: `<SprintPrefix><Number>` where `<SprintPrefix>` is configured in `conventions.config.json` → `suiteStructure.sprintPrefix`. Examples: `Sprint_14`, `SFTPM_14`, `Iteration_14`. (static suite)
+- Sprint folder: `<SprintPrefix><Number>` where `<SprintPrefix>` is configured in `<workspace>/.vortex-ado/config.json` → `suiteStructure.sprintPrefix`. Examples: `Sprint_14`, `SFTPM_14`, `Iteration_14`. (static suite)
 - Parent US / EPIC folder: `<ParentUS_ID> | <ParentUS_Title>` (static suite)
 - US folder: `<US_ID> | <US_Title>` (**query-based suite** -- test cases auto-link via query)
 - Independent US folder: `Non-Epic US TCs` (static suite, one per sprint)
@@ -175,7 +175,7 @@ sequenceDiagram
 
 The **Solution Notes** field (ADO API: `Custom.TechnicalSolution`) is a rich text area that may contain descriptive text plus one or more Confluence links. The system extracts the first Confluence URL from HTML anchors (`<a href="...">`) or plain URLs and fetches the Solution Design page automatically when `ado_story` is called.
 
-**Usage rules** (defined in `conventions.config.json` under `solutionDesign.usageRules`):
+**Usage rules** (defined in framework defaults under `solutionDesign.usageRules`, with optional per-workspace overrides in `<workspace>/.vortex-ado/config.json`):
 
 | Use For | Ignore |
 |---|---|
@@ -597,7 +597,7 @@ When `qa_draft` or `qa_publish` (no prior draft) is invoked:
 
 ## Conventions Configuration
 
-> **Phase 1 (current):** The MCP now resolves conventions **per-workspace** at `<workspace>/.vortex-ado/config.json`, merged on top of framework defaults shipped in `src/config/defaults.ts`. The legacy global `~/.vortex-ado/conventions.config.json` is still read as a fallback for tenants who haven't re-run `/ado-connect` yet. See [docs/conventions.md](conventions.md) for the full annotated schema and edit-priority guide.
+> **Current:** The MCP resolves conventions **per-workspace** at `<workspace>/.vortex-ado/config.json`, merged on top of framework defaults shipped in `src/config/defaults.ts`. This is the only config source the server reads — the legacy global `~/.vortex-ado/conventions.config.json` and the bundled `conventions.config.json` fallback were removed in Phase 4. See [docs/conventions.md](conventions.md) for the full annotated schema and edit-priority guide.
 
 ### Two-layer resolution
 
@@ -616,14 +616,7 @@ A `roots/list` MCP-protocol resolver is implemented at `src/workspace/resolve.ts
 
 ### Fallback chain
 
-When `<workspace>/.vortex-ado/config.json` is missing, the loader falls back through:
-
-1. `<workspace>/.vortex-ado/config.json` (preferred)
-2. `~/.vortex-ado/conventions.config.json` (legacy global — still read for transitional compatibility)
-3. Bundled `conventions.config.json` (sanitized as of Phase 1 — generic placeholders only)
-4. Framework defaults only
-
-A one-time migration warning prints at MCP startup when the legacy global files exist but no per-workspace config does.
+When `<workspace>/.vortex-ado/config.json` is missing, the loader falls back to framework defaults only. As of Phase 4, the legacy global `~/.vortex-ado/conventions.config.json` and the bundled `conventions.config.json` fallback have been removed — they are no longer read at any point. Tenants who have not yet run `/ado-connect` for a workspace will see the MCP operate with generic framework defaults until they do.
 
 ### Effective shape
 
@@ -709,7 +702,7 @@ The merged config has the same overall shape as the previous flat file — examp
 
 ## Standard Test Case Format
 
-Every test case follows the team's naming convention and structure. The `create_test_case` tool enforces this using patterns from `conventions.config.json`.
+Every test case follows the team's naming convention and structure. The `create_test_case` tool enforces this using patterns from the merged conventions config (`<workspace>/.vortex-ado/config.json` overlaid on framework defaults).
 
 ### Title Convention
 
@@ -724,11 +717,11 @@ Examples:
 
 The `<TC#>` is zero-padded (01, 02, ... 10, 11). The tool auto-increments by querying existing test cases for the given US ID, or accepts an explicit number.
 
-**Title limit:** ADO Work Item Title has a 256-character limit. Titles exceeding this are truncated with ellipsis. Configure via `testCaseTitle.maxLength` in conventions.config.json. See `docs/test-case-writing-style-reference.md` for full styling rules.
+**Title limit:** ADO Work Item Title has a 256-character limit. Titles exceeding this are truncated with ellipsis. Configure via `testCaseTitle.maxLength` in `<workspace>/.vortex-ado/config.json`. See `docs/test-case-writing-style-reference.md` for full styling rules.
 
 ### Prerequisites Section
 
-Stored in the test case Description field (HTML). Section headings, default values, and which sections are optional are all driven by `conventions.config.json`. The tool merges config defaults with any overrides provided per test case.
+Stored in the test case Description field (HTML). Section headings, default values, and which sections are optional are all driven by the merged conventions config (`<workspace>/.vortex-ado/config.json` overlaid on framework defaults). The tool merges config defaults with any overrides provided per test case.
 
 **Rendered example (Persona from config; Pre-requisite from draft, unique per story):**
 
@@ -793,7 +786,7 @@ System.AssignedTo                          | Optional
 Relations: Tested By                       | Auto-linked to userStoryId
 ```
 
-*Prerequisite field is configurable via `prerequisiteFieldRef` in conventions.config.json (default: `Custom.PrerequisiteforTest`). Falls back to `System.Description` if not set. HTML formatting uses ADO-compatible tags (`<div>`, `<strong>`, `<ul>`, `<ol>`, `<li>`). See `docs/prerequisite-formatting-instruction.md` for details.
+*Prerequisite field is configurable via `prerequisiteFieldRef` in `<workspace>/.vortex-ado/config.json` (default: `Custom.PrerequisiteforTest`). Falls back to `System.Description` if not set. HTML formatting uses ADO-compatible tags (`<div>`, `<strong>`, `<ul>`, `<ol>`, `<li>`). See `docs/prerequisite-formatting-instruction.md` for details.
 
 **Formatting is shared across all paths:** `qa_publish_push` (via `createTestCase`), `qa_tc_update`, and any future `create_test_case` tool all use the same `buildPrerequisitesHtml` and `buildStepsXml` helpers. Prerequisites and steps formatting (bold, lists, persona sub-bullets, TO BE TESTED FOR expansion) is applied consistently.
 
@@ -851,7 +844,7 @@ The tool composes the title automatically:
 VortexADO MCP/
 ├── src/
 │   ├── index.ts                  # Entry point, MCP server setup + stdio transport
-│   ├── config.ts                 # Loads + validates conventions.config.json with Zod
+│   ├── config.ts                 # Loads + validates <workspace>/.vortex-ado/config.json with Zod
 │   ├── tools/
 │   │   ├── work-items.ts         # ado_story, qa_tests, ado_fields
 │   │   ├── test-plans.ts         # Test plan tools (create, list, get)
@@ -869,7 +862,7 @@ VortexADO MCP/
 │   ├── ado-client.ts             # Azure DevOps REST API client with PAT auth
 │   ├── confluence-client.ts      # Confluence REST API client (optional)
 │   └── types.ts                  # Shared TypeScript types / interfaces
-├── conventions.config.json       # All naming patterns, formats, labels (editable)
+├── src/config/defaults.ts        # Framework defaults — universal naming patterns, formats, labels (per-workspace overrides live in <workspace>/.vortex-ado/config.json)
 ├── docs/
 │   └── implementation.md         # This document
 ├── .env.example                  # Template for PAT + Confluence configuration
@@ -908,7 +901,7 @@ VortexADO MCP/
 
 ### Test Plan Management
 
-Test plans already exist in the project (configured in `conventions.config.json` → `suiteStructure.testPlanMapping`). The `planId` is provided as input to other tools. These tools are for lookup/reference, not primary workflow:
+Test plans already exist in the project (configured in `<workspace>/.vortex-ado/config.json` → `suiteStructure.testPlanMapping`). The `planId` is provided as input to other tools. These tools are for lookup/reference, not primary workflow:
 
 - **`ado_plans`** -- List all test plans in the project (to find the planId)
   - API: `GET /_apis/testplan/plans`
@@ -933,7 +926,7 @@ Test plans already exist in the project (configured in `conventions.config.json`
 
 - **`create_test_case`** -- Create a test case following the `TC_USID_TC#N` convention
   - API: `POST /_apis/wit/workitems/$Test Case` (JSON Patch format)
-  - Title built from `conventions.config.json` template: `TC_<USID>_<##> -> <FeatureTags> -> <Summary>`
+  - Title built from the conventions config template (`<workspace>/.vortex-ado/config.json` overlaid on framework defaults): `TC_<USID>_<##> -> <FeatureTags> -> <Summary>`
   - Description contains formatted prerequisites (section labels from conventions config)
   - Steps converted to ADO XML
   - Auto-links to User Story via "Tests / Tested By" relation
@@ -961,7 +954,7 @@ Test plans already exist in the project (configured in `conventions.config.json`
 
 ### Test Case Drafts (draft → review → push)
 
-- **`qa_draft_save`** -- Save a test case draft to `tc-drafts/US_<id>/US_<id>_test_cases.md`. Auto-creates the per-US subfolder. Includes **Supporting Documents** links section to solution_design_summary and qa_cheat_sheet (relative paths). JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in conventions.config.json. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `testCoverageInsights` (classified coverage scenarios with P/N, F/NF, priority — auto-computes coverage summary).
+- **`qa_draft_save`** -- Save a test case draft to `tc-drafts/US_<id>/US_<id>_test_cases.md`. Auto-creates the per-US subfolder. Includes **Supporting Documents** links section to solution_design_summary and qa_cheat_sheet (relative paths). JSON is created only when pushing to ADO. `planId` is **optional** -- if not provided, it will be auto-derived from the User Story's AreaPath during push using `testPlanMapping` in `<workspace>/.vortex-ado/config.json`. Pass `workspaceRoot` (open folder) or `draftsPath` (user-specified). No hardcoded default. Adds **Drafted By** (OS username) to the header. Optional: `functionalityProcessFlow` (mermaid/process diagram), `testCoverageInsights` (classified coverage scenarios with P/N, F/NF, priority — auto-computes coverage summary).
 - **`qa_draft_doc_save`** -- Save a supporting document to the same US folder. Parameters: `userStoryId`, `docType` (`solution_summary` | `qa_cheat_sheet` | `regression_tests`), `markdown`. Auto-creates `tc-drafts/US_<id>/` if missing. Pass `workspaceRoot` or `draftsPath`.
 - **`qa_clone_preview_save`** -- Save a clone-and-enhance preview to `tc-drafts/Clone_US_{sourceId}_to_US_{targetId}_preview.md`. Pass `sourceUserStoryId`, `targetUserStoryId`, `markdown`, and `workspaceRoot` or `draftsPath`. Use after analyzing source TCs and target US + Solution Design. User reviews and responds APPROVED / MODIFY / CANCEL.
 - **`qa_drafts_list`** -- List saved drafts with US ID, title, status, version, and supporting docs. Supports both new subfolder layout (`tc-drafts/US_<id>/`) and legacy flat layout (`tc-drafts/US_<id>_test_cases.md`). Pass `workspaceRoot` or `draftsPath`.

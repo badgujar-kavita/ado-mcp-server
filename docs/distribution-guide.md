@@ -55,7 +55,7 @@ The installer automatically detects existing installations and pulls the latest 
 | `install.sh` | One\-command installer |
 | `uninstall.sh` | One\-command uninstaller |
 | `docs/` | User and developer documentation |
-| `conventions.config.json` | Bundled fallback (sanitized) — generic placeholders only. Per-tenant config is written by `/ado-connect` to `<workspace>/.vortex-ado/config.json`. |
+| `src/config/defaults.ts` | Framework defaults (sanitized) — generic placeholders only. Per-tenant config is written by `/ado-connect` to `<workspace>/.vortex-ado/config.json` and overlays these defaults. The previously bundled `conventions.config.json` was removed in Phase 4. |
 
 ---
 

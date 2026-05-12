@@ -18,7 +18,7 @@
 | Role in title | Omit or simplify | |
 | Use case summary | Sentence case, describes outcome | |
 
-**Convention vs. current config:** `conventions.config.json` uses `separator: " -> "` — matches. Feature tags should be generic and standardized (e.g., Promotion Management, Account Management, Product Management, Fund Management).
+**Convention vs. current config:** the merged conventions config (`<workspace>/.vortex-ado/config.json` overlaid on framework defaults) uses `separator: " -> "` — matches. Feature tags should be generic and standardized (e.g., Promotion Management, Account Management, Product Management, Fund Management).
 
 ### 1.2 Step Structure
 
@@ -83,7 +83,7 @@
 
 ### Phase 1: Config & Convention Updates (Low Effort)
 
-1. **Add style rules to `conventions.config.json`:**
+1. **Add style rules to `<workspace>/.vortex-ado/config.json`:**
    - `testCaseTitle.featureTagMaxWords`: 4 (keep tags short).
    - `testCaseTitle.includeRoleWhenSinglePersona`: true (add "Verify as {Role}" when TC uses one persona).
    - `stepPhrasing.setupExpectedDefault`: "you should be able to do so".
@@ -154,7 +154,7 @@
 
 **Finding:** Existing TCs in plan 1066479 use **Custom.PrerequisiteforTest** for Persona + Pre-requisite content.
 
-**Implementation:** Added `prerequisiteFieldRef` to `conventions.config.json` (set to `"Custom.PrerequisiteforTest"`). Both `createTestCase` and `qa_tc_update` now write prerequisites to the configured field, with fallback to `System.Description` when not set.
+**Implementation:** Added `prerequisiteFieldRef` to the conventions config (set to `"Custom.PrerequisiteforTest"` in `<workspace>/.vortex-ado/config.json`). Both `createTestCase` and `qa_tc_update` now write prerequisites to the configured field, with fallback to `System.Description` when not set.
 
 ---
 

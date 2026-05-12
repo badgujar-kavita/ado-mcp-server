@@ -6,6 +6,43 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-12 — Workspace-aware config: every consumer migrated, legacy fallbacks deleted (Phase 3+4)
+
+**Bug fix + cleanup.** Completes the workspace-aware config refactor that the same-day Phase 1+2 entry started. Every helper and tool handler that previously called the cwd-based `loadConventionsConfig()` now reads the tenant's `<workspace>/.vortex-ado/config.json` via MCP `roots/list`, and the legacy `~/.vortex-ado/conventions.config.json` + bundled `conventions.config.json` fallbacks are gone for good.
+
+**Phase 3 — migrate remaining consumers to workspace-aware config.**
+
+New shared helper `src/workspace/config-for-call.ts` exports `resolveConfigForCall(extra, workspaceRoot?)`. Centralises the `roots/list` → workspace → config resolution pattern that Phase 2 prototyped inside `src/tools/tc-drafts.ts`. Resolution order: roots/list first, then explicit `workspaceRoot` arg, then last-resort cwd loader (kept only until integration tests prove every caller is on the explicit-config path).
+
+Helpers now accept an optional `config: ConventionsConfig` arg as their last parameter. When supplied, used directly; when omitted, fall back to the legacy cwd loader so unmigrated callers and existing tests don't break — same migration pattern as Phase 1+2.
+
+- `src/helpers/tc-title-builder.ts` — `buildTcTitle(usId, tcNumber, featureTags, summary, config?)`.
+- `src/helpers/prerequisites.ts` — `buildPrerequisitesHtml(input?, config?)`.
+- `src/helpers/suite-structure.ts` — all 7 functions (`buildSprintFolderName`, `buildParentUsFolderName`, `buildUsFolderName`, `getNonEpicFolderName`, `resolvePlanIdFromAreaPath`, `resolveSprintFromIteration`, `buildSuiteQueryString`) take `config?` as the last arg.
+- `src/helpers/tc-draft-parser.ts` — `parseTcDraftFromMarkdown(mdContent, config?)`.
+
+Tool handlers now resolve the config inside the handler via `resolveConfigForCall(extra)` and pass it down:
+
+- `src/tools/test-cases.ts` — `qa_tc_update` resolves config; `createTestCase` and `updateTestCaseFromParams` accept `config`; `getNextTcNumber` reads `tcTitlePrefix` from config (no longer hardcodes `"TC_"` for the WIQL prefix).
+- `src/tools/work-items.ts` — `ado_story` resolves config; `extractUserStoryContext` accepts `config`.
+- `src/tools/test-suites.ts` — `qa_suite_setup` resolves config; `ensureSuiteHierarchyForUs` accepts `config?` and threads it through to all 7 suite-structure helpers.
+- `src/tools/tc-drafts.ts` — `qa_draft_read` and `qa_publish_push` resolve config and pass it to the parser, formatter, suite hierarchy, and create/update test case helpers. (`qa_draft_save` was already on the new path from Phase 2; the private `resolveConfigForCall` it carried is gone, replaced by the shared helper.)
+
+**Phase 4 — delete the legacy + bundled config fallbacks.**
+
+The server no longer reads `~/.vortex-ado/conventions.config.json` (legacy global) or the bundled `conventions.config.json` shipped inside dist-package. Both files removed:
+
+- `conventions.config.json` from the repo root.
+- `dist-package/conventions.config.json`.
+
+Code removed from `src/config.ts`: `LegacyConventionsConfigSchema`, `legacyConventionsPath()`, `bundledConventionsPath()`, and steps 2 (legacy) and 3 (bundled) from `loadConventionsConfig()`. The function now reads only `<cwd>/.vortex-ado/config.json` and falls back to framework defaults — useful only when cwd happens to be the workspace, which is the unmigrated-helper-fallback case. Also removed: the `loadConventionsConfig()` startup invocation in `src/index.ts`, and the legacy-config copy step in `build-dist.mjs`.
+
+The Phase 1 migration warning text is rewritten to say `~/.vortex-ado/conventions.config.json` is no longer read by the server and can be safely deleted.
+
+**Tests.** No new tests added in this commit — all 432 existing tests still pass. The optional-`config?` arg pattern preserves backward compatibility, so the existing suite was sufficient to verify the migration didn't regress behavior.
+
+**Pending follow-up.** `loadConventionsConfig()` itself can be deleted once integration tests prove every caller is on the explicit-config path. A few hardcoded `"TC_"` references remain in the parser regex and `applyPostPushEditsInPlace` — same known limitation as before, deferred.
+
 ### 2026-05-12 — Persona table now reflects tenant config.json (Phase 1+2)
 
 **Bug fix.** Drafted test cases were rendering a generic `System Administrator | System Admin | — | —` row in the Common Persona table even when the tenant's `<workspace>/.vortex-ado/config.json` had real personas configured. Root cause: the formatter called `loadConventionsConfig()`, which resolves the workspace via `process.cwd()`. For MCP processes Cursor spawns, cwd is `~/.vortex-ado/` (the installer dir) — never the user's project folder. The cwd-based loader fell through to the legacy `~/.vortex-ado/conventions.config.json` (or the bundled fallback), which only ships a single placeholder persona named "System Administrator".
