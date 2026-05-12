@@ -70,12 +70,11 @@ function mergeTestCaseTitle(
   fw: FrameworkDefaults,
   ws: WorkspaceConfig["testCaseTitle"],
 ): ConventionsConfig["testCaseTitle"] {
-  // testCaseTitle.prefix has NO framework default — it's Category 1.
-  // We pass through whatever the workspace supplied (or undefined-but-
-  // -required, since ConventionsConfig.testCaseTitle.prefix is required).
-  // If the tenant didn't set it, downstream tools surface the gap.
+  // testCaseTitle.prefix now has a framework default of "TC" — universal
+  // convention. Tenants who want a different prefix (e.g. "TestCase")
+  // override in their workspace config.
   return {
-    prefix: (ws?.prefix ?? "") as string,
+    prefix: ws?.prefix ?? fw.testCaseTitle.prefix,
     separator: ws?.separator ?? fw.testCaseTitle.separator,
     numberPadding: ws?.numberPadding ?? fw.testCaseTitle.numberPadding,
     template: ws?.template ?? fw.testCaseTitle.template,

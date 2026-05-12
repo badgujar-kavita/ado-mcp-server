@@ -34,6 +34,7 @@ import type { ConventionsConfig } from "../types.ts";
  */
 export type FrameworkDefaults = {
   testCaseTitle: {
+    prefix: string;
     separator: string;
     numberPadding: number;
     template: string;
@@ -88,7 +89,12 @@ export function defaultsBase(): FrameworkDefaults {
  *
  * Field selection rationale (audited per the design doc, 2026-05-10):
  * - Hardcoded ONLY universal values; nothing project-specific.
- * - testCaseTitle.prefix is OMITTED — must come from workspace config.
+ * - testCaseTitle.prefix defaults to "TC" — universal convention. Tenants
+ *   that want a different prefix (e.g. "TestCase") override in their
+ *   workspace config. Until 2026-05-12 this default sat in a bundled
+ *   conventions.config.json that has since been deleted; the default now
+ *   lives here so drafts and pushes still produce sensibly-titled test
+ *   cases for tenants who never override.
  * - prerequisiteDefaults.personas is OMITTED — must come from workspace config.
  * - suiteStructure.sprintPrefix is OMITTED — must come from workspace config.
  * - suiteStructure.testPlanMapping is OMITTED — must come from workspace config.
@@ -98,6 +104,7 @@ export function defaultsBase(): FrameworkDefaults {
  */
 const FRAMEWORK_DEFAULTS: FrameworkDefaults = {
   testCaseTitle: {
+    prefix: "TC",
     separator: " -> ",
     numberPadding: 2,
     template: "{prefix}{usId}_{tcNumber}{separator}{featureTags}{separator}{summary}",

@@ -41,10 +41,14 @@ test("mergeConfig: empty workspace yields full framework defaults", () => {
   assert.equal(merged.context?.maxConfluencePagesPerUserStory, 10);
 });
 
-test("mergeConfig: empty workspace leaves Category-1 fields empty", () => {
+test("mergeConfig: empty workspace leaves Category-1 fields empty (except testCaseTitle.prefix which now defaults to TC)", () => {
   const merged = mergeConfig(EMPTY_WORKSPACE_CONFIG);
-  // Category 1 fields must NOT have framework defaults — tenant must supply.
-  assert.equal(merged.testCaseTitle.prefix, "");
+  // testCaseTitle.prefix has a framework default ("TC") since 2026-05-12 —
+  // it used to be Category 1, but losing the bundled conventions.config.json
+  // fallback meant drafts emitted "_USID_NN -> ..." titles when the tenant
+  // forgot to override. "TC" is universally safe; tenants can still override.
+  assert.equal(merged.testCaseTitle.prefix, "TC");
+  // The remaining Category 1 fields still require tenant input.
   assert.deepEqual(merged.prerequisiteDefaults.personas, {});
   assert.equal(merged.suiteStructure.sprintPrefix, "");
   assert.equal(merged.suiteStructure.testPlanMapping, undefined);
