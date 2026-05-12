@@ -5,73 +5,6 @@ import {
   CONFIRM_BEFORE_ACT_CONTRACT,
   OPTION_SELECTION_CONTRACT,
 } from "./shared-contracts.ts";
-import { loadConventionsConfig } from "../config.ts";
-import type { PersonaConfig } from "../types.ts";
-
-/**
- * Build the persona-injection block for /qa-draft.
- *
- * Returns a multi-line string the prompt embeds verbatim, listing every
- * persona configured in the workspace `config.json`. The agent sees this
- * concrete list and uses it to populate the Common Persona table at the
- * top of the draft markdown — instead of inventing personas like
- * "System Administrator" because the prompt only referenced an abstract
- * "configured default personas" before.
- *
- * The "System Administrator" persona used for admin-validation TCs (verify
- * a new field exists in Setup, etc.) is left as-is — it's a class of TC
- * tied to elevated access, not a per-tenant persona. A note IS rendered
- * into the draft so the user can see why "System Administrator" appears
- * separately and decide whether to add a real admin persona to their
- * config.
- */
-export function buildPersonaInjection(
-  personas: Record<string, PersonaConfig>,
-  rolesLabel: string,
-  psgLabel: string,
-): string {
-  const keys = Object.keys(personas);
-  if (keys.length === 0) {
-    return [
-      "PERSONA list for this project: NONE configured.",
-      "Render the Common Persona table with no rows AND tell the user at the top of the draft:",
-      "    *No personas are configured for this project. Run `/ado-connect` Tab 2 to add them.*",
-    ].join("\n");
-  }
-  const lines = [
-    "PERSONA list for this project (from <workspace>/.vortex-ado/config.json):",
-  ];
-  for (const key of keys) {
-    const p = personas[key];
-    const parts = [`- **${p.label}**`];
-    if (p.profile) parts.push(`Profile: ${p.profile}`);
-    if (p.roles) parts.push(`${rolesLabel}: ${p.roles}`);
-    if (p.psg) parts.push(`${psgLabel}: ${p.psg}`);
-    lines.push("  " + parts.join(" | "));
-  }
-  lines.push("");
-  lines.push(
-    "Use ONLY these personas in the Common Persona table at the top of the draft. " +
-      "Do NOT invent additional personas like 'Admin User', 'Standard User', etc. " +
-      "If the source material genuinely needs a persona that is not in this list, " +
-      "STOP and ASK the user instead of inventing one.",
-  );
-  lines.push("");
-  lines.push(
-    "Admin-validation TCs (verify-field-exists-in-Setup style) are an exception: " +
-      "they may use a 'System Administrator' persona even if it is not in the list above, " +
-      "because the persona represents elevated Setup access required for the verification, " +
-      "not a project-specific role. When you do this, INCLUDE the following note " +
-      "directly above the first admin-validation TC in the draft (verbatim):",
-  );
-  lines.push(
-    '    *Note: Admin-validation TCs use a "System Administrator" persona. ' +
-      "This is a placeholder representing elevated Setup access and is not " +
-      "drawn from your project's configured personas. To use your team's " +
-      "admin terminology, add an admin persona via `/ado-connect` Tab 2.*",
-  );
-  return lines.join("\n");
-}
 
 export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("ado-connect", {
@@ -298,36 +231,13 @@ export function registerAllPrompts(server: McpServer) {
   server.registerPrompt("qa-draft", {
     title: "Draft Test Cases",
     description: "Draft test cases as reviewable markdown — never pushes to ADO",
-  }, async () => {
-    // Inject the workspace's actual persona list into the prompt so the
-    // agent uses real configured personas in the draft Common Persona
-    // table. Without this the agent has only an abstract reference to
-    // "configured default personas" and tends to invent placeholders.
-    let personaInjection: string;
-    try {
-      const cfg = loadConventionsConfig();
-      personaInjection = buildPersonaInjection(
-        cfg.prerequisiteDefaults.personas,
-        cfg.prerequisiteDefaults.personaRolesLabel ?? "Roles",
-        cfg.prerequisiteDefaults.personaPsgLabel ?? "Permission Set Group",
-      );
-    } catch {
-      // Config load failure shouldn't block drafting; fall back to a neutral
-      // instruction so the agent still produces a draft.
-      personaInjection =
-        "PERSONA list could not be loaded from config. Tell the user to run " +
-        "`/ado-connect` and try again. Do not invent personas in the draft.";
-    }
-    return ({
+  }, async () => ({
     messages: [{
       role: "user" as const,
       content: {
         type: "text" as const,
         text: [
           "I want to draft test cases for a User Story.",
-          "",
-          personaInjection,
-          "",
           "",
           "IMPORTANT: You are acting as BOTH QA Architect AND Solution Architect. Be precise and accurate. DO NOT hallucinate or make vague assumptions. If something is unclear or missing from the US/Solution Design, ASK for clarification instead of guessing.",
           "",
@@ -361,7 +271,7 @@ export function registerAllPrompts(server: McpServer) {
           "   - Golden rule: Diagram what is documented. Ask or fall back to text when unsure.",
           "   - Follow the authoring rules in `.cursor/skills/qa-test-drafting/SKILL.md` §Functionality Process Flow — Authoring Rules. Every flow MUST end with a terminal observable state; use numbered text blocks (not Mermaid) when decision logic has multiple interacting paths or config-sensitive variations.",
           "5. Prerequisites rules (MANDATORY condition-based format):",
-          "   - PERSONA: Use ONLY the personas listed at the top of this prompt under 'PERSONA list for this project'. Render them consistently in the Common Persona table at the start of the draft. Do NOT invent additional personas. The only exception is the 'System Administrator' placeholder for admin-validation TCs (verify-field-exists-in-Setup style), which carries the in-draft note shown in that injected block.",
+          "   - PERSONA: Use the configured default personas for the active project. Include them consistently; do not invent project-specific personas unless they are defined in project conventions or explicitly required by the source material.",
           "   - PRE-REQUISITE: Always unique per user story. Generate from US + Solution Design. MUST use condition-based format:",
           "     • Object.Field = Value (e.g. Promotion.Status = Adjusted, CustomerManager.Access__c = Edit)",
           "     • Object.Field != NULL, Object.Field = TRUE/FALSE",
@@ -396,8 +306,7 @@ export function registerAllPrompts(server: McpServer) {
         ].join("\n"),
       },
     }],
-    });
-  });
+  }));
 
   server.registerPrompt("qa-publish", {
     title: "Publish Test Cases to ADO",
