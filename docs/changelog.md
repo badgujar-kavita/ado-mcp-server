@@ -6,6 +6,11 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-12 — Persona modal polish
+
+- **Permission Set Group field relabeled to "Permission Set/Permission Set Group"** in the persona modal and on the persona card. Help text rewritten — dropped the `PSG` abbreviation in favor of spelled-out copy. UI-only; the underlying schema field is still `psg` and the configurable label `personaPsgLabel` defaults to `"Permission Set Group"` exactly as before.
+- **"Advanced (internal key)" disclosure removed.** Internal JSON keys (`personas: { <key>: { ... } }`) are still auto-derived from the display label with collision suffixing — exposing the field added noise without user value. Re-saves on existing personas remain in-place (no key bump).
+
 ### Phase 2 — Wizard expansion: Conventions tab
 
 `/ado-connect` is now a **two-tab wizard** that collects per-project conventions in addition to credentials. Tab 1 (Connection) is a refinement of the Phase 1 wizard; Tab 2 (Conventions) is new and replaces most hand-editing of `<workspace>/.vortex-ado/config.json` with a UI. Builds on Phase 1 (per-workspace config + OS keychain) and the Phase 1 hotfix Option A (workspace resolved via MCP `roots/list` with explicit `workspaceRoot` arg fallback).
@@ -36,7 +41,7 @@ For returning users with a valid stored PAT, Tab 2 is effectively unlocked immed
 | Test case title format | **Read-only display** | Shows the fixed format `TC_<userStoryId>_<NN> -> <featureTags> -> <use case>`. Tooltip: "This format is fixed for now to ensure consistent parsing during draft → ADO sync. Custom prefixes are planned for a future release." |
 | Sprint folder prefix | Free text | Default `Sprint_`. If the iteration probe found a recurring pattern (e.g. `Sprint_`, `Iteration_`), it's surfaced as placeholder text. |
 | Test plan mappings | Checkbox list | One row per probed plan, each with a checkbox + auto-suggested AreaPath fragment (leaf segment of the plan's areaPath). User checks the plans to map and edits the fragment if needed. If the plan probe fails, manual ID entry is offered. |
-| Personas | Add/edit/remove rows | Fields per row: Label, Profile, Roles, PSG, Key. Empty by default. Tooltip: "If left empty, your TCs will have no Persona section." |
+| Personas | Add/edit/remove rows | Fields per row: Label, Profile, Role(s), Permission Set/Permission Set Group. Empty by default. Tooltip: "If left empty, your TCs will have no Persona section." |
 | Prerequisite field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `Prerequisite` or `Pre-requisite`. Default: `System.Description`. |
 | Solution Design field reference | Dropdown | Populated from probed `Custom.*` fields whose name contains `solution`, `technical`, `design`, or `spec`. Optional. |
 | Additional context fields | Add/remove rows | Each row is a dropdown of probed `Custom.*` html / string / plainText fields plus a free-text display label. |

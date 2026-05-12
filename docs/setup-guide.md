@@ -131,7 +131,7 @@ This opens a two-tab web interface.
 
 - **Sprint folder prefix** (default `Sprint_`; the iteration probe surfaces a recurring pattern as a placeholder).
 - **Test plan mappings** — checkbox list of probed plans, each with an auto-suggested AreaPath fragment you can edit.
-- **Personas** — add/edit/remove rows (Label / Profile / Roles / PSG / Key). Empty by default.
+- **Personas** — add/edit/remove via a modal: **Display label / Profile / Role(s) / Permission Set or Permission Set Group**. Empty by default. Internal JSON keys are auto-derived from the display label, so there's no key field to set.
 - **Prerequisite field reference** — dropdown filtered to `Custom.*` fields whose name contains `Prerequisite` or `Pre-requisite`. Defaults to `System.Description`.
 - **Solution Design field reference** — dropdown filtered to `Custom.*` fields whose name contains `solution`, `technical`, `design`, or `spec`. Optional.
 - **Additional context fields** — add/remove rows; each row picks an HTML / string / plainText custom field plus a display label.
