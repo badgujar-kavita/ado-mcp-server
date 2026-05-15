@@ -26,12 +26,6 @@ const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
 const CURSOR_MCP_CONFIG = join(homedir(), ".cursor", "mcp.json");
 const PACKAGE_JSON = join(PROJECT_ROOT, "package.json");
 
-const PLACEHOLDER_VALUES = [
-  "your-personal-access-token",
-  "your-organization-name",
-  "your-project-name",
-];
-
 function getCurrentVersion() {
   try {
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON, "utf-8"));
@@ -62,25 +56,6 @@ function hasNodeModules() {
 
 function hasDist() {
   return existsSync(join(PROJECT_ROOT, "dist", "index.js"));
-}
-
-function hasValidCredentials() {
-  if (!existsSync(CREDENTIALS_FILE)) return false;
-  try {
-    const data = JSON.parse(readFileSync(CREDENTIALS_FILE, "utf-8"));
-    const { ado_pat, ado_org, ado_project } = data;
-    if (!ado_pat || !ado_org || !ado_project) return false;
-    if (PLACEHOLDER_VALUES.includes(ado_pat)) return false;
-    if (PLACEHOLDER_VALUES.includes(ado_org)) return false;
-    if (PLACEHOLDER_VALUES.includes(ado_project)) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isReady() {
-  return (hasNodeModules() || hasDist()) && hasValidCredentials();
 }
 
 // ── Prerequisite checks ──
@@ -201,42 +176,6 @@ function runInstallerServer() {
     });
   }
 
-  function createCredentialsTemplate() {
-    if (!existsSync(CREDENTIALS_DIR)) {
-      mkdirSync(CREDENTIALS_DIR, { recursive: true });
-    }
-
-    // Migrate from old mars-ado-mcp path if it exists
-    const oldCredentialsDir = join(homedir(), ".mars-ado-mcp");
-    const oldCredentialsFile = join(oldCredentialsDir, "credentials.json");
-    let migrated = false;
-
-    if (!existsSync(CREDENTIALS_FILE) && existsSync(oldCredentialsFile)) {
-      try {
-        const oldCreds = readFileSync(oldCredentialsFile, "utf-8");
-        writeFileSync(CREDENTIALS_FILE, oldCreds, "utf-8");
-        migrated = true;
-      } catch {
-        // Fall through to create template
-      }
-    }
-
-    if (!existsSync(CREDENTIALS_FILE)) {
-      const template = {
-        ado_pat: "your-personal-access-token",
-        ado_org: "your-organization-name",
-        ado_project: "your-project-name",
-        confluence_base_url: "",
-        confluence_email: "",
-        confluence_api_token: "",
-        tc_drafts_path: "",
-      };
-      writeFileSync(CREDENTIALS_FILE, JSON.stringify(template, null, 2) + "\n", "utf-8");
-    }
-
-    return { path: CREDENTIALS_FILE, migrated };
-  }
-
   const installTool = {
     name: "install",
     description:
@@ -296,11 +235,10 @@ function runInstallerServer() {
         if (!hasNodeModules() && !hasDist()) {
           missing.push("Distribution package or node_modules not found.");
         }
-        if (!existsSync(CREDENTIALS_FILE)) {
-          missing.push(`Credentials file not found at ${CREDENTIALS_FILE}.`);
-        } else if (!hasValidCredentials()) {
-          missing.push(`Credentials file exists at ${CREDENTIALS_FILE} but still contains placeholders or missing required values.`);
-        }
+        // Credentials are stored in the OS keychain by /vortex-ado/ado-connect
+        // — the bootstrap can't introspect them from outside the MCP runtime.
+        // Once the user runs ado-connect, /vortex-ado/ado-check from inside
+        // Cursor reports the real credential state. Skip the legacy file check.
 
         const lines = buildSetupIncompleteMessage(
           missing.length > 0 ? missing : ["Installation is incomplete. Restart Cursor after setup finishes."]
@@ -377,22 +315,17 @@ function runInstallerServer() {
           steps.push("npm dependencies already installed.");
         }
 
-        // 5. Credentials template (with migration from old mars-ado-mcp path)
+        // 5. Credentials are configured via /ado-connect (writes to OS keychain
+        // + per-workspace .vortex-ado/config.json). The installer no longer
+        // creates a placeholder credentials.json — that was dead surface area
+        // from the pre-wizard era and confused users who saw a JSON file with
+        // their PAT-shaped fields sitting in ~/.vortex-ado/.
         if (!hasErr) {
-          const credResult = createCredentialsTemplate();
-          if (credResult.migrated) {
-            steps.push(`[MIGRATED] Credentials migrated from ~/.mars-ado-mcp/ to: ${credResult.path}`);
-          }
-          if (hasValidCredentials()) {
-            steps.push(`Credentials configured at: ${credResult.path}`);
-          } else {
-            steps.push(`Credentials template created at: ${credResult.path}`);
-            steps.push("");
-            steps.push("NEXT: Open the file above and fill in:");
-            steps.push("  - ado_pat: Your Azure DevOps Personal Access Token");
-            steps.push("  - ado_org: Your ADO organization name (from https://dev.azure.com/{org})");
-            steps.push("  - ado_project: Your ADO project name");
-          }
+          steps.push("");
+          steps.push("NEXT: Open your project folder in Cursor and run /vortex-ado/ado-connect");
+          steps.push("  - The wizard saves connection details to <workspace>/.vortex-ado/config.json");
+          steps.push("  - Your PAT goes to the OS keychain (macOS Keychain, Windows Credential Manager, Linux libsecret)");
+          steps.push("  - Never written to disk in plaintext");
         }
 
         // 6. Register globally
@@ -414,10 +347,7 @@ function runInstallerServer() {
           steps.push("─────────────────────────────────────────────────────");
           steps.push("Installation complete!");
           steps.push("");
-          steps.push("Restart Cursor (or reload MCP in Settings > MCP) to apply changes.");
-          if (!hasValidCredentials()) {
-            steps.push("After filling in credentials, restart to activate all tools.");
-          }
+          steps.push("Restart Cursor (or reload MCP in Settings > MCP), then run /vortex-ado/ado-connect to configure credentials.");
         }
 
         send(makeResponse(id, {
@@ -469,14 +399,10 @@ function runInstallerServer() {
 
 // ── Entry point ──
 
-// MODIFIED: Always launch full server so all tools are visible after installation.
-// Credentials check should happen at runtime (when tool is called), not at startup.
-// This allows users to see available tools even before configuring credentials.
+// Always launch the full MCP server so all tools/prompts are visible.
+// Credentials are read from the OS keychain via /vortex-ado/ado-connect at
+// runtime; tools that need them surface a clear error if the user hasn't
+// configured them yet. The previous "installer mode" (where bootstrap ran a
+// stripped-down MCP exposing only /vortex-ado/install while credentials.json
+// was placeholder) is gone — Phase 4 deleted the legacy file flow entirely.
 launchFullServer();
-
-// ORIGINAL CODE (commented out for reference):
-// if (isReady()) {
-//   launchFullServer();
-// } else {
-//   runInstallerServer();
-// }

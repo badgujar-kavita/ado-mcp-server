@@ -1,7 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
-  createCredentialsTemplate,
   getCredentialsPath,
   getTcDraftsDir,
   loadCredentials,
@@ -381,48 +380,6 @@ export function registerSetupTools(server: McpServer) {
           isError: true,
         };
       }
-    }
-  );
-
-  server.registerTool(
-    "ado_connect_save",
-    {
-      title: "Save ADO Credentials (Manual)",
-      description: "Create the credentials template file at ~/.vortex-ado/credentials.json. The user then edits it privately -- PAT is never passed through chat. For a better experience, use /vortex-ado/ado-connect instead.",
-      inputSchema: {},
-    },
-    async () => {
-      const credPath = createCredentialsTemplate();
-      const alreadyValid = loadCredentials() !== null;
-
-      if (alreadyValid) {
-        return {
-          content: [{
-            type: "text" as const,
-            text: `Credentials are already configured at: ${credPath}\n\nTo update them, edit the file directly or use /vortex-ado/ado-connect for a guided setup.`,
-          }],
-        };
-      }
-
-      return {
-        content: [{
-          type: "text" as const,
-          text: [
-            `Credentials template created at: ${credPath}`,
-            "",
-            "Open this file and fill in your values:",
-            "  - ado_pat: Your Azure DevOps Personal Access Token",
-            "  - ado_org: Your ADO organization name (from https://dev.azure.com/{org})",
-            "  - ado_project: Your ADO project name",
-            "",
-            "Confluence fields are optional -- leave empty if not needed.",
-            "",
-            "After saving the file, restart the MCP server in Cursor Settings > MCP.",
-            "",
-            "💡 Tip: Use /vortex-ado/ado-connect for a guided setup with connection testing.",
-          ].join("\n"),
-        }],
-      };
     }
   );
 

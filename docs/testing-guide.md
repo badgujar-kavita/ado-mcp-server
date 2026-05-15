@@ -36,12 +36,12 @@ This guide walks you through setting up, running, and testing the MCP server end
    ```bash
    curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
    ```
-2. Open the credentials file (`~/.vortex-ado/credentials.json`)
-3. Fill in your **ADO PAT**, **organization name**, and **project name** \-\- save the file
-4. Restart Cursor IDE (or refresh MCP in **Cursor Settings > MCP**)
-5. Done \-\- all tools and slash commands are now available under `vortex-ado`
+2. Open your project folder in Cursor (per-workspace config lives next to the project).
+3. In the AI chat, run `/vortex-ado/ado-connect`. The wizard saves connection details to `<workspace>/.vortex-ado/config.json` and stores your PAT in the OS keychain — never in plaintext on disk.
+4. Restart Cursor IDE (or refresh MCP in **Cursor Settings > MCP**).
+5. Done — all tools and slash commands are now available under `vortex-ado`.
 
-Your credentials are stored locally at `~/.vortex-ado/credentials.json` and are **never shared**.
+Your PAT is stored in the operating system's secure credential store (macOS Keychain, Windows Credential Manager, Linux libsecret) and never appears in chat or on disk.
 
 ---
 
@@ -76,23 +76,26 @@ The MCP server is installed via a curl one\-liner that handles everything automa
 
 1. Clones the repository to `~/.vortex-ado`
 2. Installs dependencies and builds the project
-3. Creates `~/.vortex-ado/credentials.json` with a template
-4. Registers `vortex-ado` globally in `~/.cursor/mcp.json`
+3. Registers `vortex-ado` globally in `~/.cursor/mcp.json`
 
 ### Configuring Credentials
 
-Open the credentials file and fill in:
+Run `/vortex-ado/ado-connect` from your project folder in Cursor. The two-tab wizard:
 
-* `ado_pat`: Your Azure DevOps Personal Access Token
-* `ado_org`: Organization name (from `https://dev.azure.com/{org}`)
-* `ado_project`: Project name
-* Confluence fields are optional
+* **Tab 1** — Connection: enter your ADO PAT, organization name, and project name (and optionally Confluence URL + email + API token). The wizard validates the PAT against ADO before saving.
+* **Tab 2** — Conventions: probe-driven setup of test plan mappings, personas, sprint prefix, custom field references, and additional context fields.
 
-Save the file and restart Cursor (or refresh MCP in Cursor Settings > MCP).
+Tab 1 saves to `<workspace>/.vortex-ado/config.json`; PAT and Confluence token go to the OS keychain. Tab 2 saves convention overrides to the same workspace config file.
 
 ### Credential Storage
 
-Credentials are stored per\-user at `~/.vortex-ado/credentials.json` (your home directory). They are **never shared** and never appear in chat.
+Your PAT and Confluence API token are stored in the operating system's secure credential store:
+
+* **macOS** — Keychain Access (service: `vortex-ado`)
+* **Windows** — Credential Manager
+* **Linux** — libsecret (GNOME Keyring / KWallet)
+
+Connection details (org, project, URL) live in `<workspace>/.vortex-ado/config.json`. Nothing is ever stored in plaintext that includes the PAT.
 
 ### Checking Status
 
@@ -365,14 +368,7 @@ Update test case {TC_WORK_ITEM_ID}: change priority to 1 and add a new step:
 
 **Purpose:** Test both the standalone Confluence page reader and the automatic Solution Design enrichment on User Stories.
 
-**Pre-requisite:** Configure the Confluence credentials in `~/.vortex-ado/credentials.json`:
-```json
-{
-  "confluence_base_url": "https://yoursite.atlassian.net/wiki",
-  "confluence_email": "your.email@company.com",
-  "confluence_api_token": "your-confluence-api-token"
-}
-```
+**Pre-requisite:** Run `/vortex-ado/ado-connect` and fill in the optional Confluence fields on Tab 1 (URL, email, API token). The URL + email are saved to `<workspace>/.vortex-ado/config.json`; the API token goes to the OS keychain.
 
 Restart the MCP server after saving these.
 
@@ -424,7 +420,7 @@ Create test cases for plan {PLAN_ID}, user story {US_ID_WITH_CONFLUENCE_LINK}
 
 | Symptom | Fix |
 |---|---|
-| `Missing required environment variables` | Check `~/.vortex-ado/credentials.json` has `ado_pat`, `ado_org`, `ado_project` set correctly |
+| `Missing required environment variables` | Run `/vortex-ado/ado-connect` to configure your ADO connection. Check the keychain entry exists at service `vortex-ado` account `ado::{org}::{project}`. |
 | `Cannot find module` | Run `npm install` again |
 | `SyntaxError` or TypeScript errors | Run `npx tsc --noEmit` to see compilation errors |
 | Red dot persists | Check Cursor MCP logs: **Cursor Settings > MCP > Click the server name > View logs** |

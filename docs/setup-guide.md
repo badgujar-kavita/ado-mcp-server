@@ -187,7 +187,7 @@ If you prefer to set up by hand:
 
 > **Important:** Never paste your PAT in Cursor's chat. The keychain keeps it off disk and out of any backup that captures your home directory.
 
-> **Legacy fallback.** If you have an old `~/.vortex-ado/credentials.json` from before Phase 1, the MCP will still read it as a fallback so you're not broken — but you'll see a one-time migration warning at startup recommending you re-run `/ado-connect` per-workspace.
+> **Note on `~/.vortex-ado/credentials.json`.** The MCP no longer creates this file. Earlier installs may have one left over from the pre-wizard era; the MCP will still read it on startup as a one-time fallback so a tester with real values doesn't get hard-broken, but the file is no longer the supported credential location. Re-run `/ado-connect` and you can safely delete the file.
 
 ---
 
@@ -528,8 +528,7 @@ curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main
 
 - Run `/vortex-ado/ado-connect` from inside your workspace folder — this writes `<workspace>/.vortex-ado/config.json` and stores your PAT in the OS keychain.
 - If the wizard refuses with "refusing to write into home directory", it means you opened Cursor without a project folder. Open the actual project folder and retry.
-- For legacy installs only: open `~/.vortex-ado/credentials.json` and verify you replaced all placeholder values; make sure `ado_pat`, `ado_org`, and `ado_project` are not empty.
-- Run `/vortex-ado/ado-check` to see which field is missing
+- Run `/vortex-ado/ado-check` to see which field is missing.
 
 ### PAT authentication errors (401)
 
@@ -559,7 +558,7 @@ When `ado_story` or `confluence_read` returns "401 Unauthorized" when fetching S
      "email":   "your.email@company.com"
    }
    ```
-   Plus the API token in the OS keychain. Or use env vars: `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`. Legacy `~/.vortex-ado/credentials.json` is still read as a fallback.
+   Plus the API token in the OS keychain. Or use env vars: `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`.
 
 6. **Restart** — After changing credentials, restart the MCP server (Cursor Settings > MCP > refresh vortex-ado).
 
@@ -592,7 +591,7 @@ As of Phase 1, your PAT and Confluence API token are stored in the **OS keychain
 
 To update your credentials at any time, re-run `/vortex-ado/ado-connect` from inside the workspace, or use your OS's credential-manager UI directly. See [docs/conventions.md § 7](conventions.md#7-where-credentials-live) for inspection and deletion commands.
 
-**Legacy:** A `~/.vortex-ado/credentials.json` from a pre-Phase-1 install is still read as a fallback and is not deleted automatically. You can remove it once you've re-run `/ado-connect` for each workspace.
+**Note:** The MCP no longer creates `~/.vortex-ado/credentials.json`. If you have one left over from an earlier install, the MCP still reads it as a one-time fallback so a tester with real values doesn't get hard-broken — but the file is no longer the supported credential location. Once you've run `/ado-connect`, you can delete it.
 
 ---
 

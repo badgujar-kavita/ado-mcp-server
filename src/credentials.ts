@@ -17,7 +17,7 @@
  *   3. null → no credentials available; tools surface clear errors.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 import { WorkspaceConfigSchema } from "./config/schema.ts";
@@ -192,32 +192,6 @@ export function getCredentialsSource(): string | null {
 /** True when the legacy global credentials file exists on disk. */
 export function credentialsFileExists(): boolean {
   return existsSync(LEGACY_CREDS_FILE);
-}
-
-/**
- * Create a placeholder legacy credentials.json template. Used by the
- * installer's first-run flow only. New tenants on Phase 1+ should use
- * /ado-connect, which writes per-workspace config + keychain instead.
- */
-export function createCredentialsTemplate(): string {
-  if (!existsSync(LEGACY_CREDS_DIR)) {
-    mkdirSync(LEGACY_CREDS_DIR, { recursive: true });
-  }
-
-  if (!existsSync(LEGACY_CREDS_FILE)) {
-    const template: Record<string, string> = {
-      ado_pat: "your-personal-access-token",
-      ado_org: "your-organization-name",
-      ado_project: "your-project-name",
-      confluence_base_url: "",
-      confluence_email: "",
-      confluence_api_token: "",
-      tc_drafts_path: "",
-    };
-    writeFileSync(LEGACY_CREDS_FILE, JSON.stringify(template, null, 2) + "\n", "utf-8");
-  }
-
-  return LEGACY_CREDS_FILE;
 }
 
 /** Test seam — reset cache so tests can re-bootstrap with different state. */

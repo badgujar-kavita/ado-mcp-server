@@ -6,6 +6,27 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-15 — Stop creating ~/.vortex-ado/credentials.json on install
+
+Fresh installs were leaving a placeholder `~/.vortex-ado/credentials.json` file on disk — a holdover from the pre-wizard era when the only way to give the MCP credentials was to hand-edit JSON. With the wizard + OS keychain in place, the file is dead surface area. Worse, real-tenant testing showed users sometimes filled in the placeholders with real PAT values, so plaintext credentials sat next to the workspace config — defeating the keychain entirely.
+
+**Bootstrap (`bin/bootstrap.mjs`).**
+
+- Removed `createCredentialsTemplate()` and the `PLACEHOLDER_VALUES` array. The installer no longer touches `credentials.json` on `/vortex-ado/install`.
+- Removed `hasValidCredentials()` and `isReady()` — both were dead code (the entry point already always launched the full server).
+- `check_setup_status` no longer reports "credentials file not found" — the bootstrap can't introspect keychain entries from outside the MCP runtime; `/vortex-ado/ado-check` from inside Cursor reports the real state.
+- The install flow's NEXT-steps text now points users straight at `/vortex-ado/ado-connect` instead of "open the file and fill it in".
+
+**Source (`src/`).**
+
+- Removed the `ado_connect_save` tool from `src/tools/setup.ts` — the manual "save credentials by editing JSON" flow had no users left after Phase 1+ deprecation.
+- Removed `createCredentialsTemplate()` from `src/credentials.ts`. Kept `loadCredentials()` and `bootstrapCredentials()` — those still resolve from the legacy file as a one-time read, which protects any user who has a real-value file from a hard break. They never write.
+- Cleaned up unused `writeFileSync` and `mkdirSync` imports.
+
+**No legacy migration shipped.** Per discussion with the user (only one tester ever produced a `credentials.json` file; no live tenants to migrate). New installs go straight to `/ado-connect` → keychain. Users who already have a `credentials.json` can delete it manually; if it had real PAT values, those still work via `loadCredentials()`'s read path until the user re-runs `/ado-connect` to commit them to the keychain.
+
+436 tests still pass. No schema or behavior change on the read path.
+
 ### 2026-05-15 — Persona section: skip entirely when no personas configured
 
 Drafts AND published test cases were rendering an empty Persona block (heading + empty list) for tenants whose `<workspace>/.vortex-ado/config.json` had no personas in `prerequisiteDefaults.personas`. Reviewer noise — better to omit the section entirely than show a placeholder.

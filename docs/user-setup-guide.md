@@ -109,7 +109,7 @@ See [docs/conventions.md § 8](conventions.md#8-copy-pasteable-starter-template)
 
 **Optional Confluence config** lives under `confluence` in the same `config.json` file. The Confluence API token also goes in the OS keychain under account `confluence::{org}::{project}`. See [Confluence Setup (Optional)](#confluence-setup-optional) below.
 
-> **Legacy fallback.** If you have an old `~/.vortex-ado/credentials.json` from before Phase 1, the MCP keeps reading it as a fallback so you're not broken. You'll see a one-time migration warning at startup recommending you re-run `/ado-connect` per-workspace.
+> **Note on `~/.vortex-ado/credentials.json`.** The MCP no longer creates this file. Earlier installs may have one left over; the MCP still reads it on startup as a one-time fallback so a tester with real values doesn't get hard-broken, but it's no longer the supported credential location. Once you've run `/ado-connect`, you can delete it.
 
 ---
 
@@ -232,7 +232,7 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 2. Run `/vortex-ado/ado-connect` to write `<workspace>/.vortex-ado/config.json` and store the PAT in the OS keychain.
 3. Run `/vortex-ado/ado-check` to see which field is missing.
 
-If you're on a legacy install with `~/.vortex-ado/credentials.json`, that file is still read as a fallback — verify it has `ado_pat`, `ado_org`, `ado_project` filled in, then re-run `/ado-connect` to migrate to the per-workspace + keychain layout.
+If you have a leftover `~/.vortex-ado/credentials.json` file from an earlier install, the MCP still reads it as a one-time fallback. Re-run `/ado-connect` to commit your credentials to the OS keychain, then you can delete the file.
 
 ---
 
