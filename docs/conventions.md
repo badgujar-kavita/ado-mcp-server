@@ -188,7 +188,7 @@ Persona example:
 }
 ```
 
-Order in JSON determines display order. Without any personas, drafted TCs render with an empty Persona section.
+Order in JSON determines display order. **When the `personas` map is empty (or `prerequisiteDefaults` is missing entirely), the Persona section is omitted from drafts AND from the published ADO test case Description** — no empty heading, no placeholder rows. Other Common Prerequisites sections (Pre-requisite, Test Data) still render even when empty, since they're often legitimately filled in per-TC rather than per-US.
 
 ### 4.4 Optional integrations — `solutionDesign`, `additionalContextFields`
 
@@ -222,7 +222,7 @@ These live in framework defaults and are usually fine to leave alone. If you do 
 |---|---|---|---|
 | `ado.org`, `ado.project`, `ado.url` | **REQUIRED** | Needed to resolve the PAT in the OS keychain. | Wizard Tab 1 |
 | `suiteStructure.testPlanMapping` | **REQUIRED for `/qa-publish`** | Without it, push fails with `plan-resolution-failed`. | Wizard Tab 2 |
-| `prerequisiteDefaults.personas` | **RECOMMENDED** | Without it, draft TCs render with an empty Persona section. | Wizard Tab 2 |
+| `prerequisiteDefaults.personas` | **RECOMMENDED** | Without it, the Persona section is omitted from both the drafted markdown and the published ADO TC Description. | Wizard Tab 2 |
 | `suiteStructure.sprintPrefix` | **RECOMMENDED** | Defaults to `Sprint_`. Override for `SFTPM_`, `Iteration_`, etc. | Wizard Tab 2 |
 | `testCaseTitle.prefix` | **RECOMMENDED** | Defaults to `TC`. Override if your team uses `TC_`, `TestCase_`, etc. | 🚫 Hand-edit only (see §3.5) |
 | `ado.fieldRefs.prerequisite` | SAFE-TO-LEAVE | Defaults to `Custom.PrerequisiteforTest`, falls back to `System.Description`. | Wizard Tab 2 |

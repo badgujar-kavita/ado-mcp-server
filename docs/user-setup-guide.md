@@ -146,7 +146,7 @@ Your per-workspace config at `<workspace>/.vortex-ado/config.json` controls test
 Most teams will want to set, on the wizard's Conventions tab:
 
 * `suiteStructure.testPlanMapping` — required for `/qa-publish` (without it, push fails with `plan-resolution-failed`)
-* `prerequisiteDefaults.personas` — without it, drafted TCs render with an empty Persona section
+* `prerequisiteDefaults.personas` — without it, the Persona section is omitted from both the drafted markdown and the published ADO TC Description
 * `suiteStructure.sprintPrefix` — match your team's sprint folder naming
 
 See **[docs/conventions.md](conventions.md)** for the full annotated schema, an edit-priority table, and a copy-pasteable starter template.

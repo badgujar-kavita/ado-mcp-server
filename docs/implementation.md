@@ -691,12 +691,12 @@ The merged config has the same overall shape as the previous flat file — examp
 
 **How defaults are applied at runtime:**
 
-- **Persona**: The consistent part across all test cases comes from the active project's configured defaults. The current project config includes System Administrator, ADMIN User, and KAM, but the drafting methodology should treat these as project-configured defaults rather than universal assumptions.
+- **Persona**: The consistent part across all test cases comes from the active project's configured defaults (`prerequisiteDefaults.personas` in `<workspace>/.vortex-ado/config.json`). When the map is empty or absent, the Persona section is **omitted entirely** — both from drafted markdown and from the published ADO test case Description. No empty heading or placeholder rows.
 - **Pre-requisite**: **Always unique per user story.** Never from config. The AI/draft must generate pre-conditions from the User Story and Solution Design every time. Use technical format per `preConditionFormat` (Object.Field = Value). `commonPreConditions` in config is unused; pre-conditions come only from the draft.
 - **TO BE TESTED FOR**: Optional. Omitted from the output entirely when `null` / not provided. Only rendered when the caller supplies specific validation scenarios.
 - **Test Data**: Optional. Defaults to `"N/A"` from config. Accepts either a single string OR a structured `testDataTable: { headers, rows }` for multi-row data — the structured form is strongly preferred and renders as a real `<table>` in ADO (same `buildAdoTable` helper as `preConditionsTable`). Single-string Test Data falls back to legacy `<div>` rendering for back-compat. The renderer also normalizes literal `\n` substrings (the two-character escape sequence) to real `<br>`s, so older drafts that mis-escaped multi-row content recover automatically on next push.
 
-**Default personas** (added automatically when none specified): come from `prerequisiteDefaults.personas`. In the current project that is System Administrator, "ADMIN User" User, and Key Account Manager (KAM) User. To add a new persona (e.g., a Customer Manager role), add a new key to `prerequisiteDefaults.personas` with `label`, `profile`, `roles`, `psg` (and optional `user`). Order in the JSON determines display order. No code changes needed.
+**Default personas**: come from `prerequisiteDefaults.personas` in the workspace overlay. To add a persona, add a key with `label`, `profile`, `roles`, `psg` (and optional `user`). Order in the JSON determines display order. No code changes needed. When the map is empty or absent, the Persona section is omitted entirely from drafts and from the published TC.
 
 ---
 
@@ -752,7 +752,7 @@ N/A
 
 **Behavior:**
 
-- Persona: Always all three from config; no override
+- Persona: Always rendered from config (no per-TC override). When the config has zero personas, the section is omitted entirely — no empty heading, no placeholder rows.
 - Pre-requisite: Always from draft (unique per user story); never from config
 - TO BE TESTED FOR is only rendered when provided; omitted entirely otherwise
 - Test Data defaults to "N/A"; only overridden when caller supplies specific data
@@ -802,7 +802,7 @@ Relations: Tested By                       | Auto-linked to userStoryId
   priority: 2,                          // optional: defaults to config value (2)
 
   prerequisites: {                      // all optional
-    personas: null,                     // Always all three from config (no override). Persona is the only consistent part.
+    personas: null,                     // Rendered from config (no per-TC override). Section is omitted entirely when config has zero personas.
 
     preConditions: ["..."],             // REQUIRED per user story; always unique. Generate from US + Solution Design.
                                         // Technical format: Object.Field = Value per preConditionFormat
@@ -1174,11 +1174,11 @@ function buildTcTitle(usId: number, tcNumber: number, featureTags: string[], sum
 
 ### Prerequisites Formatter (`src/helpers/prerequisites.ts`)
 
-Converts the structured prerequisites input into ADO-compatible HTML for the Prerequisite for Test field. Uses `<div>`, `<strong>`, `<ul>`, `<ol>`, `<li>` and applies `formatContentForHtml()`: escapes HTML, converts `**bold**` to `<strong>`, newlines to `<br>`, "A./B." and "- " list patterns. Pre-requisite renders as `<ol>`, TO BE TESTED FOR as `<ul>`. Persona uses nested sub-bullets. Table compatibility and future format: see `docs/prerequisite-field-table-compatibility.md`. See `docs/prerequisite-formatting-instruction.md`.
+Converts the structured prerequisites input into ADO-compatible HTML for the Prerequisite for Test field. Uses `<div>`, `<strong>`, `<ul>`, `<ol>`, `<li>` and applies `formatContentForHtml()`: escapes HTML, converts `**bold**` to `<strong>`, newlines to `<br>`, "A./B." and "- " list patterns. Pre-requisite renders as `<ol>`, TO BE TESTED FOR as `<ul>`. Persona uses nested sub-bullets. **The Persona block is omitted entirely when `prerequisiteDefaults.personas` is empty** (no `<div><strong>Persona:</strong></div>` heading, no empty `<ul>`). Table compatibility and future format: see `docs/prerequisite-field-table-compatibility.md`. See `docs/prerequisite-formatting-instruction.md`.
 
 ```html
-<div><strong>Persona:</strong></div><ul><li>System Administrator<br/>TPM Roles = —<br/>Profile = System Admin<br/>PSG = —</li><li>"ADMIN User" User<br/>TPM Roles = ADMIN<br/>Profile = TPM_User_Profile<br/>PSG = TPM Global ADMIN Users</li></ul>
-<div><strong>Pre-requisite:</strong></div><ol><li>Promotion.Status = Adjusted</li><li>Tactic.Planned_Dollar_Per_Case__c != NULL</li></ol>
+<div><strong>Persona:</strong></div><ul><li>Admin<br/>Roles = Admin User<br/>Profile = Admin<br/>Permission Set Group = Admin_PSG</li><li>Sales Rep<br/>Roles = Sales_Rep<br/>Profile = Sales_Rep<br/>Permission Set Group = Sale_Rep_PSG</li></ul>
+<div><strong>Pre-requisite:</strong></div><ol><li>Case.Case_Category__c != NULL</li><li>CaseAssignmentRule.IsActive = TRUE</li></ol>
 <div><strong>Test Data:</strong></div><div>N/A</div>
 ```
 

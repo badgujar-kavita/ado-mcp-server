@@ -520,7 +520,7 @@
           <tbody>
             <tr><td><code>ado.url</code> / <code>ado.org</code> / <code>ado.project</code></td><td><strong>REQUIRED</strong></td><td>Wizard fills these. Needed to resolve the PAT in the OS keychain.</td></tr>
             <tr><td><code>suiteStructure.testPlanMapping</code></td><td><strong>REQUIRED for /qa-publish</strong></td><td>Without it, push fails with <code>plan-resolution-failed</code>.</td></tr>
-            <tr><td><code>prerequisiteDefaults.personas</code></td><td><strong>RECOMMENDED</strong></td><td>Without it, drafted TCs render with an empty Persona section.</td></tr>
+            <tr><td><code>prerequisiteDefaults.personas</code></td><td><strong>RECOMMENDED</strong></td><td>Without it, the Persona section is omitted from both the drafted markdown and the published ADO TC Description.</td></tr>
             <tr><td><code>testCaseTitle.prefix</code></td><td><strong>RECOMMENDED</strong></td><td>Defaults to <code>TC</code>. Override for <code>TC_</code>, <code>TestCase_</code>, etc.</td></tr>
             <tr><td><code>suiteStructure.sprintPrefix</code></td><td><strong>RECOMMENDED</strong></td><td>Defaults to <code>Sprint_</code>. Override for <code>Iteration_</code>, <code>SFTPM_</code>, etc.</td></tr>
             <tr><td><code>ado.fieldRefs.prerequisite</code></td><td>SAFE-TO-LEAVE</td><td>Defaults to <code>Custom.PrerequisiteforTest</code>, falls back to <code>System.Description</code>.</td></tr>

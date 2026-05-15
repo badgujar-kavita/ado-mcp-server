@@ -23,7 +23,7 @@ This document defines how to format the **Prerequisite for Test** (`Custom.Prere
 
 ## 3. Prerequisite for Test Structure (Current: Lists)
 
-- **Persona:** `<div><strong>Persona:</strong> </div><ul><li>Label<ul><li>{personaRolesLabel} = x</li><li>Profile = y</li><li>{personaPsgLabel} = z</li></ul></li></ul>` — `{personaRolesLabel}` and `{personaPsgLabel}` are placeholders for the labels configured under `prerequisiteDefaults` (defaults: `Roles`, `Permission Set Group`; this project overrides to `TPM Roles`, `PSG`).
+- **Persona:** `<div><strong>Persona:</strong> </div><ul><li>Label<ul><li>{personaRolesLabel} = x</li><li>Profile = y</li><li>{personaPsgLabel} = z</li></ul></li></ul>` — `{personaRolesLabel}` and `{personaPsgLabel}` are placeholders for the labels configured under `prerequisiteDefaults` (defaults: `Roles`, `Permission Set Group`). The entire Persona block (heading + list) is **omitted** when `prerequisiteDefaults.personas` is empty — no empty `<ul></ul>` placeholder.
 - **Pre-requisite:** `<div><strong>Pre-requisite:</strong> </div><ol><li>...</li></ol>`
 - **TO BE TESTED FOR:** `<div><strong>TO BE TESTED FOR:</strong> </div><ul><li>...</li></ul>`
 - **Test Data (string form):** `<div><strong>Test Data:</strong> </div><div>N/A</div>`
