@@ -340,7 +340,7 @@
       </div>
 
       <div class="tip">
-        <strong>Legacy fallback.</strong> If you upgraded from a pre-Phase-1 install, an old <code>~/.vortex-ado/credentials.json</code> will still be read as a fallback. You'll see a one-time migration warning at MCP startup recommending you re-run <code>/ado-connect</code> per-workspace.
+        <strong>Note on <code>~/.vortex-ado/credentials.json</code>.</strong> The MCP no longer creates this file on install. Earlier installs may have one left over; the MCP will still read it on startup as a one-time fallback so a user with real PAT values doesn't get hard-broken. Once you've run <code>/ado-connect</code>, the file is no longer needed and can be safely deleted.
       </div>
 
       <!-- ADO PAT GENERATION -->
