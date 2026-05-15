@@ -75,11 +75,16 @@ function renderPersonas(
   rolesLabel: string,
   psgLabel: string
 ): string {
+  // When the workspace config has no personas configured, omit the entire
+  // section. Otherwise the ADO test case Description shows a bare "Persona:"
+  // heading with an empty <ul> — same kind of placeholder noise the draft
+  // formatter avoids.
+  const personaKeys = Object.keys(defaultPersonas).filter((k) => defaultPersonas[k]);
+  if (personaKeys.length === 0) return "";
+
   let html = `<div><strong>${label}:</strong> </div><ul>`;
-  const personaKeys = Object.keys(defaultPersonas);
   for (const key of personaKeys) {
-    const persona = defaultPersonas[key];
-    if (!persona) continue;
+    const persona = defaultPersonas[key]!;
     html += `<li>${formatContentForHtml(persona.label)}`;
     html += `<ul>`;
     if (persona.user) html += `<li>${formatContentForHtml(persona.user)}</li>`;

@@ -8,11 +8,15 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ### 2026-05-15 — Persona section: skip entirely when no personas configured
 
-Drafts were rendering an empty Persona section (header + table headers, no data rows) for tenants whose `<workspace>/.vortex-ado/config.json` had no personas in `prerequisiteDefaults.personas`. Reviewer noise — better to omit the section entirely than show a placeholder block the user has to mentally skip.
+Drafts AND published test cases were rendering an empty Persona block (heading + empty list) for tenants whose `<workspace>/.vortex-ado/config.json` had no personas in `prerequisiteDefaults.personas`. Reviewer noise — better to omit the section entirely than show a placeholder.
 
-`formatTcDraftToMarkdown` now skips the entire `### Persona` block (heading, table header, and divider lines) when `buildPersonaTableRows` returns zero rows. Other Common Prerequisites sections (`Pre-requisite`, `Test Data`) are unaffected — those still emit even when empty, since they often legitimately are populated per-TC instead of per-US.
+**Draft path** (`formatTcDraftToMarkdown` in `src/helpers/tc-draft-formatter.ts`). Skips the entire `### Persona` block (heading, table header, and divider lines) when `buildPersonaTableRows` returns zero rows.
 
-Updated `formatTcDraftToMarkdown: persona section is OMITTED entirely when config has no personas` (renamed from the prior `persona table is empty…` test). 432 tests still pass.
+**Publish path** (`buildPrerequisitesHtml` → `renderPersonas` in `src/helpers/prerequisites.ts`). Same rule applied to the HTML written to the ADO test case Description / Prerequisite field — when no personas are configured, the renderer returns an empty string and the section is dropped from the published TC entirely. Was previously emitting `<div><strong>Persona:</strong></div><ul></ul><br>` on every TC.
+
+Other Common Prerequisites sections (`Pre-requisite`, `Test Data`) are unaffected — those still emit even when empty, since they're often legitimately populated per-TC rather than per-US.
+
+**Tests added (+4, total 432 → 436)**: `src/helpers/prerequisites-personas.test.ts` covers the publish-side renderer (emits when populated, omits when empty, doesn't suppress other sections, respects custom `personaRolesLabel`/`personaPsgLabel`). `formatTcDraftToMarkdown` test renamed from `persona table is empty…` to `persona section is OMITTED entirely when config has no personas`.
 
 ### 2026-05-13 — Draft + publish polish (UX cleanup)
 
