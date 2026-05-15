@@ -194,23 +194,26 @@ export function formatTcDraftToMarkdown(
   const common = data.commonPrerequisites ?? {};
   const { prerequisiteDefaults: defaults } = config;
 
-  // Persona table
-  lines.push("### Persona");
-  lines.push("");
-  // Persona: always all three defaults; no override
+  // Persona table — only emitted when the workspace config actually has
+  // personas. An empty table (header rows with no data) is noise; tenants
+  // who haven't configured personas via /ado-connect Tab 2 should see
+  // nothing here, not an empty block they have to mentally skip.
   const personaRows = buildPersonaTableRows(undefined, defaults.personas);
-  const rolesLabel = defaults.personaRolesLabel ?? "Roles";
-  const psgLabel = defaults.personaPsgLabel ?? "Permission Set Group";
-  // Header column 1 used to be "Role" but the cell holds the persona's
-  // display label (e.g. "Admin", "Sales Rep") — same row also has a "Roles"
-  // column for the actual role assignments. "Role | ... | Roles |" was
-  // confusing. Renamed to "Persona" for clarity.
-  lines.push(`| Persona | Profile | ${rolesLabel} | ${psgLabel} |`);
-  lines.push("|---|---|---|---|");
-  for (const row of personaRows) {
-    lines.push(`| ${row.role} | ${row.profile} | ${row.roles} | ${row.psg} |`);
+  if (personaRows.length > 0) {
+    const rolesLabel = defaults.personaRolesLabel ?? "Roles";
+    const psgLabel = defaults.personaPsgLabel ?? "Permission Set Group";
+    lines.push("### Persona");
+    lines.push("");
+    // Column 1 is the persona's display label (e.g. "Admin", "Sales Rep");
+    // column 3 is the actual role assignments. Calling them both "Role" was
+    // confusing, so column 1 is "Persona".
+    lines.push(`| Persona | Profile | ${rolesLabel} | ${psgLabel} |`);
+    lines.push("|---|---|---|---|");
+    for (const row of personaRows) {
+      lines.push(`| ${row.role} | ${row.profile} | ${row.roles} | ${row.psg} |`);
+    }
+    lines.push("");
   }
-  lines.push("");
 
   // Pre-requisite
   lines.push("### Pre-requisite");

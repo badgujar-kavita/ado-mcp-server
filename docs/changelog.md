@@ -6,6 +6,14 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-15 — Persona section: skip entirely when no personas configured
+
+Drafts were rendering an empty Persona section (header + table headers, no data rows) for tenants whose `<workspace>/.vortex-ado/config.json` had no personas in `prerequisiteDefaults.personas`. Reviewer noise — better to omit the section entirely than show a placeholder block the user has to mentally skip.
+
+`formatTcDraftToMarkdown` now skips the entire `### Persona` block (heading, table header, and divider lines) when `buildPersonaTableRows` returns zero rows. Other Common Prerequisites sections (`Pre-requisite`, `Test Data`) are unaffected — those still emit even when empty, since they often legitimately are populated per-TC instead of per-US.
+
+Updated `formatTcDraftToMarkdown: persona section is OMITTED entirely when config has no personas` (renamed from the prior `persona table is empty…` test). 432 tests still pass.
+
 ### 2026-05-13 — Draft + publish polish (UX cleanup)
 
 Four small follow-ups that surfaced from the workspace-aware refactor and from real-tenant testing.

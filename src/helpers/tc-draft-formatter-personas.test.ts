@@ -101,14 +101,14 @@ test("formatTcDraftToMarkdown: renders persona rows from the explicitly passed c
   assert.doesNotMatch(md, /System Administrator/);
 });
 
-test("formatTcDraftToMarkdown: persona table is empty when config has no personas", () => {
+test("formatTcDraftToMarkdown: persona section is OMITTED entirely when config has no personas", () => {
   const cfg = configWithPersonas({});
   const md = formatTcDraftToMarkdown(baseDraft(), cfg);
 
-  // Header still emitted, but no rows.
-  assert.match(md, /### Persona/);
-  assert.match(md, /\| Persona \| Profile \| Roles \| Permission Set Group \|/);
-  // No invented personas.
+  // Whole section skipped — no header, no table.
+  assert.doesNotMatch(md, /### Persona/);
+  assert.doesNotMatch(md, /\| Persona \| Profile \|/);
+  // No invented personas either.
   assert.doesNotMatch(md, /System Administrator/);
   assert.doesNotMatch(md, /\| Admin \|/);
 });
