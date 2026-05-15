@@ -6,6 +6,18 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-13 — Draft + publish polish (UX cleanup)
+
+Four small follow-ups that surfaced from the workspace-aware refactor and from real-tenant testing.
+
+**Persona table header relabel** (`commit 450f5dc`). The Common Persona table column 1 used to read `Role`, but the cell holds the persona's display label (e.g. `Admin`, `Sales Rep`). Combined with the existing `Roles` column for the actual role assignments, two columns called `Role` / `Roles` was confusing. Column 1 is now labelled `Persona`. UI-only — parser doesn't read the header, write-back via `applyPostPushEditsInPlace` is byte-preserving.
+
+**TC title shape: explicit guidance to stop duplicate prefixes/tags** (`commit 8c1ca13`). The `/qa-draft` prompt was producing titles like `TC_1363798_02 -> Case Creation -> Web-to-Case -> TC_1363798_02 → Case Creation → Verify ... → Case created from customer web form submission` — the agent was packing the FULL title (TC ID + tags + summary) into the `useCaseSummary` field, then `buildTcTitle` prepended ANOTHER copy from `tcNumber` + `featureTags`. Fix: rule 6 in the prompt now explains the title-build shape explicitly. The tool composes the title from three separate fields (`tcNumber`, `featureTags[]`, `useCaseSummary`); `useCaseSummary` must be ONLY the use-case description. Includes a worked example. Prompt-only.
+
+**`testCaseTitle.prefix` defaults to `"TC"` in framework defaults** (`commit 99d0e42`). After Phase 4 deleted the bundled `conventions.config.json`, tenants whose workspace `config.json` didn't set `testCaseTitle.prefix` started seeing TC titles like `_1363798_01 -> ...` (no prefix). Root cause: the bundled fallback used to provide `prefix: "TC"`, and dropping it left an empty string in the merge layer. `testCaseTitle.prefix` is no longer Category 1 — framework default is now `"TC"` (universal convention). Tenants who want a different prefix still override in `<workspace>/.vortex-ado/config.json`. The `mergeConfig: empty workspace leaves Category-1 fields empty` test was updated; renamed to clarify the new exception. 432 tests still pass.
+
+**`/qa-publish` pre-push summary kept minimal** (`commit 3b708f4`). The agent was rendering an elaborate "Draft summary" card that included internal derivations like `SFTPM_14 → Sprint 14`, AreaPath → plan ID resolution, IterationPath, plan IDs, etc. — confusing for users who just want to confirm the push. Step 4 of the `/qa-publish` prompt now restricts the agent to ONLY the fields the user needs for a YES/no decision: US ID + title, draft status, version, test case count. Internal plumbing (sprint derivation, plan resolution, suite folder paths) is auto-derived during the push and surfaces only when something fails. Prompt-only edit.
+
 ### 2026-05-12 — Workspace-aware config: every consumer migrated, legacy fallbacks deleted (Phase 3+4)
 
 **Bug fix + cleanup.** Completes the workspace-aware config refactor that the same-day Phase 1+2 entry started. Every helper and tool handler that previously called the cwd-based `loadConventionsConfig()` now reads the tenant's `<workspace>/.vortex-ado/config.json` via MCP `roots/list`, and the legacy `~/.vortex-ado/conventions.config.json` + bundled `conventions.config.json` fallbacks are gone for good.
