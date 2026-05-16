@@ -4,7 +4,6 @@
 > **Setup time:** 10–15 minutes (one-time per workspace)  
 > **Owner:** *Kavita Badgujar*  
 > **Last updated:** May 16, 2026  
->
 
 > **Video walkthrough:** *Coming soon — recommended for first-time setup.*
 
@@ -456,37 +455,37 @@ Quick reference for the most frequent issues. See the full FAQ below for additio
 
 ## Troubleshooting and FAQ
 
-### Which release zip is the latest?
+### 1. Which release zip is the latest?
 
 Select the file in the shared Drive folder with the **highest semantic version and most recent release date**. Example: `vortex-ado-v1.1.0-2026-05-16.zip` supersedes `vortex-ado-v1.0.0-2026-05-01.zip`. When uncertain, contact the person who shared the folder.
 
-### Do I have to re-run `/vortex-ado/ado-connect` after each upgrade?
+### 2. Do I have to re-run `/vortex-ado/ado-connect` after each upgrade?
 
 **No.** The installer wipes `~/.vortex-ado/` and re-extracts the new release, but your per-workspace config (`<project>/.vortex-ado/config.json`) and OS keychain credentials are preserved. Re-run `/vortex-ado/ado-connect` only if your ADO org/project changes or you need to update conventions.
 
-### Will my drafts survive an upgrade?
+### 3. Will my drafts survive an upgrade?
 
 **Yes.** Drafts live in `<your-workspace>/tc-drafts/` — outside the install directory. The installer does not modify them.
 
-### Can I run this against multiple ADO projects at the same time?
+### 4. Can I run this against multiple ADO projects at the same time?
 
 **Yes.** Open each project in a separate Cursor window. Each window's MCP loads its own per-workspace config and uses its own keychain entry (`ado::<org>::<project>`). No cross-contamination, even though both windows share the same Node MCP runtime.
 
-### Where is my PAT stored? Is it secure?
+### 5. Where is my PAT stored? Is it secure?
 
 - **Stored in:** your OS keychain — macOS Keychain, Windows Credential Manager, or Linux libsecret.
 - **Never written:** to disk in plaintext.
 - **Never sent:** to any third party.
 - **To inspect or delete:** use your OS's keychain UI. The service name is `vortex-ado`.
 
-### Cursor's MCP log shows `spawn node ENOENT`. What do I do?
+### 6. Cursor's MCP log shows `spawn node ENOENT`. What do I do?
 
 This indicates Cursor's GUI process cannot find your `node` binary — common with **nvm**, **asdf**, **Volta**, or **Homebrew on Apple Silicon**.
 
 1. Re-run `bash install.sh` from the latest release zip. Newer installer versions write the absolute path to node into Cursor's config.
 2. Fully quit and relaunch Cursor.
 
-### `/vortex-ado/ado-connect` says "refusing to write into home directory"
+### 7. `/vortex-ado/ado-connect` says "refusing to write into home directory"
 
 Cursor was opened without a project folder.
 
@@ -494,7 +493,7 @@ Cursor was opened without a project folder.
 2. Open your actual project folder via **File → Open Folder…**.
 3. Re-run `/vortex-ado/ado-connect` from inside that window.
 
-### How do I uninstall?
+### 8. How do I uninstall?
 
 From the same release zip folder you installed from, run:
 
