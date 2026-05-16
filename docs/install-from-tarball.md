@@ -1,137 +1,109 @@
-# Install VortexADO MCP from a tarball
+# Distributing VortexADO MCP via release zip
 
-Use these steps when you've been given a `.tar.gz` file (typically via Google Drive) instead of installing from GitHub. Same end result as the standard installer; just a different distribution channel.
-
-> **Why a tarball?** While the project lives on a personal GitHub repo, distribution is intentionally kept off public hosting. The tarball is the same compiled bundle the GitHub installer would pull, just delivered through a private channel.
+Internal-facing reference for how releases are built and distributed while the project lives on a personal GitHub repo + Google Drive (until company-policy alignment is sorted). Tester-facing instructions live inside the release zip itself as `README.md`.
 
 ---
 
-## Prerequisites
+## How a release is built
 
-| Requirement | How to check |
+```bash
+cd "<repo-root>"
+bash scripts/release.sh
+```
+
+This runs `npm run build:dist` to compile the MCP, tars the contents of `dist-package/` into `vortex-ado.tar.gz`, and bundles it with three companion files into a single zip:
+
+```
+releases/vortex-ado-v<version>-<YYYY-MM-DD>.zip
+└── vortex-ado-v<version>-<YYYY-MM-DD>/
+    ├── README.md              ← tester-facing prerequisites + install steps
+    ├── install.sh             ← runs first-time install + upgrades
+    ├── uninstall.sh           ← always asks for confirmation before deleting
+    └── vortex-ado.tar.gz      ← the compiled MCP bundle
+```
+
+Filename includes the `package.json` version and a date stamp, so multiple releases can sit side-by-side in Drive without naming collisions.
+
+The `releases/` folder is gitignored — binary artifacts don't go in git.
+
+---
+
+## How a release is distributed
+
+1. Run `bash scripts/release.sh` in the repo.
+2. Upload `releases/vortex-ado-v<version>-<date>.zip` to your Google Drive release folder.
+3. Right-click → "Get link" → set sharing to whoever should see it (specific people, an organization-domain group, etc.).
+4. Send the share link to testers.
+
+**Optionally** drop a `CHANGES-<version>.md` in the same Drive folder listing what's changed. Cuts down on "is this the latest?" Slack questions.
+
+---
+
+## What testers do
+
+They download the zip, extract it, and run two scripts. The bundled `README.md` walks them through it; the short version is:
+
+```bash
+# After extracting
+cd ~/Downloads/vortex-ado-v1.0.0-2026-05-16/
+bash install.sh
+```
+
+Then restart Cursor and run `/vortex-ado/ado-connect` from inside their project folder.
+
+To uninstall later:
+
+```bash
+cd ~/Downloads/vortex-ado-v1.0.0-2026-05-16/
+bash uninstall.sh
+```
+
+The uninstaller asks for confirmation before each step — the install dir, the Cursor MCP entry, and (optional, defaulting to no) the OS keychain entries.
+
+---
+
+## What the bundled scripts handle
+
+**`install.sh`:**
+- Verifies Node 18+ is present.
+- Auto-detects `vortex-ado.tar.gz` next to itself (no path arg required, but accepts one if you want to point elsewhere).
+- Validates the tarball is a real gzip-tar (catches Drive virus-scan corruption).
+- Wipes `~/.vortex-ado/` and re-extracts the tarball there. Per-workspace configs at `<project>/.vortex-ado/config.json` are NOT touched — they live alongside user projects, not in the install dir.
+- Runs `npm install` for runtime deps (`keytar`, `jimp`).
+- Registers `vortex-ado` in `~/.cursor/mcp.json`, preserving any other MCP entries the user has (jira, sf-devtools, etc.).
+
+**`uninstall.sh`:**
+- Asks for top-level confirmation before doing anything.
+- Removes `~/.vortex-ado/`.
+- Removes only the `vortex-ado` key from `~/.cursor/mcp.json` (other MCPs preserved).
+- Asks separately before touching the OS keychain (defaults to no — credentials stay unless the user opts in).
+- On macOS, automates the keychain cleanup via `security delete-generic-password`. On Linux/Windows, prints manual instructions (libsecret / Credential Manager don't have a uniform CLI).
+- Per-workspace configs at `<project>/.vortex-ado/config.json` are NEVER touched — the script has no way to know where they are.
+
+---
+
+## Source files (in the repo)
+
+These live in `scripts/` and are git-tracked. They're copied into the staged release folder and renamed:
+
+| Source | Renamed to (in zip) |
 |---|---|
-| **Node.js v18 or higher** | `node -v` in a terminal. Install from [nodejs.org](https://nodejs.org/) (LTS) if missing. |
-| **Cursor IDE** | Latest version. |
-| **An Azure DevOps PAT** | Personal Access Token with `Work Items: Read & Write` and `Test Management: Read & Write` scopes. See [setup-guide.md § Step 1](setup-guide.md#step-1-create-an-azure-devops-personal-access-token-pat) for how to create one. |
+| `scripts/release.sh` | (not bundled — repo-only) |
+| `scripts/bundled-install.sh` | `install.sh` |
+| `scripts/bundled-uninstall.sh` | `uninstall.sh` |
+| `scripts/bundled-readme.md` | `README.md` |
+
+Edit the `bundled-*` source files in the repo; they get repackaged on every `release.sh` run.
 
 ---
 
-## Step 1 — Get the tarball
+## When to switch off Drive
 
-Download `vortex-mcp-ado-vX.Y.Z-YYYY-MM-DD.tar.gz` from the share link you were given.
+Whenever the project moves to a company-owned GitHub org / GitHub Enterprise, swap the Drive flow for **GitHub Releases**:
 
-Save it somewhere you can find it (e.g. `~/Downloads/`).
+1. `gh release create v1.0.0 releases/vortex-ado-v1.0.0-*.zip --title "v1.0.0" --notes-file CHANGES-1.0.0.md`
+2. Testers run `gh release download v1.0.0` (or click through the Releases UI).
 
-> **Google Drive note.** If your browser shows a "Google Drive can't scan this file for viruses" warning before download, click **"Download anyway"**. The interstitial trips on files over ~25MB and on `tar.gz` mime types — it's not a real warning about the file.
+Same zip, same install flow, just hosted somewhere with versioning, audit trail, and stable URLs. The bundled scripts don't need to change.
 
----
-
-## Step 2 — Run the installer
-
-Open a terminal, then:
-
-```bash
-# Replace ~/Downloads/... with the path you saved to.
-bash <(curl -fsSL ...)/install-from-tarball.sh ~/Downloads/vortex-mcp-ado-v1.0.0-2026-05-16.tar.gz
-```
-
-If you don't have a hosted copy of `install-from-tarball.sh`, the simpler form is:
-
-1. Extract once to get the script:
-   ```bash
-   mkdir -p /tmp/vortex-tmp && tar -xzf ~/Downloads/vortex-mcp-ado-*.tar.gz -C /tmp/vortex-tmp
-   bash /tmp/vortex-tmp/scripts/install-from-tarball.sh ~/Downloads/vortex-mcp-ado-*.tar.gz
-   rm -rf /tmp/vortex-tmp
-   ```
-
-The installer:
-1. Verifies you have Node.js 18+.
-2. Extracts the tarball into `~/.vortex-ado/`.
-3. Runs `npm install` to fetch native dependencies (`keytar`, `jimp`, etc.).
-4. Registers the MCP server in `~/.cursor/mcp.json` under the name `vortex-ado`.
-
-If you already have an older install at `~/.vortex-ado/`, it's wiped and replaced. **Per-workspace configs at `<your-project>/.vortex-ado/config.json` are NOT touched** — they live alongside your project, not in the install dir.
-
----
-
-## Step 3 — Restart Cursor
-
-Either:
-
-- **Cmd+Q** to fully quit Cursor and relaunch (recommended — Cursor doesn't auto-restart MCP processes), or
-- **Cursor → Settings → MCP** → click the refresh icon next to `vortex-ado`.
-
----
-
-## Step 4 — Configure credentials
-
-1. Open your project folder in Cursor.
-2. In the AI chat, run:
-   ```
-   /vortex-ado/ado-connect
-   ```
-3. The two-tab wizard opens in your browser. Tab 1 saves your ADO + Confluence connection; Tab 2 collects per-project conventions (test plan mappings, personas, sprint prefix, custom field references).
-4. Connection details land in `<workspace>/.vortex-ado/config.json`. Your PAT and Confluence API token go to the OS keychain — never to disk in plaintext.
-
-> **Multi-project tip.** Working on more than one ADO project? Open each project in its own Cursor window and run `/vortex-ado/ado-connect` per workspace. Each window's MCP process stays isolated.
-
----
-
-## Step 5 — Verify
-
-In the AI chat:
-
-```
-/vortex-ado/ado-check
-```
-
-You should see a status table with all components ✅. If anything is missing, the report tells you which step to repeat.
-
----
-
-## Updating to a new tarball
-
-When a new version is shared:
-
-1. Download the new `.tar.gz`.
-2. Re-run `install-from-tarball.sh <path-to-new-tarball>` — it detects the existing install at `~/.vortex-ado/` and replaces the runtime files.
-3. Restart Cursor.
-
-Your per-workspace configs and keychain credentials are preserved across upgrades.
-
----
-
-## Uninstalling
-
-```bash
-# Remove the install dir.
-rm -rf ~/.vortex-ado/
-
-# Remove the MCP entry from Cursor's config.
-# (Open ~/.cursor/mcp.json and delete the "vortex-ado" key under mcpServers.)
-
-# Optionally clean up keychain entries (macOS):
-security delete-generic-password -s vortex-ado 2>/dev/null || true
-
-# Per-workspace configs — only delete if you're done with the project.
-# rm -rf <your-project>/.vortex-ado/
-```
-
----
-
-## Troubleshooting
-
-**"Tarball is not a valid gzipped tar archive"**
-The download didn't complete or hit the Google Drive virus-scan interstitial. Open the share link in a browser, click "Download anyway", save the file, and re-run the installer with the local path.
-
-**"Node.js v18+ required"**
-Run `node -v`. If below v18, install the LTS from [nodejs.org](https://nodejs.org/) and retry.
-
-**"npm install failed"**
-Run `cd ~/.vortex-ado && npm install` manually to see the error. Most often it's a `keytar` build failure — make sure you have Xcode Command Line Tools (macOS) or `build-essential` (Linux).
-
-**MCP doesn't appear in Cursor after restart**
-Open `~/.cursor/mcp.json` and verify it contains a `vortex-ado` entry under `mcpServers`. If not, re-run `install-from-tarball.sh`. If yes, fully quit Cursor (Cmd+Q) and relaunch — closing the window isn't enough.
-
-**Wizard says "refusing to write into home directory"**
-You opened Cursor without a project folder. Open your actual project folder and re-run `/vortex-ado/ado-connect`.
+For now, keep the Drive flow — it's simple, controlled, and doesn't put anything public.
