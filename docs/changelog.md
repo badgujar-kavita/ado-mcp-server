@@ -6,6 +6,20 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-15 — Installer writes absolute `node` path into `mcp.json` (fixes `spawn node ENOENT`)
+
+All three places that register `vortex-ado` in `~/.cursor/mcp.json` now resolve `node` to its absolute path instead of writing the literal string `"node"`:
+
+- **`install.sh`** (curl'd from GitHub raw) — uses `command -v node` and substitutes the result into both the existing-config-update path and the new-config-write path.
+- **`website/public/install`** (served by Vercel at `https://vortexado.vercel.app/install`) — same fix.
+- **`bin/bootstrap.mjs`** (the MCP runtime's `addToGlobalMcpConfig` self-registration, used by the `/install` tool) — uses `process.execPath`, which is always the absolute path of the running Node binary. No PATH lookup, no shell quoting risk, works on Windows too.
+
+Fixes `Connection failed: spawn node ENOENT` for macOS users whose Node lives outside Cursor's GUI `PATH` — i.e. **nvm**, **asdf**, **Volta**, and **Homebrew on Apple Silicon** (`/opt/homebrew/bin/node`). The install scripts' pre-flight check already verified `node -v ≥ 18`, but they were happily writing `"command": "node"` afterward, leaving Cursor's GUI process to re-resolve via its much smaller `PATH` (typically `/usr/bin:/bin:/usr/sbin:/sbin`) — which fails for any node manager.
+
+Tenants on existing installs can re-run the installer to migrate the `mcp.json` entry; no action required for new users. **Heads-up:** the website copy (`vortexado.vercel.app/install`) only takes effect once Vercel redeploys — the build is automatic on push to `main`.
+
+**Docs updated** ([user-setup-guide.md](user-setup-guide.md#cursor-mcp-log-shows-spawn-node-enoent), [setup-guide.md](setup-guide.md#cursor-mcp-log-shows-spawn-node-enoent)). Both troubleshooting sections gained a `spawn node ENOENT` entry explaining the cause and the re-run-installer fix (with manual-edit fallback). The legacy `"ado-testforge" shows a red dot` headings in those sections are renamed to `"vortex-ado" shows a red dot` to match the actual server slug — they were stale references from the rename.
+
 ### 2026-05-15 — Stop creating ~/.vortex-ado/credentials.json on install
 
 Fresh installs were leaving a placeholder `~/.vortex-ado/credentials.json` file on disk — a holdover from the pre-wizard era when the only way to give the MCP credentials was to hand-edit JSON. With the wizard + OS keychain in place, the file is dead surface area. Worse, real-tenant testing showed users sometimes filled in the placeholders with real PAT values, so plaintext credentials sat next to the workspace config — defeating the keychain entirely.

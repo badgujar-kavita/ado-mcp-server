@@ -202,7 +202,7 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ## Troubleshooting
 
-### "ado\-testforge" shows a red dot (server won't start)
+### "vortex\-ado" shows a red dot (server won't start)
 
 **Possible causes:**
 
@@ -214,12 +214,32 @@ You can also use natural language, e.g., *"Fetch user story 12345 from ADO"* or 
 
 ---
 
+### Cursor MCP log shows `spawn node ENOENT`
+
+You'll see this in Cursor's MCP logs as `Connection failed: spawn node ENOENT`. Cursor (launched from the Dock/Finder) can't find the `node` executable on its `PATH`. Common when Node was installed via **nvm**, **asdf**, **Volta**, or **Homebrew on Apple Silicon** — those node binaries live outside the small `PATH` that GUI apps inherit on macOS.
+
+**Fix — re\-run the installer:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+```
+
+Newer installer versions write the **absolute path** to `node` into `~/.cursor/mcp.json`, which avoids this entire class of error. Then fully quit Cursor (Cmd+Q) and relaunch.
+
+**Manual fix (if you can't re-run the installer):**
+
+1. In a terminal, run `which node` and copy the absolute path (e.g., `/opt/homebrew/bin/node` or `/Users/<you>/.nvm/versions/node/v20.11.1/bin/node`).
+2. Open `~/.cursor/mcp.json`, find the `vortex-ado` entry, and replace `"command": "node"` with `"command": "<absolute-path-from-step-1>"`.
+3. Fully quit Cursor (Cmd+Q) and relaunch.
+
+---
+
 ### VortexADO doesn't appear in Cursor
 
 **Fix:**
 
 * **Restart Cursor** after installation
-* Check **Cursor Settings → MCP** — ado\-testforge should be listed
+* Check **Cursor Settings → MCP** — vortex\-ado should be listed
 * If missing, re\-run the installation command above
 
 ---

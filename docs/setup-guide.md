@@ -501,7 +501,7 @@ tc-drafts/
 
 ## Troubleshooting
 
-### "ado\-testforge" shows a red dot
+### "vortex\-ado" shows a red dot
 
 The server can't start. Common causes:
 
@@ -512,10 +512,24 @@ The server can't start. Common causes:
 curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
 ```
 
+### Cursor MCP log shows `spawn node ENOENT`
+
+The MCP log shows `Connection failed: spawn node ENOENT`. Cursor (launched from the Dock/Finder on macOS) can't find `node` on its `PATH` — common with **nvm**, **asdf**, **Volta**, or **Homebrew on Apple Silicon**. macOS GUI apps don't source `~/.zshrc` / `~/.bashrc`, so node managers that put node in a non-default location are invisible to Cursor.
+
+Re-running the installer is the easiest fix — newer installer versions write the absolute `node` path into `~/.cursor/mcp.json` instead of the literal string `"node"`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+```
+
+Then fully quit Cursor (Cmd+Q on macOS) and relaunch.
+
+If you can't re-run the installer: get the absolute path with `which node`, then hand-edit `~/.cursor/mcp.json` and replace the `vortex-ado` entry's `"command": "node"` with `"command": "<absolute-path>"`.
+
 ### VortexADO MCP doesn't appear in Cursor
 
 * **Restart Cursor** after installation
-* Check **Cursor Settings > MCP** \-\- ado\-testforge should be listed
+* Check **Cursor Settings > MCP** \-\- vortex\-ado should be listed
 * If missing, re\-run the installation command above
 
 ### Installation fails

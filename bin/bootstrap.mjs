@@ -81,9 +81,17 @@ function checkFolderStructure() {
 
 function addToGlobalMcpConfig() {
   const bootstrapPath = join(PROJECT_ROOT, "bin", "bootstrap.mjs");
+  // Use the absolute path of the running Node binary, NOT the literal
+  // string "node". Cursor (launched from the Dock/Finder on macOS) does
+  // NOT source ~/.zshrc / ~/.bashrc, so node managers like nvm / asdf /
+  // Volta / Homebrew on Apple Silicon are invisible to its child-process
+  // PATH. Writing the literal "node" here would produce `spawn node ENOENT`
+  // when Cursor tries to start the MCP. process.execPath is always
+  // absolute and always points at the same Node that's running us — no
+  // PATH lookup, no shell quoting risk, works on Windows too.
   const adoTestforgeServers = {
     "vortex-ado": {
-      command: "node",
+      command: process.execPath,
       args: [bootstrapPath],
     },
   };

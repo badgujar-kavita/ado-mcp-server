@@ -100,7 +100,13 @@ if [ "$NODE_VERSION" -lt 18 ]; then
     print_tree_last "$(print_error "Node.js 18+ required. Found: $(node -v)")"
     exit 1
 fi
-print_tree_last "$(print_success "Node.js $(node -v)")"
+
+# Resolve the absolute path to node so Cursor's GUI process (which has a
+# stripped PATH and does NOT source ~/.zshrc / ~/.bashrc) can launch the
+# MCP server. Without this, nvm / asdf / Volta / Apple-Silicon-Homebrew
+# users hit `spawn node ENOENT` when Cursor tries to start vortex-ado.
+NODE_BIN="$(command -v node)"
+print_tree_last "$(print_success "Node.js $(node -v) at $NODE_BIN")"
 
 # ══════════════════════════════════════════════════════════════
 # Installation / Upgrade
@@ -165,7 +171,7 @@ if [ -f "$MCP_CONFIG" ]; then
         const config = JSON.parse(fs.readFileSync('$MCP_CONFIG', 'utf-8'));
         config.mcpServers = config.mcpServers || {};
         config.mcpServers['vortex-ado'] = {
-            command: 'node',
+            command: '$NODE_BIN',
             args: ['$BOOTSTRAP_PATH']
         };
         fs.writeFileSync('$MCP_CONFIG', JSON.stringify(config, null, 2));
@@ -174,7 +180,7 @@ else
     echo '{
   "mcpServers": {
     "vortex-ado": {
-      "command": "node",
+      "command": "'"$NODE_BIN"'",
       "args": ["'"$BOOTSTRAP_PATH"'"]
     }
   }
