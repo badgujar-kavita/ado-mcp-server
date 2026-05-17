@@ -124,3 +124,22 @@ export function tagToSuffixHint(tag: string): string {
   if (!tag) return tag;
   return TAG_TO_SUFFIX[tag.toUpperCase()] ?? tag.toLowerCase();
 }
+
+/**
+ * Strict inverse of `suffixToTag`.
+ *
+ * - Canonical TAGs (REG, E2E, SIT, UAT, SMOKE, PERF) → the canonical lowercase
+ *   suffix (regression, e2e, sit, uat, smoke, performance).
+ * - Empty / nullish input → `undefined`.
+ * - Unknown TAGs → the lowercased tag as a best-effort suffix. This is good
+ *   enough for `buildTcTitle`'s round-trip needs because `suffixToTag` will
+ *   re-resolve the lowercased tag back to a TAG with the same first 5 letters.
+ *
+ * Used by `qa_tc_update`'s reconstruction path to convert a parsed `categoryTag`
+ * (e.g. `REG`) back into the suffix that `buildTcTitle` expects.
+ */
+export function tagToSuffix(tag: string | undefined | null): string | undefined {
+  if (tag === undefined || tag === null || tag === "") return undefined;
+  if (typeof tag !== "string") return undefined;
+  return TAG_TO_SUFFIX[tag.toUpperCase()] ?? tag.toLowerCase();
+}

@@ -84,7 +84,19 @@ function parseTableValue(content: string, fieldName: string): string | null {
   return m ? unescape(m[1].trim()) : null;
 }
 
-function parseTcTitle(title: string): { tcNumber: number; featureTags: string[]; useCaseSummary: string; categoryTag?: string } | null {
+/**
+ * Parse a TC title in the canonical (or suffixed) shape.
+ *
+ *   `TC_<usId>(_<TAG>)?_<NN> -> <featureTag1> -> ... -> <useCaseSummary>`
+ *
+ * Returns `null` for any title that doesn't match the prefix + arrow chain.
+ * Exported because `qa_tc_update` uses it to validate user-supplied titles
+ * before clobbering structured prefixes — the inverse of `buildTcTitle`.
+ *
+ * The TAG group is optional; when absent the result has `categoryTag:
+ * undefined`. The TAG charset matches the title-builder's: `[A-Z][A-Z0-9]{1,4}`.
+ */
+export function parseTcTitle(title: string): { tcNumber: number; featureTags: string[]; useCaseSummary: string; categoryTag?: string } | null {
   // Support both " -> " and " → " (Unicode arrow)
   // Optional category tag between US id and TC number — `TC_<usid>_<TAG>_<NN>` where
   // TAG is 2-5 chars starting with an ASCII uppercase letter, then letters/digits.

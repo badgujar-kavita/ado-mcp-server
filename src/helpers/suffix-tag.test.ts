@@ -13,6 +13,7 @@ import {
   ALL_KNOWN_TAGS,
   assertValidSuffix,
   suffixToTag,
+  tagToSuffix,
   tagToSuffixHint,
 } from "./suffix-tag.ts";
 
@@ -154,4 +155,52 @@ test("tagToSuffixHint roundtrips canonical suffix → tag → suffix", () => {
     assert.ok(tag, `suffix ${suffix} should map to a tag`);
     assert.equal(tagToSuffixHint(tag!), suffix, `tag ${tag} should round-trip back to ${suffix}`);
   }
+});
+
+// ── tagToSuffix (strict inverse, used by qa_tc_update reconstruction) ──
+
+test("tagToSuffix(undefined) returns undefined", () => {
+  assert.equal(tagToSuffix(undefined), undefined);
+});
+
+test("tagToSuffix(null) returns undefined", () => {
+  assert.equal(tagToSuffix(null), undefined);
+});
+
+test("tagToSuffix('') returns undefined (empty string)", () => {
+  assert.equal(tagToSuffix(""), undefined);
+});
+
+test("tagToSuffix('REG') returns 'regression'", () => {
+  assert.equal(tagToSuffix("REG"), "regression");
+});
+
+test("tagToSuffix('E2E') returns 'e2e'", () => {
+  assert.equal(tagToSuffix("E2E"), "e2e");
+});
+
+test("tagToSuffix('SIT') returns 'sit'", () => {
+  assert.equal(tagToSuffix("SIT"), "sit");
+});
+
+test("tagToSuffix('UAT') returns 'uat'", () => {
+  assert.equal(tagToSuffix("UAT"), "uat");
+});
+
+test("tagToSuffix('SMOKE') returns 'smoke'", () => {
+  assert.equal(tagToSuffix("SMOKE"), "smoke");
+});
+
+test("tagToSuffix('PERF') returns 'performance'", () => {
+  assert.equal(tagToSuffix("PERF"), "performance");
+});
+
+test("tagToSuffix lowercases unknown TAGs (best-effort recovery)", () => {
+  assert.equal(tagToSuffix("ACCES"), "acces");
+  assert.equal(tagToSuffix("HYPHE"), "hyphe");
+});
+
+test("tagToSuffix is case-insensitive on input (canonical TAG matching)", () => {
+  assert.equal(tagToSuffix("reg"), "regression");
+  assert.equal(tagToSuffix("Reg"), "regression");
 });

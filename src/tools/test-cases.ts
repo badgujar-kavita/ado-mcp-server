@@ -7,7 +7,8 @@ import type { AdoWorkItem, JsonPatchOperation, TestCaseResult, ConventionsConfig
 import { loadConventionsConfig } from "../config.ts";
 import { resolveConfigForCall } from "../workspace/config-for-call.ts";
 import { buildTcTitle } from "../helpers/tc-title-builder.ts";
-import { ALL_KNOWN_TAGS, tagToSuffixHint } from "../helpers/suffix-tag.ts";
+import { ALL_KNOWN_TAGS, tagToSuffix, tagToSuffixHint } from "../helpers/suffix-tag.ts";
+import { parseTcTitle } from "../helpers/tc-draft-parser.ts";
 import { buildPrerequisitesHtml } from "../helpers/prerequisites.ts";
 import { buildStepsXml } from "../helpers/steps-builder.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
@@ -116,13 +117,15 @@ export function registerTestCaseTools(
     {
       title: "Update Test Case",
       description:
-        "Update fields of one or more existing test cases. Accepts a single workItemId (number) or a bulk array (number[]) — when an array is given, the SAME field values are applied UNIFORMLY to every ID (this is intentional; for varying-per-TC updates, edit the draft and use /qa-publish). Before applying any patch, the tool verifies each ID is a Test Case (refuses User Story/Bug/Task/etc.) and surfaces cross-US span as a `needs-confirmation` response so the caller can get explicit user agreement. Set `acknowledgeCrossUs: true` only after the user has seen the per-US breakdown and explicitly confirmed. Returns a per-ID result table for bulk calls.",
+        "Update fields of one or more existing test cases. Accepts a single workItemId (number) or a bulk array (number[]) — when an array is given, the SAME field values are applied UNIFORMLY to every ID (this is intentional; for varying-per-TC updates, edit the draft and use /qa-publish). Before applying any patch, the tool verifies each ID is a Test Case (refuses User Story/Bug/Task/etc.) and surfaces cross-US span as a `needs-confirmation` response so the caller can get explicit user agreement. Set `acknowledgeCrossUs: true` only after the user has seen the per-US breakdown and explicitly confirmed. Title preservation: when the existing TC follows the canonical `TC_<usId>(_<TAG>)?_<NN> -> <feature-tags> -> <use-case-summary>` shape, raw `title` writes are validated to keep that shape — pass `useCaseSummary` to swap just the trailing summary while preserving the TC ID prefix, feature tags, and category tag, or pass `forceTitleOverwrite: true` to opt out of validation entirely. Returns a per-ID result table for bulk calls.",
       inputSchema: {
         workItemId: z.union([
           z.number().int().positive(),
           z.array(z.number().int().positive()).min(1),
         ]).describe("The test case work item ID, or an array of IDs for uniform bulk update"),
-        title: z.string().optional().describe("Updated title (applied uniformly to all IDs in bulk mode)"),
+        title: z.string().optional().describe("Updated title (applied uniformly to all IDs in bulk mode). When the existing TC has a structured title, the server validates the new value preserves the `TC_<usId>(_<TAG>)?_<NN> -> ...` shape and BLOCKS with `tc-title-shape-mismatch` if it doesn't — use `useCaseSummary` to update just the trailing summary, or `forceTitleOverwrite: true` to bypass validation."),
+        useCaseSummary: z.string().optional().describe("Replace ONLY the trailing use-case-summary segment of the title; the server fetches each TC, parses its existing title, and reconstructs the full title preserving the TC ID prefix, feature tags, and category tag. Mutually exclusive with `title`. Errors on TCs whose existing title doesn't match the canonical shape."),
+        forceTitleOverwrite: z.boolean().optional().describe("Power-user escape hatch: when true, write the supplied `title` exactly as given, skipping all shape validation. Use only when you genuinely want to break the TC ID convention (e.g. legacy cleanup). Ignored when `title` is not set."),
         description: z.string().optional().describe("Raw HTML for Prerequisite for Test (use when providing pre-built HTML)"),
         prerequisites: PrerequisitesSchema.describe("Structured prerequisites; when provided, builds HTML and writes to prerequisite field"),
         steps: z.array(StepSchema).optional().describe("Updated test steps (applied uniformly to all IDs in bulk mode)"),
@@ -134,23 +137,41 @@ export function registerTestCaseTools(
         acknowledgeCrossUs: z.boolean().optional().describe("Set to true only when the user has seen the per-US breakdown of a cross-US bulk update and explicitly confirmed. Skipped for single-ID calls. Defaults to false."),
       },
     },
-    async ({ workItemId, title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath, acknowledgeCrossUs }, extra) => {
+    async ({ workItemId, title, useCaseSummary, forceTitleOverwrite, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath, acknowledgeCrossUs }, extra) => {
       const config = await resolveConfigForCall(extra);
       const prereqField = config.prerequisiteFieldRef ?? "System.Description";
 
-      // Build the JSON Patch ops once — identical for every ID in the batch (uniform semantics).
-      const ops: JsonPatchOperation[] = [];
-      if (title) ops.push({ op: "replace", path: "/fields/System.Title", value: title });
-      const prereqHtml = prerequisites ? buildPrerequisitesHtml(prerequisites, config) : description;
-      if (prereqHtml) ops.push({ op: "replace", path: `/fields/${prereqField}`, value: prereqHtml });
-      if (steps) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: buildStepsXml(steps) });
-      if (priority) ops.push({ op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority });
-      if (state) ops.push({ op: "replace", path: "/fields/System.State", value: state });
-      if (assignedTo) ops.push({ op: "replace", path: "/fields/System.AssignedTo", value: assignedTo });
-      if (areaPath) ops.push({ op: "replace", path: "/fields/System.AreaPath", value: areaPath });
-      if (iterationPath) ops.push({ op: "replace", path: "/fields/System.IterationPath", value: iterationPath });
+      // Mutual exclusion between `title` and `useCaseSummary` — both target System.Title
+      // via different paths (raw write vs reconstructed-from-prefix), so allowing both
+      // would require deciding which wins; rejecting up-front keeps the contract crisp.
+      if (title !== undefined && useCaseSummary !== undefined) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({
+            status: "error",
+            reason: "title-and-use-case-summary-both-supplied",
+            message:
+              "Both `title` and `useCaseSummary` were supplied, but they target the same field (System.Title) via different paths. " +
+              "Pass `title` (raw write, full structured title) OR `useCaseSummary` (server reconstructs the title from the existing TC's prefix), not both.",
+          }, null, 2) }],
+          isError: true,
+        };
+      }
 
-      if (ops.length === 0) {
+      // Build the non-title JSON Patch ops once — identical for every ID in the batch.
+      // Title is appended per-ID later because `useCaseSummary` reconstruction depends
+      // on each TC's existing prefix.
+      const baseOps: JsonPatchOperation[] = [];
+      const prereqHtml = prerequisites ? buildPrerequisitesHtml(prerequisites, config) : description;
+      if (prereqHtml) baseOps.push({ op: "replace", path: `/fields/${prereqField}`, value: prereqHtml });
+      if (steps) baseOps.push({ op: "replace", path: "/fields/Microsoft.VSTS.TCM.Steps", value: buildStepsXml(steps) });
+      if (priority) baseOps.push({ op: "replace", path: "/fields/Microsoft.VSTS.Common.Priority", value: priority });
+      if (state) baseOps.push({ op: "replace", path: "/fields/System.State", value: state });
+      if (assignedTo) baseOps.push({ op: "replace", path: "/fields/System.AssignedTo", value: assignedTo });
+      if (areaPath) baseOps.push({ op: "replace", path: "/fields/System.AreaPath", value: areaPath });
+      if (iterationPath) baseOps.push({ op: "replace", path: "/fields/System.IterationPath", value: iterationPath });
+
+      const titleRequested = title !== undefined || useCaseSummary !== undefined;
+      if (baseOps.length === 0 && !titleRequested) {
         return { content: [{ type: "text" as const, text: "No fields to update." }] };
       }
 
@@ -259,6 +280,119 @@ export function registerTestCaseTools(
         }
       }
 
+      // ── Step 2.5: title-shape validation / reconstruction (when caller targets the title) ──
+      // This step decides — per ID — what System.Title value to write, then stores it in
+      // `perIdTitleOps`. The patch loop below appends the per-ID title op (if any) onto baseOps.
+      const perIdTitleOps = new Map<number, JsonPatchOperation>();
+
+      if (titleRequested) {
+        // Strict-validation path. `forceTitleOverwrite` skips validation entirely — power-user
+        // escape hatch documented in option C of the `tc-title-shape-mismatch` response.
+        if (forceTitleOverwrite && title !== undefined) {
+          for (const id of ids) {
+            perIdTitleOps.set(id, { op: "replace", path: "/fields/System.Title", value: title });
+          }
+        } else if (useCaseSummary !== undefined) {
+          // Reconstruction path — preserve each TC's prefix (TC ID + featureTags + categoryTag),
+          // swap in the new use-case summary. Per-TC because each TC has its own prefix.
+          const reconstructionFailures: Array<{ id: number; existingTitle: string }> = [];
+          for (const pre of prechecks) {
+            const parsed = parseTcTitle(pre.title);
+            if (!parsed || pre.parentUsId == null) {
+              reconstructionFailures.push({ id: pre.id, existingTitle: pre.title });
+              continue;
+            }
+            const reconstructionSuffix = parsed.categoryTag ? tagToSuffix(parsed.categoryTag) : undefined;
+            const newTitle = buildTcTitle(
+              pre.parentUsId,
+              parsed.tcNumber,
+              parsed.featureTags,
+              useCaseSummary,
+              config,
+              reconstructionSuffix,
+            );
+            perIdTitleOps.set(pre.id, { op: "replace", path: "/fields/System.Title", value: newTitle });
+          }
+          if (reconstructionFailures.length > 0) {
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify({
+                status: "error",
+                reason: "use-case-summary-unparseable-existing-title",
+                message:
+                  "`useCaseSummary` only works for TCs whose existing title follows the canonical " +
+                  "`TC_<usId>(_<TAG>)?_<NN> -> <feature-tags> -> <use-case-summary>` shape. " +
+                  "The TCs below have non-conventional titles — pass the full structured title via `title`, " +
+                  "or `forceTitleOverwrite: true` if you genuinely want to overwrite the legacy shape.",
+                unparseableTcs: reconstructionFailures,
+              }, null, 2) }],
+              isError: true,
+            };
+          }
+        } else if (title !== undefined) {
+          // Validation path — does the new title parse? Does the existing title parse?
+          // Decision matrix per spec.
+          const newParses = parseTcTitle(title) !== null;
+          const failedValidation: Array<{ id: number; existingTitle: string }> = [];
+          for (const pre of prechecks) {
+            const existingParses = parseTcTitle(pre.title) !== null;
+            if (newParses) {
+              // New title is structured — write as-is, even if existing is legacy.
+              perIdTitleOps.set(pre.id, { op: "replace", path: "/fields/System.Title", value: title });
+            } else if (!existingParses) {
+              // Legacy → legacy: the convention isn't applicable to this TC. Write as-is.
+              perIdTitleOps.set(pre.id, { op: "replace", path: "/fields/System.Title", value: title });
+            } else {
+              // Existing parses, new doesn't, no opt-out — block.
+              failedValidation.push({ id: pre.id, existingTitle: pre.title });
+            }
+          }
+          if (failedValidation.length > 0) {
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify({
+                status: "needs-input",
+                reason: "tc-title-shape-mismatch",
+                message:
+                  "The new title doesn't follow the `TC_<usId>(_<TAG>)?_<NN> -> <feature-tags> -> <use-case-summary>` " +
+                  "convention used by this test case. Updating it as-is would lose the TC ID prefix, feature tags, " +
+                  "and category tag.",
+                options: [
+                  {
+                    key: "A",
+                    label: "Update just the use-case summary",
+                    action:
+                      "Re-run qa_tc_update with `useCaseSummary: '<your text>'` instead of `title`. The server will " +
+                      "preserve the existing TC ID prefix, feature tags, and category tag and only swap in the new summary.",
+                  },
+                  {
+                    key: "B",
+                    label: "Provide the full structured title",
+                    action:
+                      "Re-run qa_tc_update with the full title in the format " +
+                      "`TC_<usId>(_<TAG>)?_<NN> -> <feature-tags> -> <use-case-summary>`.",
+                  },
+                  {
+                    key: "C",
+                    label: "Force overwrite (legacy)",
+                    action:
+                      "Re-run qa_tc_update with `title: '<your raw text>', forceTitleOverwrite: true` to write the " +
+                      "title as-is without validation. Use when you genuinely want to break the convention.",
+                  },
+                ],
+                existingTitles: failedValidation.map((f) => ({ id: f.id, title: f.existingTitle })),
+                newTitleProvided: title,
+              }, null, 2) }],
+              isError: true,
+            };
+          }
+        }
+      }
+
+      // Final guard: if nothing to write (e.g. only `forceTitleOverwrite: true` with no `title`,
+      // or `useCaseSummary: undefined` slipped through somehow), refuse rather than firing a no-op PATCH.
+      if (baseOps.length === 0 && perIdTitleOps.size === 0) {
+        return { content: [{ type: "text" as const, text: "No fields to update." }] };
+      }
+
       // ── Step 3: apply the patch — per-ID, collecting both successes and failures ──
       // Continue on failure (user already confirmed; partial success is better than all-or-nothing
       // because some TCs may have state conflicts even when the patch is valid for others).
@@ -267,9 +401,11 @@ export function registerTestCaseTools(
 
       for (const id of ids) {
         try {
+          const titleOp = perIdTitleOps.get(id);
+          const idOps = titleOp ? [titleOp, ...baseOps] : baseOps;
           const item = await client.patch<AdoWorkItem>(
             `/_apis/wit/workitems/${id}`,
-            ops,
+            idOps,
             "application/json-patch+json",
             "7.0"
           );

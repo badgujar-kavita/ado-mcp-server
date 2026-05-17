@@ -6,6 +6,35 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — `qa_tc_update`: title-preservation gate (closes the structured-title clobber gap)
+
+`qa_tc_update`'s `title` arg used to write user-supplied text directly into `System.Title`, which clobbered structured prefixes — e.g. `TC_5678_REG_01 -> Foo -> Bar -> Existing summary` became bare `New title`, losing the TC ID prefix, feature tags, and category tag. This gap predated suffixed-draft support; the suffix work just made it more visible (now there's an additional structural element to lose).
+
+**What's new:**
+
+- **`useCaseSummary?: string` arg.** Replace ONLY the trailing use-case-summary segment of the title; the server fetches each TC, parses its existing title via `parseTcTitle`, and reconstructs `TC_<usId>(_<TAG>)?_<NN> -> <featureTags> -> <useCaseSummary>` preserving the prefix and category tag. Per-TC reconstruction in bulk mode — each TC keeps its own prefix.
+- **`forceTitleOverwrite?: boolean` arg.** Power-user escape hatch — when `true`, write the supplied `title` exactly as given, skipping all shape validation. Use for legacy cleanup or genuinely intentional convention breaks.
+- **Pre-flight title validation.** When `title` is supplied without `forceTitleOverwrite`:
+  - New title parses as `TC_<usId>(_<TAG>)?_<NN> -> ...` → write as-is (caller knew what they were doing).
+  - Existing title parses, new doesn't → BLOCK with `tc-title-shape-mismatch`, surfacing three options (A: switch to `useCaseSummary`, B: provide full structured title, C: re-run with `forceTitleOverwrite: true`).
+  - Existing title is legacy/non-conventional → write the new title as-is (the convention isn't applicable).
+- **Mutual exclusion.** Passing both `title` AND `useCaseSummary` returns an error — they target the same field via different paths.
+- **Bulk semantics.** Validation runs per-TC; the FIRST mismatch returns the `needs-input` block listing only the TCs whose existing titles parse (legacy TCs don't trigger the block because the convention isn't applicable to them). When `useCaseSummary` is set and any TC has an unparseable title, returns `use-case-summary-unparseable-existing-title` with the offending IDs.
+
+**`qa-tc-update` prompt updated.** New section under step 3 explaining when to pick `useCaseSummary` vs `title` vs `forceTitleOverwrite`. New step 8 documents the `tc-title-shape-mismatch` response and its A/B/C options. Universal-rules section adds: "NEVER pass `forceTitleOverwrite: true` without an explicit option-C reply."
+
+**Files changed:**
+
+- `src/helpers/suffix-tag.ts` — adds `tagToSuffix(tag)` strict inverse helper used by reconstruction.
+- `src/helpers/tc-draft-parser.ts` — exports `parseTcTitle` (was previously module-private).
+- `src/tools/test-cases.ts` — `qa_tc_update` zod schema gets `useCaseSummary?: string` + `forceTitleOverwrite?: boolean`; handler refactored to compute per-ID title ops (because reconstruction depends on each TC's own prefix), with pre-flight validation/reconstruction inserted between cross-US span detection and the patch loop.
+- `src/prompts/index.ts` — `qa-tc-update` prompt updated with title-update guidance, `tc-title-shape-mismatch` response handling, and the option-selection contract.
+- Test additions: `src/tools/test-cases-update-title.test.ts` (10 cases covering all decision-matrix branches + bulk + mutual exclusion), plus `tagToSuffix` cases in `src/helpers/suffix-tag.test.ts`.
+
+**No behavior change for existing callers.** When `title` carries a properly structured value (matches `TC_<usId>(_<TAG>)?_<NN> -> ...`), behaviour is identical to before — write as-is. The new gate only fires when the new title would silently lose structure.
+
+**Test count delta:** 502 → 523 (10 update-title tests + 11 `tagToSuffix` tests).
+
 ### 2026-05-17 — Suffixed drafts + suffixed publish: parallel regression / E2E / SIT / UAT packs as first-class artifacts
 
 QA leads can now generate parallel test packs (regression, E2E, SIT, UAT, smoke, performance, or any custom slug) alongside the canonical draft for a User Story, and publish them independently with proper category tagging and optional sub-suite placement. Mirrors the suffixed-draft model that landed in Vortex JIRA, adapted for ADO terminology.
