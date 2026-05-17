@@ -724,9 +724,22 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
                 planForGate = resolvePlanIdFromAreaPath(ap, config);
               }
             } catch {
-              // Fall through — planForGate stays undefined; usSuiteExists will
-              // return false on the missing plan, so Gate 1 will fire with the
-              // canonical-pack-first message (correct outcome either way).
+              // AreaPath→testPlanMapping failed. Fall back to deriving the plan
+              // from the US's existing TestedBy linkages: if the canonical pack
+              // already published, the US's TCs live in some plan, and that
+              // plan's suite tree contains the US-level suite. Use that plan
+              // for the suffix gate so we don't falsely block on "US suite
+              // missing" when in reality only the AreaPath mapping is the
+              // problem.
+              try {
+                const { resolvePlanIdFromExistingLinkedTcs } = await import("../helpers/suite-structure.ts");
+                const fallback = await resolvePlanIdFromExistingLinkedTcs(adoClient, userStoryId);
+                if (fallback) planForGate = fallback;
+              } catch {
+                // Both resolution paths failed — planForGate stays undefined;
+                // usSuiteExists will return false, Gate 1 fires with the
+                // canonical-pack-first message (correct outcome either way).
+              }
             }
           }
 
@@ -1174,7 +1187,64 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           planId = hierarchyResult.planId;
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          if (message.includes("has no AreaPath or IterationPath")) {
+
+          // Fallback path: when AreaPath→testPlanMapping fails, try to derive
+          // the plan from the US's existing TestedBy linkages. If the US
+          // already has TCs in ADO, the correct plan is determinable — it's
+          // the one whose suite tree already contains a suite for this US.
+          // This avoids forcing the user to look up a plan ID by hand when
+          // their AreaPath is broader than any configured testPlanMapping
+          // entry. Only retried for the plan-resolution failure mode; other
+          // failures (sprint, mismatch, missing fields) keep their gates.
+          if (message.includes("No test plan match for AreaPath") || message.includes("testPlanMapping not configured")) {
+            let fallbackPlanId: number | null = null;
+            let fallbackErrMsg: string | null = null;
+            try {
+              const { resolvePlanIdFromExistingLinkedTcs } = await import("../helpers/suite-structure.ts");
+              fallbackPlanId = await resolvePlanIdFromExistingLinkedTcs(adoClient, userStoryId);
+            } catch (fallbackErr) {
+              fallbackErrMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+            }
+
+            if (fallbackPlanId) {
+              try {
+                const retry = await ensureSuiteHierarchyForUs(
+                  adoClient,
+                  userStoryId,
+                  fallbackPlanId,
+                  sprintNumber,
+                  true, // confirmMismatch — fallback overrides AreaPath-derived plan by design
+                  config,
+                );
+                planId = retry.planId;
+              } catch (retryErr) {
+                const rMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+                return {
+                  content: [{ type: "text" as const, text: JSON.stringify({
+                    status: "needs-input",
+                    reason: "plan-resolution-failed",
+                    message: `${message} (fallback derived planId ${fallbackPlanId} from existing linked TCs, but suite hierarchy setup failed: ${rMsg})`,
+                    suggestion: "Provide planId override on the next qa_publish_push call: { planId: <correct plan id> }",
+                    resolvedSoFar: { userStoryId, attemptedFallbackPlanId: fallbackPlanId },
+                  }, null, 2) }],
+                  isError: true,
+                };
+              }
+            } else {
+              return {
+                content: [{ type: "text" as const, text: JSON.stringify({
+                  status: "needs-input",
+                  reason: "plan-resolution-failed",
+                  message: fallbackErrMsg
+                    ? `${message} (fallback via existing linked TCs also failed: ${fallbackErrMsg})`
+                    : message,
+                  suggestion: "Provide planId override on the next qa_publish_push call: { planId: 123456 }",
+                  resolvedSoFar: { userStoryId },
+                }, null, 2) }],
+                isError: true,
+              };
+            }
+          } else if (message.includes("has no AreaPath or IterationPath")) {
             return {
               content: [{ type: "text" as const, text: JSON.stringify({
                 status: "needs-input",
@@ -1185,20 +1255,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
               }, null, 2) }],
               isError: true,
             };
-          }
-          if (message.includes("No test plan match for AreaPath") || message.includes("testPlanMapping not configured")) {
-            return {
-              content: [{ type: "text" as const, text: JSON.stringify({
-                status: "needs-input",
-                reason: "plan-resolution-failed",
-                message,
-                suggestion: "Provide planId override on the next qa_publish_push call: { planId: 123456 }",
-                resolvedSoFar: { userStoryId },
-              }, null, 2) }],
-              isError: true,
-            };
-          }
-          if (message.includes("Could not extract sprint from Iteration")) {
+          } else if (message.includes("Could not extract sprint from Iteration")) {
             return {
               content: [{ type: "text" as const, text: JSON.stringify({
                 status: "needs-input",
@@ -1209,8 +1266,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
               }, null, 2) }],
               isError: true,
             };
-          }
-          if (message.startsWith("OVERRIDE_MISMATCH:")) {
+          } else if (message.startsWith("OVERRIDE_MISMATCH:")) {
             const mismatchData = JSON.parse(message.slice("OVERRIDE_MISMATCH:".length));
             return {
               content: [{ type: "text" as const, text: JSON.stringify({
@@ -1223,8 +1279,9 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
               }, null, 2) }],
               isError: true,
             };
+          } else {
+            throw err;
           }
-          throw err;
         }
 
         const results: Array<{ tcNumber: number; id: number; title: string; op: "update" | "create" }> = [];

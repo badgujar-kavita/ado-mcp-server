@@ -6,6 +6,33 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — `qa_publish_push`: planId fallback via existing linked TCs (closes AreaPath-mapping gap)
+
+When a User Story's AreaPath doesn't match any `testPlanMapping` entry, `qa_publish_push` previously surfaced a `plan-resolution-failed` gate forcing the user to look up the right plan ID by hand — even though the US already had test cases linked in ADO and the correct plan was determinable from existing data.
+
+**Real-world repro:** US `1377028` has `AreaPath = "TPM Product Ecosystem"` and 7 TCs linked in plan `1394300` (`GPT_D-HUB`). The configured `testPlanMapping` only covered narrower areas (`Salesforce_TPM_Global Product`, `Salesforce_TPM_EHub`), so AreaPath resolution failed and the publish blocked.
+
+**Fix.** Added a fallback resolver that activates ONLY when AreaPath→`testPlanMapping` returns no match:
+
+1. Read the US's `TestedBy` / `TestedBy-Forward` relations to get linked TC IDs.
+2. List all test plans in the project.
+3. For each plan, scan its suite tree for a suite whose name contains the US ID as a whole-number token (same matcher as `usSuiteExists`, so every separator shape is accepted while substring false positives like `13770281` are rejected).
+4. The first plan whose suite tree contains a US-keyed suite wins; that ID is used to retry `ensureSuiteHierarchyForUs` with `confirmMismatch: true` (the fallback is overriding AreaPath-derived plan by design).
+
+When the fallback also fails (US has no linked TCs, or no plan contains a US-keyed suite), the original `plan-resolution-failed` gate fires unchanged.
+
+The suffixed-publish flow gets the same fallback for `planForGate` resolution, so the `us-suite-missing-for-suffixed-publish` gate no longer falsely blocks suffixed packs when the canonical pack DID publish but lives in a plan unreachable from `testPlanMapping`.
+
+**Files changed:**
+
+- `src/helpers/suite-structure.ts` — adds `resolvePlanIdFromExistingLinkedTcs(client, userStoryId)`, returning `Promise<number | null>`. Read-only — never creates suites or modifies state. Swallows network/permission errors per-plan and returns null on total failure so callers fall back to the existing user gate.
+- `src/tools/tc-drafts.ts` — `qa_publish_push`'s `plan-resolution-failed` catch branch now invokes the fallback before returning the gate; the suffixed-publish `planForGate` derivation does the same.
+- `src/helpers/suite-structure.test.ts` — 5 new cases covering happy path, no-linkages, no-matching-plan, substring-of-larger-id rejection, and per-plan error skipping.
+
+**Test count delta:** 533 → 538 (5 new fallback tests).
+
+**No behavior change when AreaPath mapping succeeds.** The fallback is a strict superset: if `resolvePlanIdFromAreaPath` returns a planId, that's used directly (and the fallback is never invoked). If it throws, the fallback runs; if the fallback returns a planId, the publish proceeds; if it returns null, the existing gate fires.
+
 ### 2026-05-17 — `usSuiteExists`: lenient token-boundary matcher (fixes false-negative on non-canonical separators)
 
 The `us-suite-missing-for-suffixed-publish` gate (added in the suffixed-publish work) was firing for tenants whose US suites genuinely exist in ADO but whose names don't follow the canonical `<usId> | Title` shape. Real-world repro: a tenant with US `1377028` had a published suite named `1377028 - Title` (hyphen instead of pipe) and the matcher returned `false`, blocking the suffixed publish even though the canonical hierarchy was already in place.
