@@ -10,10 +10,11 @@ import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from 
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
-import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
+import { ensureSuiteHierarchyForUs, ensureSuffixedSubSuite, usSuiteExists } from "./test-suites.ts";
 import { READ_OUTPUT_SCHEMA, type CanonicalReadResult } from "./read-result.ts";
 import { resolveTagsMatchOnly } from "../helpers/tag-resolver.ts";
 import { analyzePushState } from "../helpers/push-state-analyzer.ts";
+import { assertValidSuffix, suffixToTag } from "../helpers/suffix-tag.ts";
 
 async function fetchLinkedTestCaseIds(adoClient: AdoClient, userStoryId: number): Promise<number[]> {
   const us = await adoClient.get<AdoWorkItem>(
@@ -88,6 +89,7 @@ export function applyPostPushEditsInPlace(
   originalMd: string,
   userStoryId: number,
   testCaseAdoIds: Array<{ tcNumber: number; adoId: number }>,
+  categoryTag?: string,
 ): { updatedMd: string; statusFlipped: boolean; titlesUpdated: number; titlesSkipped: number[] } {
   let updated = originalMd;
   let statusFlipped = false;
@@ -101,12 +103,18 @@ export function applyPostPushEditsInPlace(
     statusFlipped = true;
   }
 
-  // Step 2: append (ADO #N) to each TC title line
-  // Title format: `**TC_<usid>_<nn> -> ...**` (possibly already suffixed with ` (ADO #N)`)
+  // Step 2: append (ADO #N) to each TC title line.
+  // Title format depends on suffix:
+  //   - canonical: `**TC_<usid>_<nn> -> ...**`
+  //   - suffixed:  `**TC_<usid>_<TAG>_<nn> -> ...**`
+  // When `categoryTag` is provided, the regex requires the tag segment to
+  // match — preventing a suffixed publish from accidentally suffixing a
+  // canonical TC line that happens to share the same TC number.
+  const tagSegment = categoryTag ? `${categoryTag}_` : "";
   for (const { tcNumber, adoId } of testCaseAdoIds) {
     const padded = String(tcNumber).padStart(2, "0");
     const titleRe = new RegExp(
-      `^\\*\\*TC_${userStoryId}_${padded}\\s*->.*?\\*\\*$`,
+      `^\\*\\*TC_${userStoryId}_${tagSegment}${padded}\\s*->.*?\\*\\*$`,
       "m",
     );
     const match = updated.match(titleRe);
@@ -160,6 +168,33 @@ function resolveTestCasesMdPath(tcDraftsDir: string, usId: number): string {
   const flatPath = join(tcDraftsDir, `US_${usId}_test_cases.md`);
   if (existsSync(flatPath)) return flatPath; // legacy
   return subPath; // default to new layout for writes
+}
+
+/**
+ * Resolve the suffix-aware test-cases markdown path.
+ *
+ * - `suffix === undefined`  → delegates to `resolveTestCasesMdPath` (canonical
+ *   path with legacy flat fallback). Preserves today's behaviour exactly.
+ * - `suffix !== undefined`  → returns ONLY the subfolder path
+ *   `tc-drafts/US_<id>/US_<id>_test_cases_<suffix>.md` — suffixed drafts have
+ *   no legacy flat fallback (they were introduced after the layout migration).
+ *
+ * Throws via `assertValidSuffix` when the suffix doesn't match the regex.
+ * Caller must surface that error to the user as the tool's response.
+ */
+function resolveSuffixedMdPath(tcDraftsDir: string, usId: number, suffix?: string): string {
+  if (suffix === undefined) return resolveTestCasesMdPath(tcDraftsDir, usId);
+  assertValidSuffix(suffix);
+  return join(resolveUsFolder(tcDraftsDir, usId), `US_${usId}_test_cases_${suffix}.md`);
+}
+
+/** Same shape as `resolveSuffixedMdPath` for the JSON snapshot. */
+function resolveSuffixedJsonPath(tcDraftsDir: string, usId: number, suffix?: string): string {
+  if (suffix === undefined) {
+    return join(resolveUsFolder(tcDraftsDir, usId), `US_${usId}_test_cases.json`);
+  }
+  assertValidSuffix(suffix);
+  return join(resolveUsFolder(tcDraftsDir, usId), `US_${usId}_test_cases_${suffix}.json`);
 }
 
 /** Check which supporting docs exist for a US folder */
@@ -229,6 +264,7 @@ const SaveTcDraftShape = {
     steps: z.array(StepSchema).min(1),
   })).describe("Array of test cases"),
   commonPrerequisites: PrerequisitesSchema.optional().describe("Shared prerequisites for all TCs"),
+  suffix: z.string().regex(/^[a-z0-9_-]+$/).optional().describe("Optional suffix slug (lowercase, /^[a-z0-9_-]+$/) — when set, saves to tc-drafts/US_<id>/US_<id>_test_cases_<suffix>.md as a parallel pack alongside the canonical draft. Suffixed drafts embed a category tag (REG, E2E, SIT, …) in TC titles via the suffix→tag mapping. Omit for the canonical (default) draft."),
   workspaceRoot: z.string().optional().describe("Project folder path; drafts go to workspaceRoot/tc-drafts (created if missing)"),
   draftsPath: z.string().optional().describe("Exact path where to save drafts; use when user specifies a location. Overrides workspaceRoot."),
 };
@@ -252,6 +288,10 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         // installer dir's stale fallback.
         const config = await resolveConfigForCall(extra, input.workspaceRoot);
 
+        // Validate suffix (regex applied by zod, but assertValidSuffix gives a
+        // clearer error message + handles any callers that bypass the schema).
+        if (input.suffix !== undefined) assertValidSuffix(input.suffix);
+
         const now = new Date().toISOString().slice(0, 10);
         const data: TcDraftData = {
           userStoryId: input.userStoryId,
@@ -274,17 +314,22 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           commonPrerequisites: input.commonPrerequisites,
         };
 
-        const mdPath = join(usFolder, `US_${input.userStoryId}_test_cases.md`);
+        const mdPath = resolveSuffixedMdPath(tcDraftsDir, input.userStoryId, input.suffix);
 
-        const markdown = formatTcDraftToMarkdown(data, config);
+        const markdown = formatTcDraftToMarkdown(data, config, input.suffix);
         writeFileSync(mdPath, markdown, "utf-8");
 
-        const fileName = `US_${input.userStoryId}_test_cases.md`;
+        const fileName = input.suffix
+          ? `US_${input.userStoryId}_test_cases_${input.suffix}.md`
+          : `US_${input.userStoryId}_test_cases.md`;
         const fileUri = toFileUri(mdPath);
+        const suffixNote = input.suffix
+          ? ` (suffix: ${input.suffix} → category tag ${suffixToTag(input.suffix)})`
+          : "";
         return {
           content: [{
             type: "text" as const,
-            text: `Draft saved successfully!\n\n**File:** [${fileName}](${fileUri})\n**Folder:** tc-drafts/US_${input.userStoryId}/\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO. Use qa_draft_doc_save to create solution_design_summary and qa_cheat_sheet files._`,
+            text: `Draft saved successfully!${suffixNote}\n\n**File:** [${fileName}](${fileUri})\n**Folder:** tc-drafts/US_${input.userStoryId}/\n**Path:** ${mdPath}\n**Version:** ${input.version}\n**Test Cases:** ${input.testCases.length}\n\n_JSON will be generated when you push to ADO.${input.suffix ? "" : " Use qa_draft_doc_save to create solution_design_summary and qa_cheat_sheet files."}_`,
           }],
         };
       } catch (err) {
@@ -301,21 +346,24 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     "qa_draft_read",
     {
       title: "Read Test Case Draft",
-      description: "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout.",
+      description: "Read and return the markdown content of a test case draft for a User Story. Use to show the draft during review. Pass workspaceRoot or draftsPath. Supports both new subfolder (tc-drafts/US_<id>/) and legacy flat layout. Optional `suffix` argument routes to a parallel suffixed pack (e.g. suffix='regression' reads US_<id>_test_cases_regression.md).",
       inputSchema: {
         userStoryId: z.number().int().positive(),
+        suffix: z.string().regex(/^[a-z0-9_-]+$/).optional().describe("Optional suffix slug — when set, reads tc-drafts/US_<id>/US_<id>_test_cases_<suffix>.md instead of the canonical draft."),
         workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
         draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
       },
       outputSchema: READ_OUTPUT_SCHEMA,
     },
-    async ({ userStoryId, workspaceRoot, draftsPath }, extra) => {
+    async ({ userStoryId, suffix, workspaceRoot, draftsPath }, extra) => {
       try {
+        if (suffix !== undefined) assertValidSuffix(suffix);
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
-        const mdPath = resolveTestCasesMdPath(tcDraftsDir, userStoryId);
+        const mdPath = resolveSuffixedMdPath(tcDraftsDir, userStoryId, suffix);
         if (!existsSync(mdPath)) {
+          const variantNote = suffix ? ` (suffix: ${suffix})` : "";
           return {
-            content: [{ type: "text" as const, text: `No draft found for US ${userStoryId}.` }],
+            content: [{ type: "text" as const, text: `No draft found for US ${userStoryId}${variantNote}.` }],
             isError: true,
           };
         }
@@ -388,6 +436,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           status: string;
           version: number;
           layout: "subfolder" | "legacy";
+          suffix?: string;
           hasSummary: boolean;
           hasCheatSheet: boolean;
         }> = [];
@@ -423,6 +472,42 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
                 } catch {
                   entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0, layout: "subfolder", ...supportingDocs });
                 }
+              }
+
+              // Enumerate suffixed siblings under the same US folder.
+              // Match `US_<id>_test_cases_<suffix>.md` — the suffix segment
+              // is whatever sits between `_test_cases_` and `.md`.
+              try {
+                const siblings = readdirSync(usFolder);
+                for (const sib of siblings) {
+                  const m = sib.match(new RegExp(`^US_${usId}_test_cases_([a-z0-9_-]+)\\.md$`));
+                  if (!m) continue;
+                  const suffix = m[1];
+                  const sibPath = join(usFolder, sib);
+                  try {
+                    const raw = readFileSync(sibPath, "utf-8");
+                    const parsed = parseMarkdownHeader(raw);
+                    if (parsed) {
+                      entries.push({
+                        userStoryId: parsed.userStoryId,
+                        title: parsed.title,
+                        status: parsed.status,
+                        version: parsed.version,
+                        layout: "subfolder",
+                        suffix,
+                        hasSummary: false,
+                        hasCheatSheet: false,
+                      });
+                    } else {
+                      entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0, layout: "subfolder", suffix, hasSummary: false, hasCheatSheet: false });
+                    }
+                  } catch {
+                    entries.push({ userStoryId: usId, title: `US ${usId}`, status: "?", version: 0, layout: "subfolder", suffix, hasSummary: false, hasCheatSheet: false });
+                  }
+                }
+              } catch {
+                // Folder unreadable — skip suffixed enumeration; canonical entry
+                // (if any) was already recorded above.
               }
             }
           }
@@ -467,16 +552,24 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
 
-        // Sort by US ID
-        entries.sort((a, b) => a.userStoryId - b.userStoryId);
+        // Sort: by US ID asc, then canonical first (no suffix), then suffixed
+        // siblings alphabetically. Lets reviewers always see the main pack at
+        // the top of each US group.
+        entries.sort((a, b) => {
+          if (a.userStoryId !== b.userStoryId) return a.userStoryId - b.userStoryId;
+          if (!a.suffix && b.suffix) return -1;
+          if (a.suffix && !b.suffix) return 1;
+          return (a.suffix ?? "").localeCompare(b.suffix ?? "");
+        });
 
         const text = entries
           .map((e) => {
-            const docs = e.layout === "subfolder"
+            const docs = !e.suffix && e.layout === "subfolder"
               ? ` | Docs: ${e.hasSummary ? "Summary" : ""}${e.hasSummary && e.hasCheatSheet ? ", " : ""}${e.hasCheatSheet ? "CheatSheet" : ""}${!e.hasSummary && !e.hasCheatSheet ? "None" : ""}`
               : "";
             const layoutTag = e.layout === "legacy" ? " (legacy flat)" : "";
-            return `US_${e.userStoryId}: ${e.title} | Status: ${e.status} | v${e.version}${layoutTag}${docs}`;
+            const suffixTag = e.suffix ? ` [suffix: ${e.suffix}]` : "";
+            return `US_${e.userStoryId}: ${e.title}${suffixTag} | Status: ${e.status} | v${e.version}${layoutTag}${docs}`;
           })
           .join("\n");
 
@@ -543,9 +636,11 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     "qa_publish_push",
     {
       title: "Publish Test Cases to ADO",
-      description: "Push a reviewed test case draft to ADO. Ensures the Sprint → Epic → US suite hierarchy exists (auto-derives plan/sprint from the US unless overrides are provided), then creates or updates test cases and marks the draft APPROVED. Only call after explicit user confirmation. Pass workspaceRoot or draftsPath. Phase A consent gates: draft-status-draft, approved-without-ids, approved-with-ids-no-repush, repush-missing-ids. Phase B consent gates (mapping/mixed ops): draft-ids-not-linked (set proceedWithUnlinkedIds), existing-tcs-unmapped (set attemptMapping OR insertAnyway), mapping-preview → mapping confirm (set acknowledgeMapping + userConfirmedMapping), tc-number-mismatch (BLOCK; use insertAnyway as fallback), extras-in-ado (set acknowledgeExtras), mixed-update-create (set acknowledgeMixedOp). Plan/sprint consent gates: plan-resolution-failed, sprint-resolution-failed, missing-fields, override-mismatch (set confirmMismatch).",
+      description: "Push a reviewed test case draft to ADO. Ensures the Sprint → Epic → US suite hierarchy exists (auto-derives plan/sprint from the US unless overrides are provided), then creates or updates test cases and marks the draft APPROVED. Only call after explicit user confirmation. Pass workspaceRoot or draftsPath. Suffixed publish: pass `suffix=<slug>` to publish a parallel pack from US_<id>_test_cases_<slug>.md instead of the canonical draft; the tool emits two new gates BEFORE Phase A — `us-suite-missing-for-suffixed-publish` (BLOCK; canonical pack must land first) and `suffixed-suite-decision` (NEEDS-CONFIRMATION; pick A=create sub-suite + tag, B=tag only, C=cancel; reply via `createSuffixedSuite: true|false`). Phase A consent gates: draft-status-draft, approved-without-ids, approved-with-ids-no-repush, repush-missing-ids. Phase B consent gates (mapping/mixed ops): draft-ids-not-linked (set proceedWithUnlinkedIds), existing-tcs-unmapped (set attemptMapping OR insertAnyway), mapping-preview → mapping confirm (set acknowledgeMapping + userConfirmedMapping), tc-number-mismatch (BLOCK; use insertAnyway as fallback), extras-in-ado (set acknowledgeExtras), mixed-update-create (set acknowledgeMixedOp). Plan/sprint consent gates: plan-resolution-failed, sprint-resolution-failed, missing-fields, override-mismatch (set confirmMismatch).",
       inputSchema: {
         userStoryId: z.number().int().positive(),
+        suffix: z.string().regex(/^[a-z0-9_-]+$/).optional().describe("Optional suffix slug — when set, publishes the parallel pack tc-drafts/US_<id>/US_<id>_test_cases_<suffix>.md instead of the canonical draft. Drives the two new suffixed-publish gates."),
+        createSuffixedSuite: z.boolean().optional().describe("Suffixed publish only: response to the `suffixed-suite-decision` gate. true → create the static + query sub-suite under the US suite (option A). false → tag the TCs only, do not create a sub-suite (option B). Required to proceed past the gate; ignored when `suffix` is unset."),
         workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
         draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
         repush: z.boolean().optional().describe("If true, update existing test cases (by ADO ID in draft) instead of creating new ones. Use when draft was revised after initial push."),
@@ -566,14 +661,17 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         })).optional().describe("Phase B: the exact mapping the user confirmed — each entry must match a mappingProposal entry returned in the mapping-preview response. Required together with acknowledgeMapping."),
       },
     },
-    async ({ userStoryId, workspaceRoot, draftsPath, repush, insertAnyway, approveAndPush, resetToDraft, planId: planIdOverride, sprintNumber, confirmMismatch, attemptMapping, acknowledgeMapping, acknowledgeExtras, acknowledgeMixedOp, proceedWithUnlinkedIds, userConfirmedMapping }, extra) => {
+    async ({ userStoryId, suffix, createSuffixedSuite, workspaceRoot, draftsPath, repush, insertAnyway, approveAndPush, resetToDraft, planId: planIdOverride, sprintNumber, confirmMismatch, attemptMapping, acknowledgeMapping, acknowledgeExtras, acknowledgeMixedOp, proceedWithUnlinkedIds, userConfirmedMapping }, extra) => {
       try {
+        if (suffix !== undefined) assertValidSuffix(suffix);
+        const categoryTag = suffix ? suffixToTag(suffix) : undefined;
         const tcDraftsDir = resolveTcDraftsDir(workspaceRoot, draftsPath);
-        const mdPath = resolveTestCasesMdPath(tcDraftsDir, userStoryId);
+        const mdPath = resolveSuffixedMdPath(tcDraftsDir, userStoryId, suffix);
 
         if (!existsSync(mdPath)) {
+          const variantNote = suffix ? ` (suffix: ${suffix})` : "";
           return {
-            content: [{ type: "text" as const, text: `No draft found for US ${userStoryId}. Run qa-draft first.` }],
+            content: [{ type: "text" as const, text: `No draft found for US ${userStoryId}${variantNote}. Run qa-draft first.` }],
             isError: true,
           };
         }
@@ -598,6 +696,85 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         const allHaveAdoIds = data.testCases.every((tc) => tc.adoWorkItemId != null);
         const anyHaveAdoIds = data.testCases.some((tc) => tc.adoWorkItemId != null);
         const tcCount = data.testCases.length;
+
+        // ── Suffixed publish gates (run BEFORE Phase A/B for suffixed publishes only) ──
+        // Two new structured responses:
+        //   1. us-suite-missing-for-suffixed-publish — BLOCK when the canonical
+        //      pack hasn't published the US suite yet.
+        //   2. suffixed-suite-decision — NEEDS-CONFIRMATION when suffix is set
+        //      but createSuffixedSuite has not been answered yet.
+        // Skipped entirely for canonical (no-suffix) publishes.
+        if (suffix !== undefined && categoryTag !== undefined) {
+          // Try to derive the plan ID once for the gate check. We use the same
+          // precedence as the canonical flow (override > draft > auto-derive)
+          // but in a non-mutating way — we never create suite hierarchy from a
+          // suffixed publish.
+          const effectivePlanForGate = planIdOverride ?? data.planId;
+          let planForGate: number | undefined = effectivePlanForGate;
+          if (planForGate === undefined) {
+            try {
+              const usWi = await adoClient.get<AdoWorkItem>(
+                `/_apis/wit/workitems/${userStoryId}`,
+                "7.0",
+                { fields: "System.AreaPath" },
+              );
+              const ap = (usWi.fields["System.AreaPath"] as string) || "";
+              if (ap) {
+                const { resolvePlanIdFromAreaPath } = await import("../helpers/suite-structure.ts");
+                planForGate = resolvePlanIdFromAreaPath(ap, config);
+              }
+            } catch {
+              // Fall through — planForGate stays undefined; usSuiteExists will
+              // return false on the missing plan, so Gate 1 will fire with the
+              // canonical-pack-first message (correct outcome either way).
+            }
+          }
+
+          // Gate 1 — BLOCK if US suite doesn't exist yet.
+          const suiteExists = planForGate
+            ? await usSuiteExists(adoClient, planForGate, userStoryId, config)
+            : false;
+          if (!suiteExists) {
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify({
+                status: "needs-input",
+                reason: "us-suite-missing-for-suffixed-publish",
+                message:
+                  `🚫 BLOCK: Cannot publish suffixed pack '${suffix}' for US ${userStoryId} — the US-level test suite does not exist in ADO yet. ` +
+                  `Suffixed packs land alongside the canonical pack; the canonical pack must publish first so the Sprint → Parent → US suite hierarchy gets created.`,
+                suggestion:
+                  `Publish the canonical pack first: run /qa-publish ${userStoryId} (no suffix). Once it succeeds, re-run /qa-publish ${userStoryId} suffix=${suffix} to publish this suffixed pack.`,
+                resolvedSoFar: { userStoryId, suffix, categoryTag, planId: planForGate ?? null },
+              }, null, 2) }],
+              isError: true,
+            };
+          }
+
+          // Gate 2 — NEEDS-CONFIRMATION if createSuffixedSuite hasn't been answered.
+          // Skipped on repush (the decision has already been made on the previous push).
+          if (createSuffixedSuite === undefined && !isRepush) {
+            const capitalized = suffix.charAt(0).toUpperCase() + suffix.slice(1);
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify({
+                status: "needs-confirmation",
+                reason: "suffixed-suite-decision",
+                message:
+                  `ℹ️ INFO: Publishing suffixed pack '${suffix}' (category tag: ${categoryTag}) for US ${userStoryId}. ` +
+                  `Decide where the ${tcCount} test case(s) should land in the ADO suite tree.`,
+                suffix,
+                categoryTag,
+                tcCount,
+                options: [
+                  { key: "A", label: `Create '${capitalized}' sub-suite under the US suite`, action: `Re-run qa_publish_push with createSuffixedSuite: true. The tool creates a static '${capitalized}' folder under the US-level suite, with a query-based child filtering on TC_<usId>_${categoryTag}_. Each TC also gets System.Tags = '${capitalized}' for ADO-native filtering.` },
+                  { key: "B", label: `Tag the TCs only (no sub-suite)`, action: `Re-run qa_publish_push with createSuffixedSuite: false. TCs are created with System.Tags = '${capitalized}' and stay in the existing US-level query-based suite. Use when you prefer flat suite layout.` },
+                  { key: "C", label: `Cancel`, action: `Stop. No changes.` },
+                ],
+                resolvedSoFar: { userStoryId, suffix, categoryTag, planId: planForGate ?? null },
+              }, null, 2) }],
+              isError: true,
+            };
+          }
+        }
 
         // Scenario 2 option A: user confirmed reset APPROVED → DRAFT (no ADO IDs in draft).
         // Flip status in-place and abort the push so the user can re-review.
@@ -1072,6 +1249,18 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
               requestedTags.push(maybeCategory);
             }
           }
+          // Suffixed publish: add the capitalized suffix as a tag candidate so
+          // suffixed TCs get System.Tags = '<Capitalized>' for ADO-native
+          // filtering. Match-only policy still applies — the project must have
+          // the tag pre-created or it's silently skipped (and surfaced via
+          // allSkippedTags). The TAG-prefix in the title is the primary
+          // WIQL-filterable carrier; tags are a UX bonus.
+          if (suffix) {
+            const capitalized = suffix.charAt(0).toUpperCase() + suffix.slice(1);
+            if (!requestedTags.some((t) => t.toLowerCase() === capitalized.toLowerCase())) {
+              requestedTags.push(capitalized);
+            }
+          }
 
           const { matched: resolvedTags, skipped } = resolveTagsMatchOnly(requestedTags, projectTags);
           for (const s of skipped) allSkippedTags.add(s);
@@ -1088,6 +1277,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
             areaPath: data.areaPath,
             iterationPath: data.iterationPath,
             tags: resolvedTags.length > 0 ? resolvedTags : undefined,
+            categoryTag,
           };
 
           // At this point in the flow, having an adoWorkItemId means the push is
@@ -1159,9 +1349,11 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         // In-place write-back: flip Status DRAFT→APPROVED + append (ADO #N) to each TC title.
         // Preserves every other byte of the draft — Test Data rows, per-TC Pre-requisite blocks,
         // Coverage Checklists, Reviewer Notes, emoji tables, any custom sections. See
-        // applyPostPushEditsInPlace docstring for rationale.
+        // applyPostPushEditsInPlace docstring for rationale. Pass categoryTag so the
+        // title regex matches `TC_<usid>_<TAG>_<NN>` for suffixed publishes (canonical
+        // pubs leave categoryTag undefined and the regex falls back to `TC_<usid>_<NN>`).
         const idMap = results.map((r) => ({ tcNumber: r.tcNumber, adoId: r.id }));
-        const { updatedMd, titlesSkipped } = applyPostPushEditsInPlace(mdContent, userStoryId, idMap);
+        const { updatedMd, titlesSkipped } = applyPostPushEditsInPlace(mdContent, userStoryId, idMap, categoryTag);
         writeFileSync(mdPath, updatedMd, "utf-8");
         if (titlesSkipped.length > 0) {
           // Surfaced to caller via warnings array on the response payload
@@ -1171,9 +1363,10 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           console.warn(`[qa_publish_push] In-place title update skipped for TCs: ${titlesSkipped.join(", ")}. Re-run or inspect draft for unusual formatting.`);
         }
 
-        // Generate JSON co-located with the markdown (same folder)
-        const mdDir = join(mdPath, "..");
-        const jsonPath = join(mdDir, `US_${userStoryId}_test_cases.json`);
+        // Generate JSON co-located with the markdown (same folder). Suffixed
+        // publishes get their own JSON sibling (US_<id>_test_cases_<suffix>.json)
+        // so the canonical JSON snapshot stays untouched by parallel-pack pushes.
+        const jsonPath = resolveSuffixedJsonPath(tcDraftsDir, userStoryId, suffix);
         writeFileSync(
           jsonPath,
           JSON.stringify(
@@ -1184,12 +1377,55 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           "utf-8"
         );
 
+        // Suffixed publish: optionally create the suffixed sub-suite under the
+        // US-level query suite. Done AFTER TC creation so the new TCs auto-populate
+        // the dynamic child suite via WIQL. Failures here are non-fatal — TCs are
+        // already in ADO with the right tags; the sub-suite can be created later
+        // by re-running with createSuffixedSuite=true.
+        let subSuiteNote = "";
+        if (suffix && categoryTag && createSuffixedSuite === true) {
+          try {
+            // ensureSuiteHierarchyForUs returned the leaf US suite ID via planId
+            // — fetch it again here as the publish flow doesn't surface leafSuiteId.
+            // We could thread it through, but keeping the change surface small is
+            // worth the second call.
+            const usSuites = await adoClient.get<import("../types.ts").AdoTestSuiteListResponse>(
+              `/_apis/testplan/Plans/${planId}/suites`,
+              "7.1",
+            );
+            const idStr = String(userStoryId);
+            const sep = config.suiteStructure.parentUsSeparator ?? " | ";
+            const usSuite = usSuites.value.find((s) =>
+              (s.name ?? "").startsWith(`${idStr}${sep}`) || s.name === idStr,
+            );
+            if (usSuite) {
+              const subSuiteResult = await ensureSuffixedSubSuite(
+                adoClient, planId, usSuite.id, userStoryId, suffix, categoryTag,
+              );
+              subSuiteNote =
+                `\n\n**Sub-suite:** Created/verified '${suffix.charAt(0).toUpperCase() + suffix.slice(1)}' under the US suite ` +
+                `(static suite #${subSuiteResult.staticSuiteId}, query-based child #${subSuiteResult.querySuiteId}). ` +
+                `New TCs auto-populate the query-based child via System.Title CONTAINS 'TC_${userStoryId}_${categoryTag}_'.`;
+            } else {
+              subSuiteNote =
+                `\n\n**Sub-suite:** ⚠️ Could not locate the US-level suite for plan ${planId} after publish. ` +
+                `Sub-suite NOT created. Re-run with createSuffixedSuite=true once the US suite is in place.`;
+            }
+          } catch (subSuiteErr) {
+            const m = subSuiteErr instanceof Error ? subSuiteErr.message : String(subSuiteErr);
+            subSuiteNote =
+              `\n\n**Sub-suite:** ⚠️ Sub-suite creation failed (${m}). Test cases are already in ADO with the correct tags; ` +
+              `re-run with createSuffixedSuite=true to retry the sub-suite step.`;
+          }
+        }
+
         // Break out updated vs created in the success summary when the push was mixed.
         // Single-section summary when all were updates OR all were creates.
         const updated = results.filter((r) => r.op === "update");
         const created = results.filter((r) => r.op === "create");
+        const tagSegment = categoryTag ? `${categoryTag}_` : "";
         const renderLine = (r: { tcNumber: number; id: number }) =>
-          `TC_${userStoryId}_${String(r.tcNumber).padStart(2, "0")} → [ADO #${r.id}](${adoWorkItemUrl(adoClient, r.id)})`;
+          `TC_${userStoryId}_${tagSegment}${String(r.tcNumber).padStart(2, "0")} → [ADO #${r.id}](${adoWorkItemUrl(adoClient, r.id)})`;
 
         let summary: string;
         if (updated.length > 0 && created.length > 0) {
@@ -1200,12 +1436,15 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           summary = results.map((r) => `  ${renderLine(r)}`).join("\n");
         }
 
-        const mdFileName = `US_${userStoryId}_test_cases.md`;
+        const mdFileName = suffix
+          ? `US_${userStoryId}_test_cases_${suffix}.md`
+          : `US_${userStoryId}_test_cases.md`;
         const mdFileUri = toFileUri(mdPath);
+        const suffixHeader = suffix ? ` (suffix: ${suffix} → ${categoryTag})` : "";
         return {
           content: [{
             type: "text" as const,
-            text: `✅ SUCCESS: Pushed ${results.length} test case(s) to ADO for US ${userStoryId}.\n\n${summary}\n\n**Draft:** [${mdFileName}](${mdFileUri}) — updated to APPROVED.`,
+            text: `✅ SUCCESS: Pushed ${results.length} test case(s) to ADO for US ${userStoryId}${suffixHeader}.\n\n${summary}\n\n**Draft:** [${mdFileName}](${mdFileUri}) — updated to APPROVED.${subSuiteNote}`,
           }],
         };
       } catch (err) {

@@ -6,6 +6,44 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — Suffixed drafts + suffixed publish: parallel regression / E2E / SIT / UAT packs as first-class artifacts
+
+QA leads can now generate parallel test packs (regression, E2E, SIT, UAT, smoke, performance, or any custom slug) alongside the canonical draft for a User Story, and publish them independently with proper category tagging and optional sub-suite placement. Mirrors the suffixed-draft model that landed in Vortex JIRA, adapted for ADO terminology.
+
+**What's new:**
+
+- **`/qa-draft <USID> suffix=<slug>`.** Authors a separate `US_<USID>_test_cases_<suffix>.md` file alongside the canonical draft. The suffix becomes part of the filename, drives a category TAG embedded in TC titles (`TC_<USID>_REG_01 -> ...`), and adds a `**Suite Type** | <Capitalized Suffix> |` row to the header (replacing the Supporting Documents block — those are shared with the canonical pack).
+- **Suffix → tag mapping.** `regression` → `REG`, `e2e` → `E2E`, `sit` → `SIT`, `uat` → `UAT`, `smoke` → `SMOKE`, `performance` → `PERF`. Custom suffixes derive a 5-char uppercase truncation. Validation: `^[a-z0-9_-]+$`.
+- **`/qa-publish <USID> suffix=<slug>`.** Publishes the parallel pack with **two new gates BEFORE the canonical Phase A/B gates**:
+  1. **`us-suite-missing-for-suffixed-publish` (🚫 BLOCK).** The canonical pack must publish first — that's what creates the Sprint → Parent → US suite hierarchy. Block until the canonical publish has landed.
+  2. **`suffixed-suite-decision` (ℹ️ NEEDS-CONFIRMATION).** Three options surfaced: A) create `<Capitalized>` static + query sub-suite under the US suite, B) tag-only (no sub-suite), C) cancel. User picks via the new `createSuffixedSuite: true|false` argument.
+- **Independent TC numbering per pack.** Canonical numbering uses WIQL `NOT CONTAINS '_REG_'` (and similar for every known tag) plus a JS post-filter for defense-in-depth. Per-suffix numbering uses `CONTAINS '_<TAG>_'`. A US with 5 canonical TCs and 3 regression TCs reports `next canonical = 6`, `next regression = 4` — they never collide.
+- **`System.Tags` write on suffixed TCs.** Each TC published from a suffixed pack gets `System.Tags = '<Capitalized Suffix>'` for ADO-native filtering. Match-only policy applies — the project must have the tag pre-created or it's silently skipped (the title-prefix TAG is the primary filter mechanism).
+- **Per-pack JSON snapshot.** `US_<USID>_test_cases_<suffix>.json` is written next to the suffixed `.md` on every successful suffixed publish. The canonical JSON is untouched.
+
+**Canonical flow is unchanged.** When `suffix` is undefined (the default), every existing tool, prompt, and gate behaves exactly as before — same paths, same WIQL, same title shape (`TC_<USID>_<NN> -> ...`), same Supporting Documents block in the draft. The suffixed-publish gates are skipped entirely.
+
+**Tenant rules + samples shipped at `tenant-rules-examples/`:**
+
+- `qa.mdc` — agent rules covering the **mandatory user-confirmation gate** (Group A "new separate file" vs Group B "extend existing canonical draft"). Ambiguous QA-engineer prompts now trigger an A/B/CANCEL prompt before the agent picks a path.
+- `sample-drafts/US_1234_test_cases_regression.md` — parser-validated reference draft that matches the formatter output exactly. Reviewers can use it as a shape template for their own regression packs.
+
+**Files changed:**
+
+- `src/helpers/suffix-tag.ts` — NEW. Suffix→tag mapping (`suffixToTag`), `assertValidSuffix`, `ALL_KNOWN_TAGS` constant, `tagToSuffixHint` reverse helper.
+- `src/helpers/tc-title-builder.ts` — `buildTcTitle` now accepts an optional `suffix?: string` arg that embeds the resolved tag between US ID and TC number.
+- `src/helpers/tc-draft-parser.ts` — `parseTcTitle` regex extended to capture the optional `_<TAG>_` segment into a new `categoryTag?: string` field on `TcDraftTestCase`.
+- `src/helpers/tc-draft-formatter.ts` — `formatTcDraftToMarkdown` now accepts an optional `suffix?: string` arg. When set, threads the suffix through to `buildTcTitle`, appends the `**Suite Type** | <Capitalized> |` header row, and skips Supporting Documents.
+- `src/tools/test-cases.ts` — `CreateTestCaseParams` gets a new optional `categoryTag?: string`; `getNextTcNumber` accepts the same and switches WIQL strategy (NOT CONTAINS for canonical, CONTAINS for per-suffix); `createTestCase` and `updateTestCaseFromParams` thread categoryTag through to the title builder.
+- `src/tools/test-suites.ts` — NEW exports `usSuiteExists` (read-only predicate) and `ensureSuffixedSubSuite` (idempotent find-or-create for the static + query sub-suite under the US suite).
+- `src/tools/tc-drafts.ts` — `qa_draft_save`, `qa_draft_read`, `qa_drafts_list`, `qa_publish_push` all accept `suffix?: string`; `qa_publish_push` adds the two new gates and the `createSuffixedSuite` arg; new path helpers `resolveSuffixedMdPath` / `resolveSuffixedJsonPath`. `applyPostPushEditsInPlace` regex extended to optionally include the tag segment.
+- `src/prompts/index.ts` — `qa-draft` prompt teaches the agent when to use `suffix=`; `qa-publish` prompt documents the two new gate reason codes.
+- `tenant-rules-examples/qa.mdc` and `tenant-rules-examples/sample-drafts/US_1234_test_cases_regression.md` — NEW reference content for tenants.
+- `docs/ADO Quick Start Guide.md` — new "Generating regression / E2E / SIT / UAT drafts (optional)" section between "What gets created" and "Slash commands".
+- Test additions: `src/helpers/suffix-tag.test.ts`, `src/helpers/tc-draft-parser-suffix.test.ts`, `src/helpers/tc-title-builder.test.ts`, `src/tools/tc-drafts-suffix-publish.test.ts`, `src/tools/test-cases-create-suffix.test.ts`, plus extensions to `src/tools/test-suites.test.ts` covering `usSuiteExists` + `ensureSuffixedSubSuite`.
+
+**Test count delta:** 471 → 502 (31 new tests for suffix mapping, parser round-trip, title builder, suite predicates + creation, per-suffix WIQL numbering, and the two new publish gates).
+
 ### 2026-05-17 — Functionality Process Flow: 3-tier rule, no more wall-of-text (mirrors Vortex JIRA)
 
 The previous flow authoring rule allowed a "use numbered text-block format" branch when stories had multiple paths or persona handoffs. In practice that branch tempted the agent to dump 30+ lines of structured prose that pulled reviewer attention away from the test cases and flirted with fabrication when the source story was thin. Replaced with the same three-tier walk that just landed in Vortex JIRA.

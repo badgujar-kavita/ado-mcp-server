@@ -1,0 +1,260 @@
+---
+description: >
+  Vortex ADO — agent guidance for /qa-draft and /qa-publish. Tells
+  the AI agent how to map QA-engineer intent ("generate regression
+  cases", "draft SIT scenarios") to the right slash-command arguments
+  so that test cases land in the correct workspace files and publish
+  cleanly to ADO with the right tags and suite placement.
+alwaysApply: true
+---
+
+# Vortex ADO — agent rules
+
+## Two intents you must distinguish — Group A vs Group B
+
+When a user asks for non-functional / parallel test cases, classify
+their request into ONE of these groups BEFORE doing anything:
+
+### Group A — parallel suffixed pack (separate file)
+
+User phrases that fall into Group A:
+
+- "generate regression test cases for `<USID>`"
+- "draft an E2E pack for `<USID>`"
+- "write SIT scenarios for `<USID>`"
+- "we need a separate performance set for `<USID>`"
+- "add an integration / smoke / UAT draft for `<USID>`"
+
+Group A wants a **parallel draft file** that lives next to the
+canonical draft for the same User Story, with its own review and
+publish lifecycle.
+
+### Group B — extend the existing canonical draft
+
+User phrases that fall into Group B:
+
+- "add 3 negative cases to `<USID>`"
+- "I'm missing edge cases for `<USID>` — fill them in"
+- "extend the test pack for `<USID>`"
+- "include a few more boundary scenarios in `<USID>`"
+
+Group B wants **additional rows in the existing
+`US_<USID>_test_cases.md`** with the appropriate `Test Type` value
+(`Negative`, `Edge`, etc.). Do NOT call `/qa-draft` again with a
+suffix in this case — edit the canonical draft directly.
+
+### Mandatory user-confirmation gate for Group A
+
+Group A is irreversible in one direction: once you create a separate
+suffixed file, the user must review and publish it independently. So
+**before generating ANY suffixed file**, ask the user to choose
+between A and B verbatim:
+
+```
+You said: "<verbatim user prompt>"
+
+I can interpret this two ways. Which do you want?
+
+  A) Create a NEW separate draft file:
+     `US_<id>_test_cases_<suffix>.md`
+     Reviewed and published independently from the canonical pack.
+
+  B) ADD <suite-type> test cases to the EXISTING canonical draft:
+     `US_<id>_test_cases.md`
+     New TCs get tagged appropriately in the same file.
+
+Reply A or B (or CANCEL).
+```
+
+Apply the consent contract: **ambiguous replies are NOT consent.**
+"hmm", "idk", sarcasm, frustration, rhetorical questions, plain
+"yes" — none of these pick an option. Re-ask until you get an
+exact `A`, `B`, or `CANCEL`.
+
+## When the user picks A — call `/qa-draft` with `suffix`
+
+| User says | Call this |
+|---|---|
+| regression | `/qa-draft <USID> suffix=regression` |
+| end-to-end / E2E | `/qa-draft <USID> suffix=e2e` |
+| SIT / system integration | `/qa-draft <USID> suffix=sit` |
+| smoke | `/qa-draft <USID> suffix=smoke` |
+| performance / load | `/qa-draft <USID> suffix=performance` |
+| UAT | `/qa-draft <USID> suffix=uat` |
+
+**Suffix rules (HARD — do not improvise):**
+
+1. Lowercase only. ASCII letters, digits, hyphen, underscore. Regex
+   `^[a-z0-9_-]+$`. Anything else is rejected by the MCP.
+2. Use the canonical names above when the user's phrasing matches
+   one. If it doesn't match, **ASK** the user for a one-word suffix;
+   do NOT invent one yourself.
+3. The suffix becomes part of the filename
+   (`US_<USID>_test_cases_<suffix>.md`) and the per-suffix JSON
+   snapshot. Choose carefully — it's hard to rename later.
+
+## When the user picks B — extend the canonical draft
+
+Edit the existing `US_<USID>_test_cases.md` directly:
+
+- Append new test cases with the correct `Test Type` row in the per-TC
+  metadata table. Allowed values are governed by your tenant's ADO
+  field configuration.
+- Re-emit the canonical draft via `qa_draft_save` (no `suffix` arg) so
+  the version metadata is bumped and the markdown is reformatted by
+  the canonical formatter.
+- The user reviews the same file and re-runs `/qa-publish <USID>`
+  (no suffix). Repush handles the diff.
+
+## Tagging the test cases (suffixed packs)
+
+When you author a suffixed pack, the MCP automatically:
+
+- Embeds the **CATEGORY tag** in TC titles (`TC_<USID>_REG_01 -> ...`).
+- Adds a **`| **Suite Type** | <Capitalized Suffix> |`** row to the
+  draft header, replacing the Supporting Documents block (the
+  canonical pack already owns those — solution design summary and QA
+  cheat sheet are authored once per US).
+- On publish, sets `System.Tags = '<Capitalized Suffix>'` on each TC.
+  Tags are MATCH-ONLY — your project must have the tag pre-created or
+  the MCP silently drops it.
+
+The CATEGORY tag in titles is the **primary** filter mechanism (works
+in WIQL, in ADO query-based suites, and in the ADO UI search bar).
+`System.Tags` is a secondary nicety — useful for ADO dashboards but
+not load-bearing.
+
+## Approval & publish workflow per suffix
+
+Each suffixed draft has its own independent lifecycle. After
+authoring:
+
+1. Confirm with the user that the new variant is ready for review.
+2. They flip the frontmatter `Status` row to `APPROVED` (or you can
+   do it on their explicit go-ahead by re-running `qa_draft_save`).
+3. They run `/qa-publish <USID> suffix=<suffix>` — note the suffix
+   argument is REQUIRED on the publish call too. Without it, you'll
+   publish the canonical draft, not the variant.
+
+**Two new gates fire on a suffixed publish (BEFORE the canonical
+Phase A/B gates):**
+
+- **`us-suite-missing-for-suffixed-publish` (🚫 BLOCK).** The canonical
+  pack must publish first so the Sprint → Parent → US suite hierarchy
+  exists. Surface the message and stop until the user runs the
+  canonical publish.
+- **`suffixed-suite-decision` (ℹ️ NEEDS-CONFIRMATION).** Three options:
+  - **A** — Create a `<Capitalized>` static + query sub-suite under the
+    US suite. New TCs auto-populate the query child via WIQL `CONTAINS
+    'TC_<USID>_<TAG>_'`. Re-run with `createSuffixedSuite: true`.
+  - **B** — Tag-only. TCs land in the existing US-level query suite;
+    no sub-suite is created. Re-run with `createSuffixedSuite: false`.
+  - **C** — Cancel.
+
+  Apply the consent contract — bare 'yes' is NOT an option pick.
+
+## Test-case title format — REQUIRED
+
+Every per-TC title MUST follow this shape:
+
+```
+TC_<USID>_<NN>                                         (canonical / no suffix)
+TC_<USID>_<TAG>_<NN>                                   (suffixed)
+```
+
+Where:
+
+- `<USID>` — User Story numeric ID, e.g. `1234`.
+- `<TAG>` — short uppercase tag matching the draft's purpose (see the
+  table below). For the canonical (functional) draft, the TAG segment
+  is **omitted**, so the prefix is just `TC_<USID>_<NN>`.
+- `<NN>` — two-digit zero-padded number within this draft's scope
+  (`01`, `02`, …). Each suffixed file has its own independent
+  numbering — no cross-file collision. The MCP enforces this via
+  WIQL: canonical numbering uses `NOT CONTAINS '_REG_'` (and similar
+  for every known tag); per-suffix numbering uses `CONTAINS
+  '_<TAG>_'`. You don't have to think about the numbering — just
+  pass `tcNumber` starting at 1 for each suffixed file.
+
+### Category tag — pick from this list
+
+| Suffix arg passed to `/qa-draft` | CATEGORY tag in title | Example |
+|---|---|---|
+| (none — canonical draft) | _(omit)_ | `TC_1234_01 -> …` |
+| `regression` | `REG` | `TC_1234_REG_01 -> …` |
+| `e2e` | `E2E` | `TC_1234_E2E_01 -> …` |
+| `sit` | `SIT` | `TC_1234_SIT_01 -> …` |
+| `smoke` | `SMOKE` | `TC_1234_SMOKE_01 -> …` |
+| `performance` | `PERF` | `TC_1234_PERF_01 -> …` |
+| `uat` | `UAT` | `TC_1234_UAT_01 -> …` |
+
+Use ALL CAPS, ASCII letters only, no spaces, no hyphens. Tags are
+2-5 characters — they appear in every test-case name and become
+part of the ADO `System.Title` field, so brevity matters.
+
+If your team needs a category not on this list, add it to the suffix
+→ tag mapping in `src/helpers/suffix-tag.ts` BEFORE asking the agent
+to generate cases — don't let the agent invent its own tag.
+
+### Why this exact shape
+
+- **The `TC_` prefix is required** for the post-publish
+  `(ADO #1234567)` annotation to inject back into the draft.
+  Lines without it publish fine but lose the inline ID mapping.
+- **The `<TAG>` segment is searchable** in both the local draft
+  and the ADO UI — search on `_REG_` will surface every regression
+  case across the project.
+- **The `_<NN>` suffix** keeps numbering predictable within each
+  draft, even when the same User Story has functional + regression +
+  E2E packs.
+
+### What this looks like in practice
+
+```
+tc-drafts/US_1234/
+├── US_1234_test_cases.md            (canonical — TC_1234_01, _02, _03 …)
+├── US_1234_test_cases_regression.md (TC_1234_REG_01, _REG_02 …)
+├── US_1234_test_cases_e2e.md        (TC_1234_E2E_01, _E2E_02 …)
+└── US_1234_test_cases_sit.md        (TC_1234_SIT_01, _SIT_02 …)
+```
+
+After publish, each draft gets `(ADO #N)` appended to each title
+line, so the local-to-cloud mapping stays visible at a glance.
+
+### Worked example
+
+A complete, parser-validated regression draft lives in this rule
+pack at:
+
+```
+sample-drafts/US_1234_test_cases_regression.md
+```
+
+Refer to it whenever you author a non-functional pack. Its title
+lines, metadata table, common prerequisites, and per-TC sections
+show the canonical shape end-to-end. Do **not** copy the file into
+the user's workspace — generate fresh drafts with `/qa-draft`; the
+sample is reference material only.
+
+## What you must NEVER do
+
+- Hand-write or rename `US_<USID>_test_cases_<suffix>.md` outside the
+  `/qa-draft` command. The frontmatter, version metadata, and JSON
+  snapshot must be kept in sync — only the tool can do that safely.
+- Call `/qa-publish` without the matching `suffix` argument. The
+  canonical and suffixed drafts have separate JSON snapshots and
+  separate ADO push state; mixing them will publish the wrong file.
+- Move suffixed files into a sub-folder. The path layout is fixed:
+  `tc-drafts/US_<USID>/US_<USID>_test_cases_<suffix>.md`.
+- Touch `solution_design_summary.md` or `qa_cheat_sheet.md` from a
+  suffixed-draft author flow — these are shared per User Story and
+  authored once with the canonical pack.
+- Skip the Group A vs Group B confirmation gate. ALWAYS ask before
+  authoring a suffixed file from an ambiguous request.
+
+## When in doubt
+
+Run `/ado-check`. The diagnostic surfaces every draft, every
+suffixed sibling, and the verdict on each. If any row reports
+`missing` or `invalid`, stop and surface the message — do not
+attempt to publish until the diagnostic is green.

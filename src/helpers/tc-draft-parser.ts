@@ -84,11 +84,16 @@ function parseTableValue(content: string, fieldName: string): string | null {
   return m ? unescape(m[1].trim()) : null;
 }
 
-function parseTcTitle(title: string): { tcNumber: number; featureTags: string[]; useCaseSummary: string } | null {
+function parseTcTitle(title: string): { tcNumber: number; featureTags: string[]; useCaseSummary: string; categoryTag?: string } | null {
   // Support both " -> " and " → " (Unicode arrow)
-  const tcMatch = title.match(/^TC_(\d+)_(\d+)\s*(?:->|→)\s*(.+)$/);
+  // Optional category tag between US id and TC number — `TC_<usid>_<TAG>_<NN>` where
+  // TAG is 2-5 chars starting with an ASCII uppercase letter, then letters/digits.
+  // Examples: REG, E2E, SIT, UAT, SMOKE, PERF. Leading letter requirement keeps a
+  // canonical title `TC_1234_01` from accidentally matching the tag group with the
+  // number — the optional group is lookahead-anchored to the trailing `_<digits>`.
+  const tcMatch = title.match(/^TC_(\d+)(?:_([A-Z][A-Z0-9]{1,4}))?_(\d+)\s*(?:->|→)\s*(.+)$/);
   if (!tcMatch) return null;
-  const [, , tcNum, rest] = tcMatch;
+  const [, , categoryTag, tcNum, rest] = tcMatch;
   const parts = rest.split(/\s*(?:->|→)\s*/);
   if (parts.length < 2) return null;
   const useCaseSummary = parts[parts.length - 1];
@@ -97,6 +102,7 @@ function parseTcTitle(title: string): { tcNumber: number; featureTags: string[];
     tcNumber: parseInt(tcNum!, 10),
     featureTags,
     useCaseSummary,
+    categoryTag: categoryTag || undefined,
   };
 }
 
@@ -320,6 +326,7 @@ export function parseTcDraftFromMarkdown(
       tcNumber: tcNum,
       featureTags,
       useCaseSummary,
+      categoryTag: parsed?.categoryTag,
       priority,
       prerequisites: hasPerTcPrereq
         ? {

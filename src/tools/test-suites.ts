@@ -460,6 +460,102 @@ async function ensureSuiteHierarchy(
   };
 }
 
+/**
+ * Predicate: does the US-level query-based suite already exist for this US?
+ *
+ * Used by the suffixed publish flow to gate the new `us-suite-missing-for-
+ * suffixed-publish` consent response — we never auto-create suite hierarchy
+ * from a suffixed publish (the canonical pack should land first), we only
+ * proceed if the leaf US suite already exists. Read-only — never creates.
+ *
+ * Implementation: scans the plan's suite tree for any suite whose name STARTS
+ * with the US ID followed by the configured `parentUsSeparator` (default
+ * `" | "`), per `buildUsFolderName`. Returns false on any fetch failure so the
+ * caller gets the actionable "suite-missing" gate rather than a 500.
+ */
+export async function usSuiteExists(
+  client: AdoClient,
+  planId: number,
+  userStoryId: number,
+  config?: ConventionsConfig,
+): Promise<boolean> {
+  try {
+    const allSuites = await client.get<AdoTestSuiteListResponse>(
+      `/_apis/testplan/Plans/${planId}/suites`,
+      "7.1",
+    );
+    const idStr = String(userStoryId);
+    // The configured separator defaults to " | " (see ConventionsConfig defaults).
+    // Prefix check on `<id><sep>` tolerates any title; exact-match without separator
+    // also accepted for paranoia (some legacy suites may be bare-numeric).
+    const separator = config?.suiteStructure?.parentUsSeparator ?? " | ";
+    const prefix = `${idStr}${separator}`;
+    return (allSuites.value ?? []).some((s) => {
+      const name = (s.name ?? "").trim();
+      return name === idStr || name.startsWith(prefix);
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensure a suffixed sub-suite exists under the US-level query-based suite.
+ *
+ * Layout produced (idempotent — find-or-create at every level):
+ *   <plan> > Sprint N > Parent | Title > USID | Title  (the US suite — must already exist)
+ *     └── <Capitalized Suffix>             (NEW: static container)
+ *           └── <Capitalized Suffix>       (NEW: query-based suite filtering on the TAG)
+ *
+ * The query-based child uses the WIQL `[System.Title] CONTAINS 'TC_<usId>_<TAG>_'`
+ * so newly-published suffixed TCs auto-populate it. The static parent gives
+ * the suite a clear human-readable home in the ADO UI tree.
+ *
+ * Caller must ensure the US-level suite already exists (see `usSuiteExists`).
+ * `usSuiteId` is the suite ID of the US-level dynamic suite (i.e. the leaf
+ * returned by `ensureSuiteHierarchyForUs.leafSuiteId`).
+ */
+export async function ensureSuffixedSubSuite(
+  client: AdoClient,
+  planId: number,
+  usSuiteId: number,
+  userStoryId: number,
+  suffix: string,
+  categoryTag: string,
+): Promise<{ staticSuiteId: number; querySuiteId: number; created: string[]; existing: string[] }> {
+  if (!suffix) throw new Error("ensureSuffixedSubSuite requires a non-empty suffix.");
+  if (!categoryTag) throw new Error("ensureSuffixedSubSuite requires a non-empty categoryTag.");
+
+  const created: string[] = [];
+  const existing: string[] = [];
+
+  const folderName = suffix.charAt(0).toUpperCase() + suffix.slice(1);
+
+  // Static container under the US suite
+  const staticResult = await findOrCreateSuite(
+    client, planId, usSuiteId, folderName, "staticTestSuite",
+  );
+  (staticResult.created ? created : existing).push(folderName);
+
+  // Query-based child filtering on the TAG
+  const queryString =
+    `SELECT [System.Id] FROM WorkItems ` +
+    `WHERE [System.WorkItemType] = 'Test Case' ` +
+    `AND [System.Title] CONTAINS 'TC_${userStoryId}_${categoryTag}_'`;
+
+  const queryResult = await findOrCreateSuite(
+    client, planId, staticResult.suite.id, folderName, "dynamicTestSuite", queryString,
+  );
+  (queryResult.created ? created : existing).push(`${folderName} (query)`);
+
+  return {
+    staticSuiteId: staticResult.suite.id,
+    querySuiteId: queryResult.suite.id,
+    created,
+    existing,
+  };
+}
+
 interface FindOrCreateResult {
   created: boolean;
   suite: AdoTestSuite;

@@ -13,6 +13,16 @@ export interface TcDraftTestCase {
   tcNumber: number;
   featureTags: string[];
   useCaseSummary: string;
+  /**
+   * Category tag captured from the title segment between US id and TC number
+   * (e.g. "REG", "E2E", "SIT"). `undefined` for the canonical (no-suffix)
+   * draft. Set by the parser; passed through by the formatter when a draft
+   * is written from a structured payload (see `formatTcDraftToMarkdown`'s
+   * `suffix` arg). The publish flow uses this to route TCs to the right
+   * `getNextTcNumber` strategy and to pass the right `categoryTag` to
+   * `createTestCase` / `updateTestCaseFromParams`.
+   */
+  categoryTag?: string;
   priority?: number;
   prerequisites?: {
     personas?: string | string[] | null;
@@ -93,6 +103,7 @@ export interface TcDraftData {
 export function formatTcDraftToMarkdown(
   data: TcDraftData,
   config: ConventionsConfig = loadConventionsConfig(),
+  suffix?: string,
 ): string {
   const lines: string[] = [];
 
@@ -107,18 +118,32 @@ export function formatTcDraftToMarkdown(
   lines.push(`| **Last Updated** | ${data.lastUpdated} |`);
   lines.push(`| **Drafted By** | ${escape(draftedBy)} |`);
   lines.push(`| **Plan ID** | ${data.planId ?? "To be derived"} |`);
+  if (suffix) {
+    // Suffixed drafts add a Suite Type row so reviewers can see at a glance
+    // which parallel pack they're reading. Capitalize the first letter; the
+    // rest of the suffix stays as-is so hyphenated custom suffixes stay
+    // human-readable.
+    const capitalized = suffix.charAt(0).toUpperCase() + suffix.slice(1);
+    lines.push(`| **Suite Type** | ${escape(capitalized)} |`);
+  }
   lines.push("");
   lines.push("---");
   lines.push("");
 
-  // Supporting Documents (relative links to other files in the same US folder)
-  lines.push("## Supporting Documents");
-  lines.push("");
-  lines.push(`- Solution Design Summary: [Open](./US_${data.userStoryId}_solution_design_summary.md)`);
-  lines.push(`- QA Cheat Sheet: [Open](./US_${data.userStoryId}_qa_cheat_sheet.md)`);
-  lines.push("");
-  lines.push("---");
-  lines.push("");
+  // Supporting Documents block — canonical drafts only. Suffixed packs
+  // share the same supporting docs as the canonical pack (solution design
+  // summary, QA cheat sheet are authored once per US), so duplicating the
+  // links here would just confuse reviewers about which file is the
+  // source of truth.
+  if (!suffix) {
+    lines.push("## Supporting Documents");
+    lines.push("");
+    lines.push(`- Solution Design Summary: [Open](./US_${data.userStoryId}_solution_design_summary.md)`);
+    lines.push(`- QA Cheat Sheet: [Open](./US_${data.userStoryId}_qa_cheat_sheet.md)`);
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+  }
 
   // Functionality Process Flow (optional)
   if (data.functionalityProcessFlow?.trim()) {
@@ -253,7 +278,7 @@ export function formatTcDraftToMarkdown(
 
   // Each test case
   for (const tc of data.testCases) {
-    const title = buildTcTitle(data.userStoryId, tc.tcNumber, tc.featureTags, tc.useCaseSummary);
+    const title = buildTcTitle(data.userStoryId, tc.tcNumber, tc.featureTags, tc.useCaseSummary, config, suffix);
     const adoIdSuffix = tc.adoWorkItemId ? ` (ADO #${tc.adoWorkItemId})` : "";
     lines.push(`## Test Case ${tc.tcNumber}`);
     lines.push("");

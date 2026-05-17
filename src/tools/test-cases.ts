@@ -7,6 +7,7 @@ import type { AdoWorkItem, JsonPatchOperation, TestCaseResult, ConventionsConfig
 import { loadConventionsConfig } from "../config.ts";
 import { resolveConfigForCall } from "../workspace/config-for-call.ts";
 import { buildTcTitle } from "../helpers/tc-title-builder.ts";
+import { ALL_KNOWN_TAGS, tagToSuffixHint } from "../helpers/suffix-tag.ts";
 import { buildPrerequisitesHtml } from "../helpers/prerequisites.ts";
 import { buildStepsXml } from "../helpers/steps-builder.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
@@ -563,6 +564,14 @@ export interface CreateTestCaseParams {
    * created. Pass resolved matches here; undefined/empty = no tag write op.
    */
   tags?: string[];
+  /**
+   * Suffix-derived category tag (e.g. "REG", "E2E", "SIT"). When provided, the
+   * TC title is built as `TC_<usId>_<TAG>_<NN> -> ...` instead of the canonical
+   * `TC_<usId>_<NN> -> ...`, AND `getNextTcNumber` is restricted to the matching
+   * tag prefix so canonical numbering and per-suffix numbering never collide.
+   * `undefined` = canonical (no tag) — preserves today's behaviour exactly.
+   */
+  categoryTag?: string;
 }
 
 export async function createTestCase(
@@ -578,8 +587,14 @@ export async function createTestCase(
   const usAreaPath = (usItem.fields["System.AreaPath"] as string) || "";
   const usIterationPath = (usItem.fields["System.IterationPath"] as string) || "";
 
-  const tcNumber = params.tcNumber ?? await getNextTcNumber(client, params.userStoryId, usAreaPath, config);
-  const title = buildTcTitle(params.userStoryId, tcNumber, params.featureTags, params.useCaseSummary, config);
+  const tcNumber = params.tcNumber ?? await getNextTcNumber(client, params.userStoryId, usAreaPath, config, params.categoryTag);
+  // buildTcTitle's `suffix` arg is the lowercase user-facing slug; resolve a
+  // canonical hint from the tag (REG → regression, E2E → e2e, …) so canonical
+  // tags round-trip cleanly. For non-canonical tags this just returns the
+  // lowercased tag, which is good enough for title construction since the
+  // resolved TAG via `suffixToTag` will share the same letters.
+  const titleSuffix = params.categoryTag ? tagToSuffixHint(params.categoryTag) : undefined;
+  const title = buildTcTitle(params.userStoryId, tcNumber, params.featureTags, params.useCaseSummary, config, titleSuffix);
   const description = buildPrerequisitesHtml(params.prerequisites, config);
   const stepsXml = buildStepsXml(params.steps);
   // Prefer User Story's paths (live from ADO) to avoid TF401347 Invalid tree name - draft parsing can differ
@@ -649,7 +664,8 @@ export async function updateTestCaseFromParams(
   params: CreateTestCaseParams,
   config: ConventionsConfig = loadConventionsConfig(),
 ): Promise<TestCaseResult> {
-  const title = buildTcTitle(params.userStoryId, params.tcNumber ?? 0, params.featureTags, params.useCaseSummary, config);
+  const titleSuffix = params.categoryTag ? tagToSuffixHint(params.categoryTag) : undefined;
+  const title = buildTcTitle(params.userStoryId, params.tcNumber ?? 0, params.featureTags, params.useCaseSummary, config, titleSuffix);
   const prereqHtml = buildPrerequisitesHtml(params.prerequisites, config);
   const stepsXml = buildStepsXml(params.steps);
   const prereqField = config.prerequisiteFieldRef ?? "System.Description";
@@ -683,22 +699,65 @@ export async function updateTestCaseFromParams(
   };
 }
 
+/**
+ * Compute the next TC number for a user story.
+ *
+ * Strategy depends on whether `categoryTag` is set:
+ *
+ * - `categoryTag` undefined (canonical pool): WIQL counts every TC whose title
+ *   matches `TC_<usId>_` AND does NOT contain any of the known suffix tags
+ *   (`_REG_`, `_E2E_`, `_SIT_`, …). This isolates canonical numbering from
+ *   suffixed numbering — a US with 5 canonical TCs and 3 regression TCs
+ *   reports `next canonical = 6`, NOT 9. Defense-in-depth: even after the
+ *   WIQL filter, we still resolve titles via the parser and drop any whose
+ *   `categoryTag` is non-empty (catches edge cases where a tag is embedded
+ *   in a way the WIQL `NOT CONTAINS` regex misses, e.g. casing differences).
+ *
+ * - `categoryTag` set (per-suffix pool): WIQL counts only TCs whose title
+ *   matches `TC_<usId>_<TAG>_` exactly. Numbering restarts at 1 per tag,
+ *   matching the .mdc rule that each suffixed file has its own independent
+ *   numbering.
+ *
+ * Falls back to 1 on WIQL error so first-push is never blocked by a transient
+ * fetch failure (matches the pre-existing behaviour).
+ */
 async function getNextTcNumber(
   client: AdoClient,
   usId: number,
   areaPath: string,
   config: ConventionsConfig,
+  categoryTag?: string,
 ): Promise<number> {
   // The WIQL prefix mirrors `suiteStructure.tcTitlePrefix` so the lookup
   // matches whatever the team uses for query-based suites.
   const prefix = config.suiteStructure.tcTitlePrefix ?? "TC";
-  const wiql = {
-    query:
-      `SELECT [System.Id] FROM WorkItems ` +
+
+  let queryWhere: string;
+  if (categoryTag) {
+    queryWhere =
+      `WHERE [System.WorkItemType] = 'Test Case' ` +
+      `AND [System.AreaPath] UNDER '${areaPath}' ` +
+      `AND [System.Title] CONTAINS '${prefix}_${usId}_${categoryTag}_'`;
+  } else {
+    // Subtract every known suffix tag from the canonical pool. WIQL doesn't
+    // support regex so we chain `NOT CONTAINS` for each known tag — that's
+    // correct for the documented tags (REG, E2E, SIT, UAT, SMOKE, PERF) and
+    // falls back gracefully for unknown tags via the JS post-filter below.
+    const notContainsClauses = ALL_KNOWN_TAGS
+      .map((tag) => `AND [System.Title] NOT CONTAINS '_${tag}_'`)
+      .join(" ");
+    queryWhere =
       `WHERE [System.WorkItemType] = 'Test Case' ` +
       `AND [System.AreaPath] UNDER '${areaPath}' ` +
       `AND [System.Title] CONTAINS '${prefix}_${usId}_' ` +
-      `ORDER BY [System.Title] DESC`,
+      notContainsClauses;
+  }
+
+  const wiql = {
+    query:
+      `SELECT [System.Id] FROM WorkItems ` +
+      queryWhere +
+      ` ORDER BY [System.Title] DESC`,
   };
 
   try {
@@ -708,7 +767,43 @@ async function getNextTcNumber(
       "application/json",
       "7.0"
     );
-    return (result.workItems?.length ?? 0) + 1;
+    const ids = result.workItems ?? [];
+
+    if (categoryTag || ids.length === 0) {
+      // Per-suffix path: WIQL is precise (CONTAINS the exact `_<TAG>_` segment),
+      // no JS post-filter needed. Empty result also short-circuits to 1.
+      return ids.length + 1;
+    }
+
+    // Canonical path: defense-in-depth post-filter to drop any title whose
+    // parsed `categoryTag` is non-empty. Fetches titles for the matched IDs
+    // (single batched call) and runs the title-parser regex.
+    if (ids.length === 0) return 1;
+    const idList = ids.map((w) => w.id).join(",");
+    try {
+      const fetched = await client.get<{ value: AdoWorkItem[] }>(
+        `/_apis/wit/workitems`,
+        "7.0",
+        { ids: idList, fields: "System.Title" },
+      );
+      const items = fetched.value ?? [];
+      // Tag charset matches parser's: `[A-Z][A-Z0-9]{1,4}` so E2E (digits in tag)
+      // is captured as a tag and dropped, not counted as canonical.
+      const tcRe = new RegExp(`^${prefix}_${usId}(?:_([A-Z][A-Z0-9]{1,4}))?_(\\d+)\\b`);
+      let canonicalCount = 0;
+      for (const item of items) {
+        const title = (item.fields?.["System.Title"] as string) ?? "";
+        const m = title.match(tcRe);
+        // Only count titles that match canonical shape AND have no tag captured.
+        if (m && !m[1]) canonicalCount += 1;
+      }
+      return canonicalCount + 1;
+    } catch {
+      // If the title-fetch fails, fall back to the WIQL count — WIQL's
+      // NOT CONTAINS chain already excludes known tags, so this is still
+      // safe. The post-filter is purely belt-and-suspenders.
+      return ids.length + 1;
+    }
   } catch {
     return 1;
   }

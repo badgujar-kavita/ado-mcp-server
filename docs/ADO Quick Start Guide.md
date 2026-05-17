@@ -334,6 +334,77 @@ You should see all components ✅. If anything is missing, the diagnostic tells 
 
 ---
 
+## Generating regression / E2E / SIT / UAT drafts (optional)
+
+The canonical pack (`US_<ID>_test_cases.md`) holds the functional test cases for a User Story. When you also want a **parallel pack** — regression scenarios, an E2E business journey, SIT integration tests, UAT acceptance scripts — you generate it as a SEPARATE FILE alongside the canonical draft. This keeps each pack independently reviewable and pushable.
+
+### How to ask for one
+
+Just tell the agent: *"generate regression test cases for US 1234"* or *"draft an E2E pack for US 1234"*. The agent will:
+
+1. Confirm with you whether you want a **NEW separate file** (option A) or **more rows in the existing canonical draft** (option B). This confirmation gate is mandatory — if you skip past it, you'll end up with a parallel file when you wanted in-place additions, or vice versa.
+2. On `A`, run `/qa-draft <ID> suffix=<slug>`. Allowed slugs (lowercase): `regression`, `e2e`, `sit`, `uat`, `smoke`, `performance`, or any custom slug matching `/^[a-z0-9_-]+$/`.
+
+### What you get on disk
+
+```
+tc-drafts/US_1234/
+├── US_1234_test_cases.md             (canonical pack — TC_1234_01, _02, _03 …)
+├── US_1234_test_cases_regression.md  (TC_1234_REG_01, _REG_02 …)
+├── US_1234_test_cases_e2e.md         (TC_1234_E2E_01, _E2E_02 …)
+└── US_1234_solution_design_summary.md  (shared — authored once with the canonical pack)
+```
+
+Suffixed packs share the canonical pack's solution design summary and QA cheat sheet — they're authored once per US, not duplicated. The suffixed draft replaces the Supporting Documents block with a `**Suite Type** | <Capitalized Suffix> |` row in the header so reviewers see at a glance which pack they're looking at.
+
+### TC title format
+
+| Pack | Title shape | Example |
+|---|---|---|
+| Canonical (no suffix) | `TC_<USID>_<NN> -> ...` | `TC_1234_01 -> Case Creation -> ...` |
+| Regression (`suffix=regression`) | `TC_<USID>_REG_<NN> -> ...` | `TC_1234_REG_01 -> Email-to-Case -> ...` |
+| E2E (`suffix=e2e`) | `TC_<USID>_E2E_<NN> -> ...` | `TC_1234_E2E_01 -> Order-to-Cash -> ...` |
+| SIT (`suffix=sit`) | `TC_<USID>_SIT_<NN> -> ...` | `TC_1234_SIT_01 -> External API -> ...` |
+| UAT (`suffix=uat`) | `TC_<USID>_UAT_<NN> -> ...` | `TC_1234_UAT_01 -> Acceptance -> ...` |
+| Smoke / Performance | `TC_<USID>_SMOKE_<NN>` / `TC_<USID>_PERF_<NN>` | as above |
+
+The TAG segment is what makes WIQL searches work — `[System.Title] CONTAINS '_REG_'` surfaces every regression case across the project. ADO numbering is independent per pack: each suffixed file starts its own `01, 02, …` numbering, never colliding with the canonical pack.
+
+### Publishing a suffixed pack — the two new gates
+
+Run `/qa-publish <ID> suffix=<slug>` to push the parallel pack. The MCP runs two extra consent gates before the canonical Phase A/B gates fire:
+
+1. **`us-suite-missing-for-suffixed-publish` (🚫 BLOCK).** The canonical pack must publish first — that's what creates the Sprint → Parent → US suite hierarchy. If you try to publish a suffixed pack before the canonical, you'll see this block. Fix: run the canonical `/qa-publish <ID>` first, then re-run the suffixed publish.
+
+2. **`suffixed-suite-decision` (ℹ️ NEEDS-CONFIRMATION).** You're asked where the suffixed TCs should land in the ADO suite tree:
+   - **Option A** — Create a `<Capitalized Suffix>` static + query sub-suite under the US suite. The query child auto-populates via `[System.Title] CONTAINS 'TC_<USID>_<TAG>_'`. Best when you want a separate ADO folder for each pack.
+   - **Option B** — Tag the TCs only (no sub-suite). TCs land in the existing US-level query suite alongside canonical TCs. Best when you prefer flat suite layout.
+   - **Option C** — Cancel.
+
+   The agent will surface the three options verbatim and require an explicit `A`, `B`, or `C` reply (bare 'yes' is NOT an option pick). Once you choose, the agent re-runs `/qa-publish` with `createSuffixedSuite: true` (option A) or `createSuffixedSuite: false` (option B).
+
+### Publish writes back to the suffixed file (not the canonical)
+
+After a successful suffixed publish, the suffixed `.md` file gets the same in-place edits as the canonical flow — Status flips DRAFT → APPROVED, each TC title gets `(ADO #N)` appended, and a sibling `US_<ID>_test_cases_<suffix>.json` snapshot is written. The canonical `.md` and `.json` are untouched.
+
+### Where to teach your agent the rules
+
+The agent rules for the canonical-vs-suffixed decision and the slash-command syntax live in your project's `.cursor/rules/` folder (or a `.mdc` file your tenant agent loads). A reference rules file is shipped with this MCP at:
+
+```
+tenant-rules-examples/qa.mdc
+```
+
+Copy it into your project (or merge with your existing rules) so the agent applies the Group A vs Group B confirmation gate, picks the right suffix slug, and never invents tags.
+
+A complete worked example of a suffixed regression draft — with parser-validated header, TC titles, common prerequisites, and per-TC sections — lives at:
+
+```
+tenant-rules-examples/sample-drafts/US_1234_test_cases_regression.md
+```
+
+---
+
 ## Slash commands you'll use
 
 Everything happens through slash commands in Cursor's AI chat. Type `/vortex-ado/` and Cursor shows the full list.
