@@ -6,6 +6,29 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — `qa_publish_push`: per-call AdoClient resolution (fixes `Cannot read properties of null (reading 'get')`)
+
+Every prior fix to the suffix-publish flow (token-boundary matcher, planId fallback, suite-tree scan) was correct logic operating on a **null `AdoClient`**, so none of them could surface their value at runtime. Symptom: `qa_publish_push` returned `Could not check for existing linked test cases on US <id>: Cannot read properties of null (reading 'get')` or fired the `us-suite-missing-for-suffixed-publish` BLOCK gate even when the US suite plainly existed in ADO. The agent typically misread the TypeError as a transient connectivity issue and suggested re-running `/ado-connect`, which never helped.
+
+**Root cause.** Cursor launches the MCP via `~/.vortex-ado/bin/bootstrap.mjs`, which `spawn`s `dist/index.js` with `cwd: PROJECT_ROOT` (= `~/.vortex-ado/`). Inside `bootstrapCredentials()`, `workspaceConfigPath()` then resolves to `~/.vortex-ado/.vortex-ado/config.json` (doesn't exist), falls through to `~/.vortex-ado/credentials.json` (post-keychain-migration this is a placeholder template, not real credentials), and `loadLegacyCredentialsSync` returns `null`. Result: `index.ts:37` constructs `adoClient = null`, casts it `as any`, and passes it to every tool. The first `adoClient.get(...)` call throws.
+
+`/ado-check` reports HEALTHY because it does its own per-call workspace resolution via `loadCredentialsForWorkspace(resolvedWorkspace)` — it never touches the boot-time client. The discrepancy made the bug invisible to the canonical health-check path.
+
+**Fix.** Added `src/workspace/ado-client-for-call.ts` mirroring the existing `resolveConfigForCall` pattern. At the start of `qa_publish_push`'s handler, the resolver tries (1) MCP roots/list, (2) explicit `workspaceRoot` arg, (3) boot-time client, (4) legacy credentials — first success wins. The closure-captured `adoClient` parameter is reassigned so every downstream call site (`fetchLinkedTestCasesWithTitles`, `ensureSuiteHierarchyForUs`, the Phase B analyzer, the create/update loop, `ensureSuffixedSubSuite`, …) keeps working unchanged. When all four sources fail, the handler returns a clean `ado-credentials-missing` structured response instead of letting the TypeError surface.
+
+**Scoped to `qa_publish_push` only.** Other ADO-touching tools (`ado_story`, `qa_tests`, `qa_tc_*`, …) still use the boot-time client. Those handlers either haven't been exercised in the failing topology or surface the same null with a different message — to be addressed incrementally if/when they cause user-visible breaks. Keeping the change surface narrow protects existing flows.
+
+**`~/.vortex-ado/credentials.json` is no longer required.** With this fix, per-workspace config + OS keychain is the only authoritative source for `qa_publish_push`. The placeholder legacy file can stay (the resolver's step-4 fallback ignores placeholder values) or be deleted — either way is fine.
+
+**Files changed:**
+
+- `src/workspace/ado-client-for-call.ts` — NEW. `resolveAdoClientForCall(extra, workspaceRoot, bootClient)` returning `Promise<AdoClient | null>`. Pure functional helper, no side effects, mirrors `resolveConfigForCall`'s precedence rules.
+- `src/tools/tc-drafts.ts` — `qa_publish_push` handler imports and calls the resolver right after the `mdPath` existence check; reassigns `adoClient` for the rest of the handler. `ado-credentials-missing` structured response added for the all-sources-failed path.
+
+**No tests added** — the resolver is a thin compose of well-tested existing primitives (`fetchClientRoots`, `loadCredentialsForWorkspace`, `loadCredentials`, `AdoClient` construction). Adding integration tests for it would mean stubbing four credential sources, which gives no signal beyond what the underlying tests already provide.
+
+**No behavior change for callers when boot-time creds are non-null** — the resolver returns the boot client at step 3 only when steps 1+2 didn't yield a per-workspace match, preserving every existing test fixture and power-user flow.
+
 ### 2026-05-17 — planId fallback: drop `TestedBy` precondition, scan project plans directly
 
 The `resolvePlanIdFromExistingLinkedTcs` fallback (introduced earlier today) had a precondition that the US carry explicit `Microsoft.VSTS.Common.TestedBy` / `TestedBy-Forward` relations before it would scan project plans. That precondition is wrong for the most common ADO suite shape: query-based US-level suites match test cases via WIQL title patterns, NOT via work-item relations. A US can have a fully populated US-level suite — and a publishable canonical pack — with zero `TestedBy` back-links on the work item.
