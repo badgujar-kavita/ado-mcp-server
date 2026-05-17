@@ -150,52 +150,90 @@ If any scenario has `covered: false` → generate an additional test case to cov
 
 ## Functionality Process Flow — Authoring Rules
 
-Every draft MUST include a `## Functionality Process Flow` section near the top. Choose the format based on the logic being documented:
+Every draft MUST include a `## Functionality Process Flow` section near the top. The agent walks a **three-tier decision** and picks the FIRST tier that fits — never falls back to a lower tier without trying the higher ones first.
 
-### Use Mermaid diagrams WHEN:
-- The decision logic is clean (single trigger → evaluation → outcome branches)
+### TIER 1 — Single Mermaid `flowchart TD`
+
+Use WHEN:
+- Decision logic is clean (one trigger → evaluation → branches)
 - All decision points have documented (not inferred) criteria
-- The flow fits cleanly in 5–8 nodes (larger diagrams hurt readability)
-- Business flow with clear actor → action → system response
+- The whole flow fits in 5–8 nodes
+- Business flow with one clear actor → action → system response
 
-### Use numbered text-block format WHEN:
-- Decision logic has multiple interacting paths (e.g., Path A + Path B with short-circuiting)
-- Variations within a flow matter (Variation A, Variation B, Variation C)
-- Mermaid would require too many branches to remain readable
-- Configuration-sensitive behavior (e.g., flag TRUE vs FALSE changes outcome)
-- Multi-persona handoffs with conditional state transitions
+Render one `flowchart TD` block. Most stories land here.
 
-### Required elements in EVERY flow block (Mermaid or text):
+### TIER 2 — Multi-Mermaid decomposition
+
+Use WHEN the story has multiple interacting paths, multi-persona handoffs, or config-sensitive branching that DON'T fit in 5–8 nodes — but you can FAITHFULLY split them into 2–4 sub-flows of ≤8 nodes each, with each sub-flow having documented criteria.
+
+Format:
+
+```
+### Flow 1 — <one-line subject>
+<2-line subtitle: who does what, why this is its own flow>
+
+```mermaid
+flowchart TD
+  …
+```
+
+### Flow 2 — <…>
+…
+```
+
+Each `### Flow N` MUST be its own Mermaid block with a 2-line subtitle. **Decomposition is the FIRST move when a single flow exceeds 8 nodes** — not a fallback.
+
+Examples of natural splits: customer-facing intake / agent-facing processing / closure handoff (3 separate flows) — NOT one mega-flow with 15+ nodes, and NOT a numbered-text dump.
+
+### TIER 3 — Defer with pointer to Solution Design Summary
+
+Use WHEN — and ONLY when — Tier 2 fails: the logic genuinely doesn't decompose into ≤8-node sub-flows, OR the source story is under-specified to the point that any flow you'd draw would be fabrication.
+
+**IMPORTANT:** the Solution Design Summary is **narrative context, NOT a flow diagram**. Tier 3 is NOT "the flow lives there instead" — it's an honest "the flow can't be drawn faithfully right now, here's where to read background, and the gaps are in Open Questions."
+
+Render exactly this shape — no Mermaid block, no numbered-text fallback, no fabricated summary of a flow you couldn't draw:
+
+```
+> ⚠ Flow not derivable from the available context.
+>
+> See [Solution Design Summary](./US_<usId>_solution_design_summary.md)
+> for narrative background, and the Open Questions section below for
+> the unknowns blocking a faithful flow.
+```
+
+The link MUST substitute the real ADO work-item ID. Every unknown that prevented a Mermaid flow MUST appear as a concrete row in Open Questions — no hand-waves. A reviewer should be able to fill in those gaps and re-run `qa_draft` to upgrade the section to Tier 1 or 2.
+
+### Required elements in EVERY flow (Tier 1 + Tier 2)
 
 1. **Actor / entry point** — who triggers it (KAM User, Admin, System, Scheduled Job, etc.)
-2. **Action chain** — sequential `→` arrows showing steps, indented under the actor
-3. **Bracketed variations** where applicable: `[Variation A: ...]` `[Variation B: ...]` — cover all documented paths
-4. **Terminal state** — every flow MUST end with an observable, documented state:
+2. **Action chain** — sequential edges with documented labels
+3. **All variations covered** (not just the happy path) — branch nodes for Variation A / B / C with their criteria as labels
+4. **Terminal observable state** — every flow MUST end with a documented end state:
    - `Status: X → Y` (status transition)
    - `Record locks (read-only)` OR `Record stays unlocked (editable)`
    - `Re-Approval fires` OR `Stays Adjusted`
    - `Notification sent` / `Webhook delivered` / `Record created`
-5. **Numbered Flow headings** when there are multiple flows — `### Flow 1 — ...`, `### Flow 2 — ...`
+5. **Multi-flow drafts:** `### Flow 1 — …`, `### Flow 2 — …` with a 2-line subtitle under each Flow N heading
 
-### Quality checks (self-review before saving):
+### Quality checks (self-review before saving)
 
-- [ ] Every flow ends with a TERMINAL observable state — not a "next step" placeholder
+- [ ] Started with Tier 1; only moved to Tier 2 when the flow exceeded 8 nodes
+- [ ] Tier 2: each sub-flow is its own `### Flow N` heading + Mermaid block + 2-line subtitle
+- [ ] Tier 3 used only when Tier 2 genuinely couldn't render faithfully — and every unknown is a concrete Open Questions row
+- [ ] Every Mermaid flow ends with a TERMINAL observable state — not a "next step" placeholder
 - [ ] Bracketed variations cover ALL documented paths (not just the happy path)
-- [ ] No guessed transitions — if Solution Design doesn't document a step, label it `(to confirm)` or omit
-- [ ] Naming is consistent (same field names, same tool names as Solution Design)
-- [ ] If you used Mermaid, re-read it — does it faithfully represent all documented logic? If it simplifies too much, switch to numbered text blocks
+- [ ] No guessed transitions — if Solution Design doesn't document a step, label it `(to confirm)` or omit and surface in Open Questions
 
-### Reference exemplar:
+### Anti-patterns (FORBIDDEN)
 
-The draft at `tc-drafts/US_1370221/US_1370221_test_cases.md` (Flows 1–5) demonstrates the correct numbered-text-block format for multi-path, config-sensitive behavior.
-
-### Anti-patterns to AVOID:
-
+- ❌ **Numbered text-block format for the flow.** Replaced by Tier 2 (decomposition) or Tier 3 (pointer). Wall-of-text flows are no longer acceptable — they tempt fabrication and pull reviewer attention away from the test cases.
+- ❌ Reaching for Tier 3 without first attempting Tier 2 decomposition. Decompose first, defer only when truly stuck.
+- ❌ Tier 3 deferral that claims the Solution Design Summary "contains the flow" — it's narrative context, not a diagram. Do not misrepresent the sibling doc as the answer.
+- ❌ Tier 3 deferral with no concrete rows in Open Questions — if you couldn't draw the flow, the unknowns must be enumerated so a reviewer can fill them in and re-run.
 - ❌ Flow ends mid-chain without a terminal state (reader left wondering "what happens next?")
 - ❌ Mermaid diagram that glosses over a documented variation (be faithful, not pretty)
-- ❌ Mixing Mermaid + text in the same flow (pick one per flow)
-- ❌ Using Mermaid when the Solution Design only loosely sketches behavior — write text-based flows when in doubt
-- ❌ Guessing an outcome — when unsure, write `→ (expected behavior to be confirmed with Solution Design author)`
+- ❌ Mixing Mermaid + numbered text in the same flow section
+- ❌ Guessing a transition — write `(to confirm)` and move that question into Open Questions
 
 ---
 

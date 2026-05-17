@@ -6,6 +6,33 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — Functionality Process Flow: 3-tier rule, no more wall-of-text (mirrors Vortex JIRA)
+
+The previous flow authoring rule allowed a "use numbered text-block format" branch when stories had multiple paths or persona handoffs. In practice that branch tempted the agent to dump 30+ lines of structured prose that pulled reviewer attention away from the test cases and flirted with fabrication when the source story was thin. Replaced with the same three-tier walk that just landed in Vortex JIRA.
+
+**Three tiers the agent must walk in order:**
+
+| Tier | When | Output |
+|---|---|---|
+| **1. Single Mermaid `flowchart TD`** | One trigger → evaluation → branches; ≤8 nodes | One Mermaid block. Most stories. |
+| **2. Multi-Mermaid decomposition** | Story has 2–4 natural sub-flows of ≤8 nodes each (customer intake / agent processing / closure) | `### Flow 1 — …` / `### Flow 2 — …`, each with its own Mermaid + 2-line subtitle. **Decomposition is the FIRST move when one flow gets messy — not a fallback.** |
+| **3. Defer with pointer** | Truly doesn't decompose, OR source story is under-specified | Short callout: *"⚠ Flow not derivable from the available context. See [Solution Design Summary](./US_<usId>_solution_design_summary.md) for narrative background, and Open Questions for the unknowns."* No Mermaid, no text dump. |
+
+**Numbered text-block format is removed entirely.** Wall-of-text flows are no longer acceptable — they tempt fabrication and pull reviewer attention away from the test cases.
+
+**Tier 3 is honest about its limits.** The Solution Design Summary is narrative context, NOT a flow diagram. The pointer acknowledges the limit and redirects to background reading + the real gaps in Open Questions — it does NOT claim the design doc carries the flow. Every unknown that prevented a Mermaid flow MUST appear as a concrete Open Questions row so a reviewer can fill them in and re-run.
+
+**Files changed:**
+- `src/prompts/index.ts` §4 of the qa-draft prompt — short version pointing at the canonical SKILL.md.
+- `.cursor/skills/qa-test-drafting/SKILL.md` §Functionality Process Flow — Authoring Rules — full 3-tier rule with shape examples, anti-patterns, and quality checks.
+- Bundled SKILL.md in `dist-package/` rebuilt so tenants get the new rule on next install.
+
+**Anti-patterns added:**
+- ❌ Numbered text-block flows (replaced by Tier 2/3)
+- ❌ Reaching for Tier 3 without first attempting Tier 2 decomposition
+- ❌ Tier 3 deferral that misrepresents the Solution Design Summary as the flow source
+- ❌ Tier 3 deferral with no concrete Open Questions rows
+
 ### 2026-05-15 — Installer writes absolute `node` path into `mcp.json` (fixes `spawn node ENOENT`)
 
 All three places that register `vortex-ado` in `~/.cursor/mcp.json` now resolve `node` to its absolute path instead of writing the literal string `"node"`:
