@@ -22,7 +22,7 @@ import {
   buildUsFolderName,
   getNonEpicFolderName,
   resolvePlanIdFromAreaPath,
-  resolvePlanIdFromExistingLinkedTcs,
+  resolvePlanIdFromExistingUsSuite,
   resolveSprintFromIteration,
   buildSuiteQueryString,
 } from "../helpers/suite-structure.ts";
@@ -185,37 +185,30 @@ describe("suite-structure helpers", () => {
   });
 });
 
-// ── resolvePlanIdFromExistingLinkedTcs (fallback resolver) ──
+// ── resolvePlanIdFromExistingUsSuite (fallback resolver) ──
 //
-// The fallback kicks in when AreaPath→testPlanMapping returns no match but the
-// US already has TCs linked in ADO. We want the resolver to identify the plan
-// whose suite tree already houses a US-level suite for the given user story.
-// The stub mimics the three endpoints the resolver hits:
-//   1. GET /_apis/wit/workitems/<id> with $expand=relations  (the US + relations)
-//   2. GET /_apis/testplan/plans                              (all plans in project)
-//   3. GET /_apis/testplan/Plans/<planId>/suites              (per-plan suite list)
+// The fallback kicks in when AreaPath→testPlanMapping returns no match. It
+// scans the project's plans and returns the one whose suite tree already
+// contains a suite for this US. We deliberately do NOT gate on TestedBy
+// relations — query-based suites match TCs via WIQL title patterns, not via
+// work-item relations, so the US can have a populated suite without any
+// TestedBy back-link. The two endpoints the resolver hits:
+//   1. GET /_apis/testplan/plans              (all plans in project)
+//   2. GET /_apis/testplan/Plans/<id>/suites  (per-plan suite list)
 
 class StubFallbackClient extends AdoClient {
   constructor(
-    private readonly relations: Array<{ rel: string; url: string }>,
     private readonly plans: Array<{ id: number }>,
     private readonly suitesByPlan: Map<number, Array<{ id: number; name: string }>>,
     private readonly throwOnPlan?: number,
+    private readonly throwOnPlansList?: boolean,
   ) {
     super("myorg", "myproj", "pat");
   }
 
   async get<T>(path: string): Promise<T> {
-    if (/\/_apis\/wit\/workitems\/\d+$/.test(path)) {
-      return {
-        id: 0,
-        rev: 1,
-        fields: {},
-        relations: this.relations.map((r) => ({ rel: r.rel, url: r.url, attributes: {} })),
-        url: "",
-      } as unknown as T;
-    }
     if (path === "/_apis/testplan/plans") {
+      if (this.throwOnPlansList) throw new Error("plans list unreachable");
       return { value: this.plans, count: this.plans.length } as unknown as T;
     }
     const m = path.match(/\/_apis\/testplan\/Plans\/(\d+)\/suites$/);
@@ -229,13 +222,10 @@ class StubFallbackClient extends AdoClient {
   }
 }
 
-describe("resolvePlanIdFromExistingLinkedTcs (fallback)", () => {
+describe("resolvePlanIdFromExistingUsSuite (fallback)", () => {
   it("returns the plan whose suite tree contains a US-keyed suite", async () => {
     const usId = 1377028;
     const client = new StubFallbackClient(
-      [
-        { rel: "Microsoft.VSTS.Common.TestedBy-Forward", url: `https://example/_apis/wit/workitems/9001` },
-      ],
       [{ id: 1066479 }, { id: 1115020 }, { id: 1394300 }],
       new Map([
         [1066479, [{ id: 1, name: "Some other suite" }]],
@@ -243,46 +233,45 @@ describe("resolvePlanIdFromExistingLinkedTcs (fallback)", () => {
         [1394300, [{ id: 3, name: `${usId} | OC QA - Promotion Attachment Validation` }]],
       ]),
     );
-    const planId = await resolvePlanIdFromExistingLinkedTcs(client, usId);
+    const planId = await resolvePlanIdFromExistingUsSuite(client, usId);
     assert.equal(planId, 1394300);
   });
 
-  it("returns null when the US has no TestedBy linkages", async () => {
+  it("finds the US suite even when the US has no TestedBy linkages (query-based suites case)", async () => {
+    // Query-based suites match TCs via WIQL title patterns, not work-item
+    // relations. The resolver must not gate on TestedBy — a US-level suite
+    // can be fully populated without any TestedBy back-link existing.
     const client = new StubFallbackClient(
-      [], // no relations
       [{ id: 1001 }],
       new Map([[1001, [{ id: 1, name: "1377028 | Foo" }]]]),
     );
-    const planId = await resolvePlanIdFromExistingLinkedTcs(client, 1377028);
-    assert.equal(planId, null);
+    const planId = await resolvePlanIdFromExistingUsSuite(client, 1377028);
+    assert.equal(planId, 1001);
   });
 
   it("returns null when no plan contains a US-keyed suite", async () => {
     const client = new StubFallbackClient(
-      [{ rel: "Microsoft.VSTS.Common.TestedBy", url: "https://example/_apis/wit/workitems/9001" }],
       [{ id: 1001 }, { id: 1002 }],
       new Map([
         [1001, [{ id: 1, name: "Other Suite" }]],
         [1002, [{ id: 2, name: "Yet Another" }]],
       ]),
     );
-    const planId = await resolvePlanIdFromExistingLinkedTcs(client, 1377028);
+    const planId = await resolvePlanIdFromExistingUsSuite(client, 1377028);
     assert.equal(planId, null);
   });
 
   it("rejects substring-of-larger-id false positives (1377028 is not 13770281)", async () => {
     const client = new StubFallbackClient(
-      [{ rel: "Microsoft.VSTS.Common.TestedBy-Forward", url: "https://example/_apis/wit/workitems/9001" }],
       [{ id: 1001 }],
       new Map([[1001, [{ id: 1, name: "13770281 | Different US" }]]]),
     );
-    const planId = await resolvePlanIdFromExistingLinkedTcs(client, 1377028);
+    const planId = await resolvePlanIdFromExistingUsSuite(client, 1377028);
     assert.equal(planId, null);
   });
 
   it("skips plans that error and continues scanning the rest", async () => {
     const client = new StubFallbackClient(
-      [{ rel: "Microsoft.VSTS.Common.TestedBy-Forward", url: "https://example/_apis/wit/workitems/9001" }],
       [{ id: 1001 }, { id: 1002 }],
       new Map([
         [1001, []], // never reached because of throwOnPlan
@@ -290,7 +279,18 @@ describe("resolvePlanIdFromExistingLinkedTcs (fallback)", () => {
       ]),
       1001, // throwOnPlan
     );
-    const planId = await resolvePlanIdFromExistingLinkedTcs(client, 1377028);
+    const planId = await resolvePlanIdFromExistingUsSuite(client, 1377028);
     assert.equal(planId, 1002);
+  });
+
+  it("returns null when the project plans list is unreachable", async () => {
+    const client = new StubFallbackClient(
+      [],
+      new Map(),
+      undefined,
+      true, // throwOnPlansList
+    );
+    const planId = await resolvePlanIdFromExistingUsSuite(client, 1377028);
+    assert.equal(planId, null);
   });
 });

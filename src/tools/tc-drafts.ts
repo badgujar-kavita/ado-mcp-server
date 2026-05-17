@@ -732,8 +732,8 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
               // missing" when in reality only the AreaPath mapping is the
               // problem.
               try {
-                const { resolvePlanIdFromExistingLinkedTcs } = await import("../helpers/suite-structure.ts");
-                const fallback = await resolvePlanIdFromExistingLinkedTcs(adoClient, userStoryId);
+                const { resolvePlanIdFromExistingUsSuite } = await import("../helpers/suite-structure.ts");
+                const fallback = await resolvePlanIdFromExistingUsSuite(adoClient, userStoryId);
                 if (fallback) planForGate = fallback;
               } catch {
                 // Both resolution paths failed — planForGate stays undefined;
@@ -1200,8 +1200,8 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
             let fallbackPlanId: number | null = null;
             let fallbackErrMsg: string | null = null;
             try {
-              const { resolvePlanIdFromExistingLinkedTcs } = await import("../helpers/suite-structure.ts");
-              fallbackPlanId = await resolvePlanIdFromExistingLinkedTcs(adoClient, userStoryId);
+              const { resolvePlanIdFromExistingUsSuite } = await import("../helpers/suite-structure.ts");
+              fallbackPlanId = await resolvePlanIdFromExistingUsSuite(adoClient, userStoryId);
             } catch (fallbackErr) {
               fallbackErrMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
             }

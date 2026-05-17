@@ -6,6 +6,26 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — planId fallback: drop `TestedBy` precondition, scan project plans directly
+
+The `resolvePlanIdFromExistingLinkedTcs` fallback (introduced earlier today) had a precondition that the US carry explicit `Microsoft.VSTS.Common.TestedBy` / `TestedBy-Forward` relations before it would scan project plans. That precondition is wrong for the most common ADO suite shape: query-based US-level suites match test cases via WIQL title patterns, NOT via work-item relations. A US can have a fully populated US-level suite — and a publishable canonical pack — with zero `TestedBy` back-links on the work item.
+
+**Real-world repro:** US `1377028` has 7 TCs in suite `1394300` (plan `GPT_D-HUB`) via the canonical query string `[System.Title] CONTAINS 'TC_1377028'`. None of the 7 TCs have a `TestedBy` link to the US (the relation is created lazily by some flows but not by query-based suite membership). The fallback returned null on the missing-relations check, suite-tree scan never ran, and the suffixed-publish flow fired `us-suite-missing-for-suffixed-publish` even though the canonical pack DID exist.
+
+**Fix.** Removed the relations gate. The fallback now does a pure plan-tree scan: list project plans, find the one whose suite tree contains a suite name matching the US ID as a whole-number token. The suite-tree match is the authoritative signal; relations were never load-bearing for this question.
+
+**Renamed** `resolvePlanIdFromExistingLinkedTcs` → `resolvePlanIdFromExistingUsSuite` to match the new semantics (the function never cared about TC linkages — it cared about US suite presence).
+
+**Files changed:**
+
+- `src/helpers/suite-structure.ts` — `resolvePlanIdFromExistingUsSuite` rewritten without the relations precondition; unused `AdoWorkItem` import dropped.
+- `src/tools/tc-drafts.ts` — call sites updated to the new name (no behavior change at the call sites).
+- `src/helpers/suite-structure.test.ts` — `StubFallbackClient` stripped of the work-item-fetch endpoint; the "no TestedBy linkages → null" case inverted to "finds the US suite even when the US has no TestedBy linkages (query-based suites case)" — that's now the load-bearing assertion. Added a sixth case: project plans list unreachable → null.
+
+**Test count delta:** 538 → 539 (rename one case, add one case).
+
+**No behavior change for callers when relations DO exist** — the suite-tree scan is a strict superset.
+
 ### 2026-05-17 — `qa_publish_push`: planId fallback via existing linked TCs (closes AreaPath-mapping gap)
 
 When a User Story's AreaPath doesn't match any `testPlanMapping` entry, `qa_publish_push` previously surfaced a `plan-resolution-failed` gate forcing the user to look up the right plan ID by hand — even though the US already had test cases linked in ADO and the correct plan was determinable from existing data.
