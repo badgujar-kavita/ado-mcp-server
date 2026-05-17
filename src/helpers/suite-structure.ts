@@ -101,8 +101,9 @@ export function resolvePlanIdFromAreaPath(
  * Resolution strategy:
  *   1. List all plans in the project.
  *   2. For each plan, list its suites and check whether any suite's name
- *      contains the US ID as a whole-number token (same matcher as
- *      `usSuiteExists`).
+ *      contains the US ID as a whole-number token. The whole-number boundary
+ *      check rejects substring-of-larger-id false positives (e.g. searching
+ *      for `1377028` will NOT match `13770281` or `21377028`).
  *   3. The first plan whose suite tree contains a US-keyed suite wins.
  *
  * Note on relation-independence: ADO query-based suites match test cases via

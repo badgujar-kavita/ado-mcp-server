@@ -6,6 +6,44 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — Drop suffixed sub-suite creation: suffixed and canonical publishes share one US-level suite
+
+The original suffixed-publish design created a `<Capitalized Suffix>` static folder under the US-level dynamic suite, with a query-based child filtering on `TC_<usId>_<TAG>_*`. Live testing surfaced that **ADO rejects this with HTTP 400**: `Cannot create new suite inside non-static parent suite. Parameter name: parent`. Static suites can have children; dynamic (query-based) suites cannot. Every option-A pick failed at the API boundary, surfacing a `⚠️ Sub-suite creation failed` warning even though the TCs themselves had pushed successfully.
+
+**Decision (per tenant feedback):** Don't try to nest. Don't sibling. Functional and regression test cases coexist in the **same** US-level dynamic suite, distinguished only by their title prefix (`TC_1377028_NN` vs `TC_1377028_REG_NN`). The existing US-suite WIQL `[System.Title] CONTAINS 'TC_<usId>'` is a substring match — it picks up both naturally. If users want a visual "Regression" folder, they can create one manually in ADO; the tool stays out of the suite-tree-shape business.
+
+**Removed:**
+
+- The `suffixed-suite-decision` NEEDS-CONFIRMATION gate (the A/B/C choice was a fake decision — option A always failed, option B was the only working path).
+- The `us-suite-missing-for-suffixed-publish` BLOCK gate. Suffixed publishes now use the same `ensureSuiteHierarchyForUs` path as canonical — find-or-create the US suite, then push. Symmetric.
+- The `createSuffixedSuite` boolean arg from `qa_publish_push`'s schema and handler.
+- `ensureSuffixedSubSuite()` helper from `src/tools/test-suites.ts` (no remaining callers).
+- `usSuiteExists()` helper from `src/tools/test-suites.ts` (only caller was the now-deleted gate).
+- The post-push sub-suite block (`subSuiteNote` rendering, the second `/suites` GET, the `find(startsWith)` US-suite locator).
+- The two prompt sections (`reason: "us-suite-missing-for-suffixed-publish"` and `reason: "suffixed-suite-decision"`) from `src/prompts/index.ts`. The success-path instruction lost its `**Sub-suite:**` mention. The universal consent rule lost `createSuffixedSuite` from its flag list.
+
+**Kept:**
+
+- Title category tag (`TC_<usId>_<TAG>_NN`). Still the primary WIQL-filterable carrier within a US.
+- `System.Tags = '<Capitalized>'` application on suffixed TCs (the only project-wide cross-US filter for the category — though by design this is silently skipped when the tag isn't pre-created in the project, so the agent's success message no longer mentions tags).
+
+**Files changed:**
+
+- `src/tools/tc-drafts.ts` — Removed ~120-line gate block (replaced with a short docstring explaining why suffixed publishes share the canonical path). Removed ~45-line post-push sub-suite block. Schema description updated. `subSuiteNote` removed from success text.
+- `src/tools/test-suites.ts` — Deleted `usSuiteExists` (~25 lines + ~30-line JSDoc) and `ensureSuffixedSubSuite` (~40 lines + ~15-line JSDoc). The `findOrCreateSuite` helper they shared stays — still used by `ensureSuiteHierarchy`.
+- `src/tools/test-suites.test.ts` — Deleted 22 tests covering the removed helpers (lenient-matcher matrix + sub-suite create/idempotent/empty-args). Imports trimmed.
+- `src/tools/tc-drafts-suffix-publish.test.ts` — File deleted entirely (its 5 tests covered the removed gates).
+- `src/prompts/index.ts` — Removed gate-handling sections o/p; updated success-path and universal-consent text.
+- `src/helpers/suite-structure.ts` — Updated a docstring reference that pointed at the now-deleted `usSuiteExists`.
+
+**Test count delta:** 539 → 517 (22 tests removed for deleted code). All 517 pass.
+
+**No behavior change for canonical publishes.** `ensureSuiteHierarchyForUs` and the entire canonical flow are untouched.
+
+**Behavior change for suffixed publishes:**
+- Before: gate cascade → option A always failed with ADO 400 → only option B worked, and even then the success summary carried a "Sub-suite creation failed" warning.
+- After: suffixed publishes go straight to the canonical gate flow. TCs land in the same US-level suite as functional TCs. Success message is one clean line, no warnings.
+
 ### 2026-05-17 — `qa_publish_push`: per-call AdoClient resolution (fixes `Cannot read properties of null (reading 'get')`)
 
 Every prior fix to the suffix-publish flow (token-boundary matcher, planId fallback, suite-tree scan) was correct logic operating on a **null `AdoClient`**, so none of them could surface their value at runtime. Symptom: `qa_publish_push` returned `Could not check for existing linked test cases on US <id>: Cannot read properties of null (reading 'get')` or fired the `us-suite-missing-for-suffixed-publish` BLOCK gate even when the US suite plainly existed in ADO. The agent typically misread the TypeError as a transient connectivity issue and suggested re-running `/ado-connect`, which never helped.

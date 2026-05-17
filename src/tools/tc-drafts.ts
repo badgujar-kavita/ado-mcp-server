@@ -10,7 +10,7 @@ import { formatTcDraftToMarkdown, type TcDraftData, type TcDraftTestCase } from 
 import { parseTcDraftFromMarkdown } from "../helpers/tc-draft-parser.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { createTestCase, updateTestCaseFromParams, type CreateTestCaseParams } from "./test-cases.ts";
-import { ensureSuiteHierarchyForUs, ensureSuffixedSubSuite, usSuiteExists } from "./test-suites.ts";
+import { ensureSuiteHierarchyForUs } from "./test-suites.ts";
 import { READ_OUTPUT_SCHEMA, type CanonicalReadResult } from "./read-result.ts";
 import { resolveTagsMatchOnly } from "../helpers/tag-resolver.ts";
 import { analyzePushState } from "../helpers/push-state-analyzer.ts";
@@ -637,11 +637,10 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
     "qa_publish_push",
     {
       title: "Publish Test Cases to ADO",
-      description: "Push a reviewed test case draft to ADO. Ensures the Sprint → Epic → US suite hierarchy exists (auto-derives plan/sprint from the US unless overrides are provided), then creates or updates test cases and marks the draft APPROVED. Only call after explicit user confirmation. Pass workspaceRoot or draftsPath. Suffixed publish: pass `suffix=<slug>` to publish a parallel pack from US_<id>_test_cases_<slug>.md instead of the canonical draft; the tool emits two new gates BEFORE Phase A — `us-suite-missing-for-suffixed-publish` (BLOCK; canonical pack must land first) and `suffixed-suite-decision` (NEEDS-CONFIRMATION; pick A=create sub-suite + tag, B=tag only, C=cancel; reply via `createSuffixedSuite: true|false`). Phase A consent gates: draft-status-draft, approved-without-ids, approved-with-ids-no-repush, repush-missing-ids. Phase B consent gates (mapping/mixed ops): draft-ids-not-linked (set proceedWithUnlinkedIds), existing-tcs-unmapped (set attemptMapping OR insertAnyway), mapping-preview → mapping confirm (set acknowledgeMapping + userConfirmedMapping), tc-number-mismatch (BLOCK; use insertAnyway as fallback), extras-in-ado (set acknowledgeExtras), mixed-update-create (set acknowledgeMixedOp). Plan/sprint consent gates: plan-resolution-failed, sprint-resolution-failed, missing-fields, override-mismatch (set confirmMismatch).",
+      description: "Push a reviewed test case draft to ADO. Ensures the Sprint → Epic → US suite hierarchy exists (auto-derives plan/sprint from the US unless overrides are provided), then creates or updates test cases and marks the draft APPROVED. Only call after explicit user confirmation. Pass workspaceRoot or draftsPath. Suffixed publish: pass `suffix=<slug>` to publish a parallel pack from US_<id>_test_cases_<slug>.md instead of the canonical draft. Suffixed and canonical publishes share the same suite path — TCs land in the US-level dynamic suite (the WIQL `[System.Title] CONTAINS 'TC_<usId>'` matches both functional and category-tagged titles), so functional + regression coexist in one suite. Phase A consent gates: draft-status-draft, approved-without-ids, approved-with-ids-no-repush, repush-missing-ids. Phase B consent gates (mapping/mixed ops): draft-ids-not-linked (set proceedWithUnlinkedIds), existing-tcs-unmapped (set attemptMapping OR insertAnyway), mapping-preview → mapping confirm (set acknowledgeMapping + userConfirmedMapping), tc-number-mismatch (BLOCK; use insertAnyway as fallback), extras-in-ado (set acknowledgeExtras), mixed-update-create (set acknowledgeMixedOp). Plan/sprint consent gates: plan-resolution-failed, sprint-resolution-failed, missing-fields, override-mismatch (set confirmMismatch).",
       inputSchema: {
         userStoryId: z.number().int().positive(),
-        suffix: z.string().regex(/^[a-z0-9_-]+$/).optional().describe("Optional suffix slug — when set, publishes the parallel pack tc-drafts/US_<id>/US_<id>_test_cases_<suffix>.md instead of the canonical draft. Drives the two new suffixed-publish gates."),
-        createSuffixedSuite: z.boolean().optional().describe("Suffixed publish only: response to the `suffixed-suite-decision` gate. true → create the static + query sub-suite under the US suite (option A). false → tag the TCs only, do not create a sub-suite (option B). Required to proceed past the gate; ignored when `suffix` is unset."),
+        suffix: z.string().regex(/^[a-z0-9_-]+$/).optional().describe("Optional suffix slug — when set, publishes the parallel pack tc-drafts/US_<id>/US_<id>_test_cases_<suffix>.md instead of the canonical draft. TCs are titled `TC_<usId>_<TAG>_NN` (e.g. `TC_1377028_REG_01`) and land in the US-level dynamic suite alongside any functional TCs."),
         workspaceRoot: z.string().optional().describe("Project folder path; reads from workspaceRoot/tc-drafts"),
         draftsPath: z.string().optional().describe("Exact path to drafts folder; overrides workspaceRoot"),
         repush: z.boolean().optional().describe("If true, update existing test cases (by ADO ID in draft) instead of creating new ones. Use when draft was revised after initial push."),
@@ -662,7 +661,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         })).optional().describe("Phase B: the exact mapping the user confirmed — each entry must match a mappingProposal entry returned in the mapping-preview response. Required together with acknowledgeMapping."),
       },
     },
-    async ({ userStoryId, suffix, createSuffixedSuite, workspaceRoot, draftsPath, repush, insertAnyway, approveAndPush, resetToDraft, planId: planIdOverride, sprintNumber, confirmMismatch, attemptMapping, acknowledgeMapping, acknowledgeExtras, acknowledgeMixedOp, proceedWithUnlinkedIds, userConfirmedMapping }, extra) => {
+    async ({ userStoryId, suffix, workspaceRoot, draftsPath, repush, insertAnyway, approveAndPush, resetToDraft, planId: planIdOverride, sprintNumber, confirmMismatch, attemptMapping, acknowledgeMapping, acknowledgeExtras, acknowledgeMixedOp, proceedWithUnlinkedIds, userConfirmedMapping }, extra) => {
       try {
         if (suffix !== undefined) assertValidSuffix(suffix);
         const categoryTag = suffix ? suffixToTag(suffix) : undefined;
@@ -731,97 +730,18 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         const anyHaveAdoIds = data.testCases.some((tc) => tc.adoWorkItemId != null);
         const tcCount = data.testCases.length;
 
-        // ── Suffixed publish gates (run BEFORE Phase A/B for suffixed publishes only) ──
-        // Two new structured responses:
-        //   1. us-suite-missing-for-suffixed-publish — BLOCK when the canonical
-        //      pack hasn't published the US suite yet.
-        //   2. suffixed-suite-decision — NEEDS-CONFIRMATION when suffix is set
-        //      but createSuffixedSuite has not been answered yet.
-        // Skipped entirely for canonical (no-suffix) publishes.
-        if (suffix !== undefined && categoryTag !== undefined) {
-          // Try to derive the plan ID once for the gate check. We use the same
-          // precedence as the canonical flow (override > draft > auto-derive)
-          // but in a non-mutating way — we never create suite hierarchy from a
-          // suffixed publish.
-          const effectivePlanForGate = planIdOverride ?? data.planId;
-          let planForGate: number | undefined = effectivePlanForGate;
-          if (planForGate === undefined) {
-            try {
-              const usWi = await adoClient.get<AdoWorkItem>(
-                `/_apis/wit/workitems/${userStoryId}`,
-                "7.0",
-                { fields: "System.AreaPath" },
-              );
-              const ap = (usWi.fields["System.AreaPath"] as string) || "";
-              if (ap) {
-                const { resolvePlanIdFromAreaPath } = await import("../helpers/suite-structure.ts");
-                planForGate = resolvePlanIdFromAreaPath(ap, config);
-              }
-            } catch {
-              // AreaPath→testPlanMapping failed. Fall back to deriving the plan
-              // from the US's existing TestedBy linkages: if the canonical pack
-              // already published, the US's TCs live in some plan, and that
-              // plan's suite tree contains the US-level suite. Use that plan
-              // for the suffix gate so we don't falsely block on "US suite
-              // missing" when in reality only the AreaPath mapping is the
-              // problem.
-              try {
-                const { resolvePlanIdFromExistingUsSuite } = await import("../helpers/suite-structure.ts");
-                const fallback = await resolvePlanIdFromExistingUsSuite(adoClient, userStoryId);
-                if (fallback) planForGate = fallback;
-              } catch {
-                // Both resolution paths failed — planForGate stays undefined;
-                // usSuiteExists will return false, Gate 1 fires with the
-                // canonical-pack-first message (correct outcome either way).
-              }
-            }
-          }
-
-          // Gate 1 — BLOCK if US suite doesn't exist yet.
-          const suiteExists = planForGate
-            ? await usSuiteExists(adoClient, planForGate, userStoryId, config)
-            : false;
-          if (!suiteExists) {
-            return {
-              content: [{ type: "text" as const, text: JSON.stringify({
-                status: "needs-input",
-                reason: "us-suite-missing-for-suffixed-publish",
-                message:
-                  `🚫 BLOCK: Cannot publish suffixed pack '${suffix}' for US ${userStoryId} — the US-level test suite does not exist in ADO yet. ` +
-                  `Suffixed packs land alongside the canonical pack; the canonical pack must publish first so the Sprint → Parent → US suite hierarchy gets created.`,
-                suggestion:
-                  `Publish the canonical pack first: run /qa-publish ${userStoryId} (no suffix). Once it succeeds, re-run /qa-publish ${userStoryId} suffix=${suffix} to publish this suffixed pack.`,
-                resolvedSoFar: { userStoryId, suffix, categoryTag, planId: planForGate ?? null },
-              }, null, 2) }],
-              isError: true,
-            };
-          }
-
-          // Gate 2 — NEEDS-CONFIRMATION if createSuffixedSuite hasn't been answered.
-          // Skipped on repush (the decision has already been made on the previous push).
-          if (createSuffixedSuite === undefined && !isRepush) {
-            const capitalized = suffix.charAt(0).toUpperCase() + suffix.slice(1);
-            return {
-              content: [{ type: "text" as const, text: JSON.stringify({
-                status: "needs-confirmation",
-                reason: "suffixed-suite-decision",
-                message:
-                  `ℹ️ INFO: Publishing suffixed pack '${suffix}' (category tag: ${categoryTag}) for US ${userStoryId}. ` +
-                  `Decide where the ${tcCount} test case(s) should land in the ADO suite tree.`,
-                suffix,
-                categoryTag,
-                tcCount,
-                options: [
-                  { key: "A", label: `Create '${capitalized}' sub-suite under the US suite`, action: `Re-run qa_publish_push with createSuffixedSuite: true. The tool creates a static '${capitalized}' folder under the US-level suite, with a query-based child filtering on TC_<usId>_${categoryTag}_. Each TC also gets System.Tags = '${capitalized}' for ADO-native filtering.` },
-                  { key: "B", label: `Tag the TCs only (no sub-suite)`, action: `Re-run qa_publish_push with createSuffixedSuite: false. TCs are created with System.Tags = '${capitalized}' and stay in the existing US-level query-based suite. Use when you prefer flat suite layout.` },
-                  { key: "C", label: `Cancel`, action: `Stop. No changes.` },
-                ],
-                resolvedSoFar: { userStoryId, suffix, categoryTag, planId: planForGate ?? null },
-              }, null, 2) }],
-              isError: true,
-            };
-          }
-        }
+        // Suffixed publishes use the same suite-resolution path as canonical
+        // ones: find-or-create the US-level dynamic suite, then push TCs into
+        // it. The suite's WIQL `[System.Title] CONTAINS 'TC_<usId>'` catches
+        // both functional (`TC_<usId>_NN`) and suffixed (`TC_<usId>_REG_NN`)
+        // titles via substring match, so functional + regression coexist in
+        // the same US-level suite. No separate sub-suite is created — ADO
+        // rejects creating any child under a dynamic suite (HTTP 400
+        // "Cannot create new suite inside non-static parent suite"), and
+        // splitting the US into a static container + per-suffix dynamic
+        // children would be a breaking schema change for every existing
+        // tenant. Functional / regression / E2E TCs are distinguished only
+        // by their title prefix (and optionally `System.Tags`).
 
         // Scenario 2 option A: user confirmed reset APPROVED → DRAFT (no ADO IDs in draft).
         // Flip status in-place and abort the push so the user can re-review.
@@ -1468,48 +1388,6 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           "utf-8"
         );
 
-        // Suffixed publish: optionally create the suffixed sub-suite under the
-        // US-level query suite. Done AFTER TC creation so the new TCs auto-populate
-        // the dynamic child suite via WIQL. Failures here are non-fatal — TCs are
-        // already in ADO with the right tags; the sub-suite can be created later
-        // by re-running with createSuffixedSuite=true.
-        let subSuiteNote = "";
-        if (suffix && categoryTag && createSuffixedSuite === true) {
-          try {
-            // ensureSuiteHierarchyForUs returned the leaf US suite ID via planId
-            // — fetch it again here as the publish flow doesn't surface leafSuiteId.
-            // We could thread it through, but keeping the change surface small is
-            // worth the second call.
-            const usSuites = await adoClient.get<import("../types.ts").AdoTestSuiteListResponse>(
-              `/_apis/testplan/Plans/${planId}/suites`,
-              "7.1",
-            );
-            const idStr = String(userStoryId);
-            const sep = config.suiteStructure.parentUsSeparator ?? " | ";
-            const usSuite = usSuites.value.find((s) =>
-              (s.name ?? "").startsWith(`${idStr}${sep}`) || s.name === idStr,
-            );
-            if (usSuite) {
-              const subSuiteResult = await ensureSuffixedSubSuite(
-                adoClient, planId, usSuite.id, userStoryId, suffix, categoryTag,
-              );
-              subSuiteNote =
-                `\n\n**Sub-suite:** Created/verified '${suffix.charAt(0).toUpperCase() + suffix.slice(1)}' under the US suite ` +
-                `(static suite #${subSuiteResult.staticSuiteId}, query-based child #${subSuiteResult.querySuiteId}). ` +
-                `New TCs auto-populate the query-based child via System.Title CONTAINS 'TC_${userStoryId}_${categoryTag}_'.`;
-            } else {
-              subSuiteNote =
-                `\n\n**Sub-suite:** ⚠️ Could not locate the US-level suite for plan ${planId} after publish. ` +
-                `Sub-suite NOT created. Re-run with createSuffixedSuite=true once the US suite is in place.`;
-            }
-          } catch (subSuiteErr) {
-            const m = subSuiteErr instanceof Error ? subSuiteErr.message : String(subSuiteErr);
-            subSuiteNote =
-              `\n\n**Sub-suite:** ⚠️ Sub-suite creation failed (${m}). Test cases are already in ADO with the correct tags; ` +
-              `re-run with createSuffixedSuite=true to retry the sub-suite step.`;
-          }
-        }
-
         // Break out updated vs created in the success summary when the push was mixed.
         // Single-section summary when all were updates OR all were creates.
         const updated = results.filter((r) => r.op === "update");
@@ -1535,7 +1413,7 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
         return {
           content: [{
             type: "text" as const,
-            text: `✅ SUCCESS: Pushed ${results.length} test case(s) to ADO for US ${userStoryId}${suffixHeader}.\n\n${summary}\n\n**Draft:** [${mdFileName}](${mdFileUri}) — updated to APPROVED.${subSuiteNote}`,
+            text: `✅ SUCCESS: Pushed ${results.length} test case(s) to ADO for US ${userStoryId}${suffixHeader}.\n\n${summary}\n\n**Draft:** [${mdFileName}](${mdFileUri}) — updated to APPROVED.`,
           }],
         };
       } catch (err) {
