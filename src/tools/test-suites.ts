@@ -468,16 +468,38 @@ async function ensureSuiteHierarchy(
  * from a suffixed publish (the canonical pack should land first), we only
  * proceed if the leaf US suite already exists. Read-only — never creates.
  *
- * Implementation: scans the plan's suite tree for any suite whose name STARTS
- * with the US ID followed by the configured `parentUsSeparator` (default
- * `" | "`), per `buildUsFolderName`. Returns false on any fetch failure so the
- * caller gets the actionable "suite-missing" gate rather than a 500.
+ * Matching semantics: scans the plan's suite tree and returns true if ANY
+ * suite name contains the US ID as a whole-number token — i.e. the digits of
+ * the US ID, bounded on each side by either the start/end of the string or a
+ * non-digit character. This is intentionally lenient about the surrounding
+ * shape so we recognize every reasonable human-readable convention a tenant
+ * may have used historically:
+ *
+ *   "1377028 | Title"   (canonical separator from `buildUsFolderName`)
+ *   "1377028 - Title"   (hyphen)
+ *   "1377028 — Title"   (em-dash)
+ *   "US 1377028"        (prefix label)
+ *   "1377028: Foo"      (colon)
+ *   "[1377028] Foo"     (bracketed)
+ *   "1377028"           (bare numeric)
+ *
+ * Critically, the token-boundary check rejects substring-of-larger-id
+ * false positives: searching for `1377028` will NOT match `13770281` (digit
+ * appended) or `21377028` (digit prepended). It also won't match a
+ * coincidentally-shorter-or-longer numeric run like `7028` or `01377028`.
+ *
+ * Returns false on any fetch failure so the caller gets the actionable
+ * "suite-missing" gate rather than a 500.
  */
 export async function usSuiteExists(
   client: AdoClient,
   planId: number,
   userStoryId: number,
-  config?: ConventionsConfig,
+  // The matcher no longer consults the configured separator — we accept any
+  // non-digit boundary, which subsumes every separator a tenant might use.
+  // The parameter is retained for backwards compatibility with existing
+  // callers (some still pass `config`) so we don't churn the call sites.
+  _config?: ConventionsConfig,
 ): Promise<boolean> {
   try {
     const allSuites = await client.get<AdoTestSuiteListResponse>(
@@ -485,15 +507,12 @@ export async function usSuiteExists(
       "7.1",
     );
     const idStr = String(userStoryId);
-    // The configured separator defaults to " | " (see ConventionsConfig defaults).
-    // Prefix check on `<id><sep>` tolerates any title; exact-match without separator
-    // also accepted for paranoia (some legacy suites may be bare-numeric).
-    const separator = config?.suiteStructure?.parentUsSeparator ?? " | ";
-    const prefix = `${idStr}${separator}`;
-    return (allSuites.value ?? []).some((s) => {
-      const name = (s.name ?? "").trim();
-      return name === idStr || name.startsWith(prefix);
-    });
+    // Whole-number token boundary: the US ID must be preceded by start-of-
+    // string or a non-digit, and followed by end-of-string or a non-digit.
+    // This rejects "13770281" (US ID is a prefix) and "21377028" (US ID is
+    // a suffix), while accepting every separator-shape listed in the JSDoc.
+    const tokenRe = new RegExp(`(^|[^0-9])${idStr}([^0-9]|$)`);
+    return (allSuites.value ?? []).some((s) => tokenRe.test(s.name ?? ""));
   } catch {
     return false;
   }

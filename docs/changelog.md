@@ -6,6 +6,23 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-17 — `usSuiteExists`: lenient token-boundary matcher (fixes false-negative on non-canonical separators)
+
+The `us-suite-missing-for-suffixed-publish` gate (added in the suffixed-publish work) was firing for tenants whose US suites genuinely exist in ADO but whose names don't follow the canonical `<usId> | Title` shape. Real-world repro: a tenant with US `1377028` had a published suite named `1377028 - Title` (hyphen instead of pipe) and the matcher returned `false`, blocking the suffixed publish even though the canonical hierarchy was already in place.
+
+**Cause.** `usSuiteExists` did a strict prefix match on `<usId><parentUsSeparator>` (default `" | "`), with a bare-numeric exact-match as the only fallback. Any other realistic shape — hyphen, em-dash, colon, `US <id>` label, bracketed — failed.
+
+**Fix.** Replaced the prefix check with a token-boundary regex: the US ID must appear as a whole-number token (preceded by start-of-string or a non-digit, followed by end-of-string or a non-digit). This subsumes every separator a tenant might use AND rejects substring-of-larger-id false positives — searching for `1377028` will not match `13770281` (digit appended) or `21377028` (digit prepended).
+
+**Files changed:**
+
+- `src/tools/test-suites.ts` — `usSuiteExists` matcher rewritten; the `config` parameter is now unused (renamed `_config?`) but kept on the signature for backwards compatibility with existing callers.
+- `src/tools/test-suites.test.ts` — extended with 10 new cases covering canonical pipe / hyphen / em-dash / `US <id>` / colon / bare-numeric / bracketed shapes, the two critical substring-rejection cases (prefix-of-larger and suffix-of-larger), the shorter-numeric-tail rejection, and the empty suite list. Existing 4 `usSuiteExists` tests continue to pass unmodified.
+
+**Test count delta:** 523 → 533 (10 new lenient-matcher cases).
+
+**No behaviour change for callers.** Same signature, same return type, strictly broader acceptance set. Suites that matched under the old strict-prefix rule still match; suites that previously yielded a false negative now correctly yield `true`.
+
 ### 2026-05-17 — `qa_tc_update`: title-preservation gate (closes the structured-title clobber gap)
 
 `qa_tc_update`'s `title` arg used to write user-supplied text directly into `System.Title`, which clobbered structured prefixes — e.g. `TC_5678_REG_01 -> Foo -> Bar -> Existing summary` became bare `New title`, losing the TC ID prefix, feature tags, and category tag. This gap predated suffixed-draft support; the suffix work just made it more visible (now there's an additional structural element to lose).

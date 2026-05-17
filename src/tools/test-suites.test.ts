@@ -280,6 +280,78 @@ test("usSuiteExists: returns false on GET failure (defensive)", async () => {
   assert.equal(await usSuiteExists(stub, 5500, 1234), false);
 });
 
+// ── usSuiteExists: lenient token-boundary matcher ──────────────────────
+//
+// The legacy strict-prefix check (`<id><separator>`) gave false negatives for
+// tenants whose existing suites used non-canonical separators. The matcher
+// now accepts the US ID as a whole-number token anywhere in the name. The
+// tests below exercise every realistic shape, AND the substring-of-larger-id
+// guard that prevents false positives.
+
+/** Helper: build a suite-list with a single dynamic suite of the given name. */
+function planWithSuiteNamed(planId: number, name: string): StubAdoClientForSuites {
+  return new StubAdoClientForSuites(
+    new Map([[planId, [
+      { id: 1, name: "Plan Root", suiteType: "staticTestSuite", plan: { id: planId, name: "Plan" }, revision: 1, hasChildren: true } satisfies AdoTestSuite,
+      { id: 2, name, suiteType: "dynamicTestSuite", parentSuite: { id: 1, name: "Plan Root" }, plan: { id: planId, name: "Plan" }, revision: 1, hasChildren: false, queryString: "..." } satisfies AdoTestSuite,
+    ]]]),
+  );
+}
+
+test("usSuiteExists: matches canonical pipe separator '<id> | Title'", async () => {
+  const stub = planWithSuiteNamed(5500, "1377028 | Title");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), true);
+});
+
+test("usSuiteExists: matches hyphen separator '<id> - Title'", async () => {
+  const stub = planWithSuiteNamed(5500, "1377028 - Title");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), true);
+});
+
+test("usSuiteExists: matches em-dash separator '<id> — Title'", async () => {
+  const stub = planWithSuiteNamed(5500, "1377028 — Title");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), true);
+});
+
+test("usSuiteExists: matches 'US <id>' label form", async () => {
+  const stub = planWithSuiteNamed(5500, "US 1377028");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), true);
+});
+
+test("usSuiteExists: matches colon-separated '<id>: context'", async () => {
+  const stub = planWithSuiteNamed(5500, "1377028: Some context");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), true);
+});
+
+test("usSuiteExists: matches bare numeric '<id>'", async () => {
+  const stub = planWithSuiteNamed(5500, "1377028");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), true);
+});
+
+test("usSuiteExists: REJECTS substring-as-prefix '<id>X' (e.g. 13770281 for US 1377028)", async () => {
+  // Critical: a different US whose ID starts with our digits must NOT match.
+  const stub = planWithSuiteNamed(5500, "13770281 | Different Story");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), false);
+});
+
+test("usSuiteExists: REJECTS substring-as-suffix 'X<id>' (e.g. 21377028 for US 1377028)", async () => {
+  // Critical: a different US whose ID ends with our digits must NOT match.
+  const stub = planWithSuiteNamed(5500, "21377028 | Different Story");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), false);
+});
+
+test("usSuiteExists: REJECTS shorter numeric tail '7028' for US 1377028 (no token boundary)", async () => {
+  // The shorter run `7028` is a substring of our id without a non-digit
+  // boundary on its left, so it must not satisfy the matcher.
+  const stub = planWithSuiteNamed(5500, "7028 | Tail Only");
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), false);
+});
+
+test("usSuiteExists: returns false for empty suite list", async () => {
+  const stub = new StubAdoClientForSuites(new Map([[5500, []]]));
+  assert.equal(await usSuiteExists(stub, 5500, 1377028), false);
+});
+
 // ── ensureSuffixedSubSuite ──────────────────────────────────────────────
 
 test("ensureSuffixedSubSuite creates a static folder + query child with the correct WIQL", async () => {
