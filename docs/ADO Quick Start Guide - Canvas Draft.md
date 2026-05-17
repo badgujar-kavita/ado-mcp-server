@@ -11,19 +11,28 @@
 
 ## Table of Contents
 
-1. [What this tool does](#what-this-tool-does)
-2. [Typical workflow](#typical-workflow)
-3. [Before you begin](#before-you-begin)
-4. [Step 1 — Create your Azure DevOps PAT](#step-1--create-your-azure-devops-pat)
-5. [Step 1.5 — Create your Confluence API token (optional)](#step-15--create-your-confluence-api-token-optional)
-6. [Step 2 — Install on your machine](#step-2--install-on-your-machine)
-7. [Step 3 — Connect your workspace](#step-3--connect-your-workspace)
-8. [Step 4 — Verify your setup](#step-4--verify-your-setup)
-9. [Files created in your workspace](#files-created-in-your-workspace)
-10. [Slash commands reference](#slash-commands-reference)
-11. [Common fixes](#common-fixes)
-12. [Troubleshooting and FAQ](#troubleshooting-and-faq)
-13. [Need help?](#need-help)
+1. [What is an MCP?](#what-is-an-mcp)
+2. [What this tool does](#what-this-tool-does)
+3. [Typical workflow](#typical-workflow)
+4. [Before you begin](#before-you-begin)
+5. [Step 1 — Create your Azure DevOps PAT](#step-1--create-your-azure-devops-pat)
+6. [Step 1.5 — Create your Confluence API token (optional)](#step-15--create-your-confluence-api-token-optional)
+7. [Step 2 — Install on your machine](#step-2--install-on-your-machine)
+8. [Step 3 — Connect your workspace](#step-3--connect-your-workspace)
+9. [Step 4 — Verify your setup](#step-4--verify-your-setup)
+10. [Files created in your workspace](#files-created-in-your-workspace)
+11. [Slash commands reference](#slash-commands-reference)
+12. [Common fixes](#common-fixes)
+13. [Troubleshooting and FAQ](#troubleshooting-and-faq)
+14. [Need help?](#need-help)
+
+---
+
+## What is an MCP?
+
+**MCP (Model Context Protocol)** is an open standard that lets AI assistants — like Cursor's AI chat — securely connect to external tools and data sources. Instead of copy-pasting context between Azure DevOps and Cursor, an MCP server gives the AI direct, controlled access to read User Stories, fetch attachments, and write test cases on your behalf.
+
+**In short:** the Vortex ADO MCP turns Cursor's AI chat into a thin layer over your Azure DevOps project — so you stay in Cursor and never paste ADO data by hand.
 
 ---
 
