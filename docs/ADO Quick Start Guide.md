@@ -370,18 +370,11 @@ Suffixed packs share the canonical pack's solution design summary and QA cheat s
 
 The TAG segment is what makes WIQL searches work — `[System.Title] CONTAINS '_REG_'` surfaces every regression case across the project. ADO numbering is independent per pack: each suffixed file starts its own `01, 02, …` numbering, never colliding with the canonical pack.
 
-### Publishing a suffixed pack — the two new gates
+### Publishing a suffixed pack
 
-Run `/qa-publish <ID> suffix=<slug>` to push the parallel pack. The MCP runs two extra consent gates before the canonical Phase A/B gates fire:
+Run `/qa-publish <ID> suffix=<slug>` to push the parallel pack. The suffixed flow uses the **same gates and the same suite-resolution path as the canonical flow** — there are no suffix-specific consent gates. If the US-level suite doesn't exist yet, the publish creates it (Sprint → Parent → US hierarchy). If it does exist, the new TCs are added to it.
 
-1. **`us-suite-missing-for-suffixed-publish` (🚫 BLOCK).** The canonical pack must publish first — that's what creates the Sprint → Parent → US suite hierarchy. If you try to publish a suffixed pack before the canonical, you'll see this block. Fix: run the canonical `/qa-publish <ID>` first, then re-run the suffixed publish.
-
-2. **`suffixed-suite-decision` (ℹ️ NEEDS-CONFIRMATION).** You're asked where the suffixed TCs should land in the ADO suite tree:
-   - **Option A** — Create a `<Capitalized Suffix>` static + query sub-suite under the US suite. The query child auto-populates via `[System.Title] CONTAINS 'TC_<USID>_<TAG>_'`. Best when you want a separate ADO folder for each pack.
-   - **Option B** — Tag the TCs only (no sub-suite). TCs land in the existing US-level query suite alongside canonical TCs. Best when you prefer flat suite layout.
-   - **Option C** — Cancel.
-
-   The agent will surface the three options verbatim and require an explicit `A`, `B`, or `C` reply (bare 'yes' is NOT an option pick). Once you choose, the agent re-runs `/qa-publish` with `createSuffixedSuite: true` (option A) or `createSuffixedSuite: false` (option B).
+Both functional and suffixed test cases coexist in the **same US-level dynamic suite**. The suite's WIQL `[System.Title] CONTAINS 'TC_<USID>'` matches both `TC_<USID>_NN` (canonical) and `TC_<USID>_REG_NN` (suffixed) titles via substring match, so all packs auto-populate the same suite. If you want a visual "Regression" folder in ADO, create it manually — the tool intentionally stays out of the suite-tree-shape business since ADO doesn't allow nesting any child under a query-based suite.
 
 ### Publish writes back to the suffixed file (not the canonical)
 

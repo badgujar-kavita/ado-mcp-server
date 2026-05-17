@@ -136,22 +136,18 @@ authoring:
    argument is REQUIRED on the publish call too. Without it, you'll
    publish the canonical draft, not the variant.
 
-**Two new gates fire on a suffixed publish (BEFORE the canonical
-Phase A/B gates):**
+**Suffixed publishes use the same gate flow and the same suite path as
+canonical publishes** — there are no suffix-specific consent gates. If
+the US-level suite doesn't exist yet, the publish creates it (Sprint →
+Parent → US hierarchy). If it does exist, the new TCs are added to it.
 
-- **`us-suite-missing-for-suffixed-publish` (🚫 BLOCK).** The canonical
-  pack must publish first so the Sprint → Parent → US suite hierarchy
-  exists. Surface the message and stop until the user runs the
-  canonical publish.
-- **`suffixed-suite-decision` (ℹ️ NEEDS-CONFIRMATION).** Three options:
-  - **A** — Create a `<Capitalized>` static + query sub-suite under the
-    US suite. New TCs auto-populate the query child via WIQL `CONTAINS
-    'TC_<USID>_<TAG>_'`. Re-run with `createSuffixedSuite: true`.
-  - **B** — Tag-only. TCs land in the existing US-level query suite;
-    no sub-suite is created. Re-run with `createSuffixedSuite: false`.
-  - **C** — Cancel.
-
-  Apply the consent contract — bare 'yes' is NOT an option pick.
+Functional and suffixed test cases coexist in the same US-level dynamic
+suite. The suite's WIQL `[System.Title] CONTAINS 'TC_<USID>'` matches
+both `TC_<USID>_NN` and `TC_<USID>_REG_NN` titles via substring match,
+so all packs auto-populate the same suite. ADO doesn't allow nesting
+any child under a query-based suite, so the tool intentionally does
+not try to create per-suffix sub-suites — if the team wants a visual
+"Regression" folder in ADO they create it manually.
 
 ## Test-case title format — REQUIRED
 

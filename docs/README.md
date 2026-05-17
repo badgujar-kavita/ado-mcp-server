@@ -26,7 +26,7 @@ Documentation for the VortexADO MCP server — Azure DevOps test case automation
 | [repush-workflow.md](repush-workflow.md) | Re-push test cases (delete & re-create workflow) |
 | [ado-test-case-update-guide.md](ado-test-case-update-guide.md) | Updating prerequisites, TO BE TESTED FOR format, when to restart MCP and deploy |
 | [examples/cursor-rules/](examples/cursor-rules/) | **Tenant extension bundle** — Full guide + copy-ready `.mdc` examples (regression, SIT, E2E coverage, priority policies, per-team conventions). Share this whole folder with tenants to customize behavior without code changes |
-| [../tenant-rules-examples/qa.mdc](../tenant-rules-examples/qa.mdc) | **Suffixed-draft agent rules** (`/qa-draft suffix=...`) — Group A (separate file) vs Group B (extend canonical) decision gate, suffix→tag table, publish-time gates, plus a parser-validated reference draft at [`tenant-rules-examples/sample-drafts/US_1234_test_cases_regression.md`](../tenant-rules-examples/sample-drafts/US_1234_test_cases_regression.md) |
+| [../tenant-rules-examples/qa.mdc](../tenant-rules-examples/qa.mdc) | **Suffixed-draft agent rules** (`/qa-draft suffix=...`) — Group A (separate file) vs Group B (extend canonical) decision gate, suffix→tag table, plus a parser-validated reference draft at [`tenant-rules-examples/sample-drafts/US_1234_test_cases_regression.md`](../tenant-rules-examples/sample-drafts/US_1234_test_cases_regression.md) |
 
 ---
 
