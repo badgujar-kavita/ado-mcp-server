@@ -73,7 +73,63 @@ async function set(
   project: string,
   secret: string,
 ): Promise<void> {
-  await backend.setPassword(SERVICE, accountFor(provider, org, project), secret);
+  const account = accountFor(provider, org, project);
+  await backend.setPassword(SERVICE, account, secret);
+  // macOS only: relax the keychain ACL on this entry so reads from any
+  // Apple-signed application (Cursor, Cursor Helper, Node, Terminal) do
+  // NOT trigger an "always allow / deny / allow once" prompt every time
+  // the MCP child reads the PAT. Without this, every tool call that
+  // hits ADO triggers a Keychain prompt — blocking the QA workflow.
+  // Standard practice for CLI tools that persist secrets in the OS
+  // keychain (Git CM, AWS CLI, gcloud all do the equivalent).
+  await broadenKeychainAclMacOnly(account);
+}
+
+/**
+ * Broaden the macOS Keychain ACL on the just-written entry so subsequent
+ * reads from differently-code-signed processes (e.g. a Node binary
+ * upgraded between write and read, or Cursor's helper process vs the
+ * main app) don't trigger interactive "allow access?" prompts.
+ *
+ * Uses the `security` CLI's `set-generic-password-partition-list` —
+ * universally available on macOS. Partition list `apple:` means "any
+ * Apple-signed application." This is the standard behavior CLI tools
+ * adopt; the alternative (per-app whitelist) breaks on every Node
+ * upgrade or Cursor reinstall.
+ *
+ * Non-fatal: failure here just means the user might see the prompt
+ * occasionally — the credential is still written and readable. We
+ * swallow errors and log a one-line warning.
+ *
+ * No-op on non-macOS — Linux libsecret and Windows Credential Manager
+ * don't have this concept (keytar reads succeed silently there).
+ */
+async function broadenKeychainAclMacOnly(account: string): Promise<void> {
+  if (process.platform !== "darwin") return;
+  const { exec } = await import("node:child_process");
+  await new Promise<void>((resolve) => {
+    // Note: `security` looks up the entry by service+account and updates
+    // the partition list in place. -k specifies the keychain — omitting
+    // lets `security` use the default (login.keychain-db).
+    exec(
+      `security set-generic-password-partition-list -S "apple:" -s ${shellQuote(SERVICE)} -a ${shellQuote(account)}`,
+      (err, _stdout, stderr) => {
+        if (err) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[keychain] Could not broaden Keychain ACL for ${SERVICE}/${account}: ${stderr.trim() || err.message}. ` +
+            `You may see Keychain access prompts; resolve via Keychain Access > vortex-ado entry > Access Control > Allow all applications.`,
+          );
+        }
+        resolve();
+      },
+    );
+  });
+}
+
+/** Single-quote a string for safe inclusion in a shell command. */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
 async function del(provider: Provider, org: string, project: string): Promise<boolean> {

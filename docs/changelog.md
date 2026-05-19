@@ -6,6 +6,22 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-19 — keychain: broaden ACL on write to stop macOS access prompts
+
+QA installs were getting interactive macOS Keychain prompts on every tool call after running `/vortex-ado/ado-connect`. Symptom: a popover asking "AddressBookSourceSync wants to use the iCloud keychain" or "Cursor wants to access vortex-ado entry" appearing repeatedly, blocking the workflow.
+
+**Cause.** `keytar.setPassword()` writes keychain entries with the calling process's code signature as the only "trusted application." When the MCP child process reads the entry later, macOS may see a different signature (Node binary upgraded between write and read, or Cursor Helper vs Cursor main app), and prompts the user for permission. The user's two options ("always allow" and "deny") are per-prompt, not per-entry, so the prompts recur on every read.
+
+**Fix.** After every `keychain.setPassword()` call, run `security set-generic-password-partition-list -S "apple:" -s vortex-ado -a <account>` to broaden the entry's Access Control List to "any Apple-signed application." This is the standard behavior CLI tools that persist secrets adopt (Git Credential Manager, AWS CLI, gcloud all do equivalent). Single one-time prompt for the user's login password during `/ado-connect` (when the partition list is changed); silent reads forever after.
+
+- Platform-gated to macOS only — Linux libsecret and Windows Credential Manager don't have this concept; `keytar` reads succeed silently there.
+- Non-fatal: failure to broaden the ACL just means the user might see prompts; the credential is still written and readable. Logged as a one-line warning.
+- Shell-safe: account names are single-quoted and any embedded single quotes are escaped via the standard `'\''` pattern.
+
+**Files changed:** `src/keychain/keychain.ts` (the shared `set()` chokepoint covers both ADO and Confluence writes; one place, both providers).
+
+**Action required for users hitting the prompt:** re-run `/vortex-ado/ado-connect` and re-enter the PAT. The new write path will broaden the ACL and prompts stop. For users who'd rather fix existing entries without re-saving: open Keychain Access, search `vortex-ado`, change Access Control on each entry to "Allow all applications."
+
 ### 2026-05-19 — Remove hardcoded `Custom.TechnicalSolution` fallback for the Solution Design field
 
 The Solution Design field reference was always tenant-specific, but the code had a hardcoded fallback to `Custom.TechnicalSolution` (which exists on the original tenant's project but no other organization's). When a tenant didn't configure `solutionDesign.adoFieldRef`, the MCP would silently look for `Custom.TechnicalSolution` — invisibly broken for everyone except that one project.
