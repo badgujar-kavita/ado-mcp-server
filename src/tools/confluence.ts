@@ -33,7 +33,7 @@ export function buildConfluencePageCanonicalResult(
   };
 }
 
-export function registerConfluenceTools(server: McpServer, confluenceClient: ConfluenceClient | null) {
+export function registerConfluenceTools(server: McpServer, bootConfluenceClient: ConfluenceClient | null) {
   server.registerTool(
     "confluence_read",
     {
@@ -46,6 +46,12 @@ export function registerConfluenceTools(server: McpServer, confluenceClient: Con
       outputSchema: READ_OUTPUT_SCHEMA,
     },
     async ({ pageId }) => {
+      // Resolve Confluence creds from the active CallContext (roots/list →
+      // workspaceRoot → boot client → legacy). Mirrors the AdoClient proxy
+      // pattern. Returns null when no creds anywhere — same shape as the
+      // pre-existing boot-time null, so the existing guard below works.
+      const { resolveConfluenceClientForActiveCall } = await import("../workspace/confluence-client-proxy.ts");
+      const confluenceClient = await resolveConfluenceClientForActiveCall(bootConfluenceClient);
       if (!confluenceClient) {
         return {
           content: [{

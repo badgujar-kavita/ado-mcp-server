@@ -81,7 +81,7 @@ const NON_CONFLUENCE_WORKAROUND: Record<string, string> = {
 export function registerWorkItemTools(
   server: McpServer,
   client: AdoClient,
-  confluenceClient: ConfluenceClient | null
+  bootConfluenceClient: ConfluenceClient | null
 ) {
   server.registerTool(
     "ado_story",
@@ -107,6 +107,12 @@ export function registerWorkItemTools(
         );
 
         const config = await resolveConfigForCall(extra);
+        // Per-call ConfluenceClient resolution. The boot-time client is null
+        // in the standard Cursor topology (cwd ≠ workspace), so without this
+        // resolver step solutionDesignContent comes back null even when the
+        // workspace config has Confluence enabled.
+        const { resolveConfluenceClientForActiveCall } = await import("../workspace/confluence-client-proxy.ts");
+        const confluenceClient = await resolveConfluenceClientForActiveCall(bootConfluenceClient);
         const context = await extractUserStoryContext(item, client, confluenceClient, config);
         const { content, withUrl } = buildGetUserStoryResponse(context, {
           webUrl: adoWorkItemUrl(client, context.id),
