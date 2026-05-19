@@ -1,14 +1,12 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
-  getCredentialsPath,
   getTcDraftsDir,
-  loadCredentials,
   loadCredentialsForWorkspace,
-  credentialsFileExists,
   type Credentials,
 } from "../credentials.ts";
 import { dirname, join } from "path";
+import { homedir } from "os";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { getCurrentVersion, getLatestChangelogHighlights, isNewerVersion } from "../version.ts";
 import { launchConfigUI } from "./configure-ui.ts";
@@ -52,60 +50,46 @@ export interface SetupStatus {
 }
 
 /**
- * Inputs to `computeSetupStatus`. Dependency-injected so tests can supply
- * deterministic credentials + existence state without touching
- * `~/.vortex-ado/credentials.json` on disk. Defaults read from the
- * real filesystem — production call sites pass nothing.
+ * Inputs to `computeSetupStatus`. `creds` and `tcDraftsPath` are dependency-
+ * injected so tests can pin a deterministic shape; `workspaceConfigPath` is
+ * the resolved path of `<workspaceRoot>/.vortex-ado/config.json` for the
+ * "broken" message ("Not found at …"). Production callers always pass
+ * `creds` (resolved via `loadCredentialsForWorkspace`) and
+ * `workspaceConfigPath` (the path they read from).
  */
 export interface SetupStatusDeps {
   creds?: Credentials | null;
-  credsPath?: string;
-  credentialsFileExists?: boolean;
+  workspaceConfigPath?: string;
   tcDraftsPath?: string | null;
 }
 
 /**
- * Compute the deterministic setup status. Pure given `deps` — all I/O is
- * behind injectable hooks. Returning a typed object (rather than a prose
- * blob) lets the caller render a consistent table + remediation list and
- * lets tests pin the exact verdict/next-actions for each input shape.
+ * Compute the deterministic setup status. Pure given `deps` — no global
+ * state, no filesystem reads beyond what's injected. Returning a typed
+ * object (rather than a prose blob) lets the caller render a consistent
+ * table + remediation list and lets tests pin the exact verdict for each
+ * input shape.
  */
 export function computeSetupStatus(deps: SetupStatusDeps = {}): SetupStatus {
-  const creds = deps.creds !== undefined ? deps.creds : loadCredentials();
-  const credsPath = deps.credsPath ?? getCredentialsPath();
+  const creds = deps.creds ?? null;
+  const wsPath = deps.workspaceConfigPath ?? "<workspace>/.vortex-ado/config.json";
   const rows: SetupRow[] = [];
   const nextActions: string[] = [];
 
   if (!creds) {
-    // Broken state — required credentials missing or invalid.
-    const fileExists = deps.credentialsFileExists !== undefined
-      ? deps.credentialsFileExists
-      : credentialsFileExists();
-    if (fileExists) {
-      rows.push({
-        name: "Credentials file",
-        status: "fail",
-        detail: `Present at ${credsPath} but contains placeholders or missing required values`,
-      });
-    } else {
-      rows.push({
-        name: "Credentials file",
-        status: "fail",
-        detail: `Not found at ${credsPath}`,
-      });
-    }
-    rows.push({ name: "ADO PAT", status: "fail", detail: "Not configured" });
+    // Broken state — required credentials missing or invalid for this workspace.
+    rows.push({
+      name: "Workspace config",
+      status: "fail",
+      detail: `Not found or incomplete at ${wsPath}`,
+    });
+    rows.push({ name: "ADO PAT", status: "fail", detail: "Not configured (OS keychain has no entry for this workspace's org/project)" });
     rows.push({ name: "ADO Organization", status: "fail", detail: "Not configured" });
     rows.push({ name: "ADO Project", status: "fail", detail: "Not configured" });
 
     nextActions.push(
-      "Run `/vortex-ado/configure` to set the ADO PAT, organization, and project with Test Management read/write scope.",
+      "Run `/vortex-ado/ado-connect` to write `<workspace>/.vortex-ado/config.json` and store your PAT in the OS keychain.",
     );
-    if (!fileExists) {
-      nextActions.push(
-        "Alternative: run `/vortex-ado/ado_connect_save` to create the credentials template, then edit it directly.",
-      );
-    }
 
     return { overall: "broken", rows, nextActions };
   }
@@ -129,7 +113,7 @@ export function computeSetupStatus(deps: SetupStatusDeps = {}): SetupStatus {
       detail: "Not configured (optional)",
     });
     nextActions.push(
-      "Optional: add `confluence_base_url`, `confluence_email`, and `confluence_api_token` to `~/.vortex-ado/credentials.json` to enable Solution Design fetch.",
+      "Optional: re-run `/vortex-ado/ado-connect` and enable Confluence (URL + email) to enable Solution Design fetch. The API token will be stored in the OS keychain.",
     );
   }
 
@@ -183,8 +167,14 @@ export function formatSetupStatus(status: SetupStatus): string {
   return lines.join("\n");
 }
 
+/**
+ * Path of the install-level state file used to drive the first-run
+ * welcome and version-update messages. Lives in `~/.vortex-ado/`
+ * alongside the bundled dist; we don't put it under the user's
+ * workspace because it's per-MCP-install state, not per-project.
+ */
 function getStateFilePath(): string {
-  return join(dirname(getCredentialsPath()), INITIALIZED_FLAG);
+  return join(homedir(), ".vortex-ado", INITIALIZED_FLAG);
 }
 
 function loadSetupState(): SetupState | null {
@@ -408,9 +398,8 @@ export function registerSetupTools(server: McpServer) {
       const currentVersion = getCurrentVersion();
 
       // Resolve the workspace via roots/list first, then explicit override.
-      // Unlike /ado-connect, /ado-check never hard-fails — if no workspace
-      // can be resolved, fall back to the boot-time credentials so we still
-      // show *something* useful.
+      // No fallback path beyond that — without a workspace we can't read
+      // any config, and there's no legacy file to fall back to.
       const clientRoots = await fetchClientRoots(extra ?? {});
       let resolvedWorkspace: string | null = null;
       let workspaceResolutionSource: string | null = null;
@@ -421,28 +410,29 @@ export function registerSetupTools(server: McpServer) {
         });
         workspaceResolutionSource = clientRoots.length > 0 ? "MCP roots/list" : "explicit workspaceRoot arg";
       } catch {
-        // Soft fall-through to boot-time creds.
+        // Workspace unresolved — surface that in the status output.
       }
 
-      let creds: Credentials | null;
+      let creds: Credentials | null = null;
       let credsSource: string | null = null;
-      let resolvedFromWorkspace = false;
+      let wsConfigPath: string | undefined;
       if (resolvedWorkspace) {
+        wsConfigPath = join(resolvedWorkspace, ".vortex-ado", "config.json");
         const result = await loadCredentialsForWorkspace(resolvedWorkspace);
         creds = result.credentials;
         credsSource = result.source;
-        resolvedFromWorkspace = true;
-      } else {
-        creds = loadCredentials();
       }
 
-      const status = computeSetupStatus({ creds });
+      const status = computeSetupStatus({ creds, workspaceConfigPath: wsConfigPath });
       const lines: string[] = [];
 
-      if (resolvedFromWorkspace && resolvedWorkspace) {
+      if (resolvedWorkspace) {
         lines.push(`Workspace: ${resolvedWorkspace}`);
         lines.push(`Resolved via: ${workspaceResolutionSource}`);
         lines.push(`Credentials source: ${credsSource ?? "(none found)"}`);
+        lines.push("");
+      } else {
+        lines.push("Workspace: (not resolved — open a folder in Cursor or pass `workspaceRoot`)");
         lines.push("");
       }
 
@@ -463,14 +453,13 @@ export function registerSetupTools(server: McpServer) {
       } else {
         lines.push("VortexADO MCP — Setup Incomplete");
         lines.push("");
-        if (resolvedFromWorkspace && resolvedWorkspace) {
+        if (resolvedWorkspace) {
           lines.push(
-            `No per-workspace config found at ${resolvedWorkspace}/.vortex-ado/config.json, ` +
-              `and no legacy global credentials either. Run /vortex-ado/ado-connect ` +
-              `to set up — the workspace will be auto-detected from your open folder.`,
+            `No per-workspace config found at ${resolvedWorkspace}/.vortex-ado/config.json. ` +
+              `Run /vortex-ado/ado-connect to set up — the workspace is auto-detected from your open folder.`,
           );
         } else {
-          lines.push("Core ADO tools will not work until this is resolved.");
+          lines.push("Core ADO tools will not work until a workspace is resolved and credentials are configured.");
         }
         lines.push("");
       }

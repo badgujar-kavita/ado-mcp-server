@@ -21,8 +21,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, "..");
 
-const CREDENTIALS_DIR = join(homedir(), ".vortex-ado");
-const CREDENTIALS_FILE = join(CREDENTIALS_DIR, "credentials.json");
 const CURSOR_MCP_CONFIG = join(homedir(), ".cursor", "mcp.json");
 const PACKAGE_JSON = join(PROJECT_ROOT, "package.json");
 
@@ -155,23 +153,15 @@ function launchFullServer() {
     return;
   }
 
-  // IMPORTANT: do NOT override `cwd` here. The bundled `dist/index.js` has
-  // no runtime dependencies on PROJECT_ROOT (no relative module loads, no
-  // package.json reads at runtime), so we can — and MUST — let the child
-  // inherit our cwd. Cursor launches this bootstrap with `cwd` set to the
-  // user's open workspace folder; if we override to PROJECT_ROOT (the
-  // installer dir at ~/.vortex-ado/), the MCP child's `process.cwd()` no
-  // longer points at the user's project, so `bootstrapCredentials()` looks
-  // for `~/.vortex-ado/.vortex-ado/config.json` (which doesn't exist) and
-  // silently falls through to the legacy global file. That's the entire
-  // reason every ADO-touching tool fails with `Cannot read properties of
-  // null (reading 'get')` whenever `~/.vortex-ado/credentials.json` is a
-  // placeholder template (the post-keychain-migration default).
-  //
-  // The npx-tsx branch above DOES still need `cwd: PROJECT_ROOT` because
-  // npx + tsx resolves modules relative to cwd. The dist branch has no
-  // such constraint — esbuild bundled everything into a single file.
+  // Set `cwd: PROJECT_ROOT` so the MCP child can resolve sibling files
+  // (package.json, docs/changelog.md) via standard relative reads from
+  // `import.meta.url`-derived ROOT. The MCP server NO LONGER reads
+  // `process.cwd()` for credential or config resolution — every tool
+  // resolves credentials per-call from the active CallContext (MCP
+  // `roots/list` + agent-supplied `workspaceRoot`). So setting cwd to
+  // the installer dir is safe and actually preferred.
   const child = spawn(nodeCmd, [distEntry], {
+    cwd: PROJECT_ROOT,
     stdio: ["pipe", "pipe", "inherit"],
     env: { ...process.env },
   });

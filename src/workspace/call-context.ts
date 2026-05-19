@@ -2,23 +2,20 @@
  * AsyncLocalStorage that captures the per-call MCP context for the
  * lifetime of a single tool handler invocation.
  *
- * Why this exists: `bootstrapCredentials()` runs once at server startup,
- * BEFORE any client connection — so the workspace's roots/list response
- * isn't reachable from there. Boot-time credential resolution is therefore
- * stuck reading `process.cwd()`, which Cursor sets to `$HOME` for MCPs
- * launched from the global `~/.cursor/mcp.json`. That's the wrong folder.
- * The boot-time `adoClient` ends up null in the standard deployment
- * topology, and every tool that touches ADO blows up with
- * `Cannot read properties of null (reading 'get')`.
+ * Why this exists: there is no boot-time credential loader. The MCP
+ * server cannot resolve credentials at startup because `roots/list`
+ * (the protocol that exposes the user's open workspace folder)
+ * requires an active client connection, which doesn't exist before
+ * tool registration. So credentials must be resolved per-tool-call,
+ * not at boot.
  *
- * The right architecture: defer credential resolution to FIRST tool call.
- * MCP tool handlers receive an `extra` parameter that carries a working
- * `sendRequest` — that's how we can issue `roots/list` from inside a
- * handler. We capture `extra` (and any explicit workspaceRoot the agent
- * passed) at handler entry into AsyncLocalStorage, then the lazy
- * `AdoClient` proxy reads it on demand from any code path beneath that
- * handler — even several `await`s deep, even from helpers that don't
- * accept `extra` themselves.
+ * MCP tool handlers receive an `extra` parameter that carries a
+ * working `sendRequest` — that's how we issue `roots/list` from inside
+ * a handler. We capture `extra` (and any explicit workspaceRoot the
+ * agent passed) at handler entry into AsyncLocalStorage, then the
+ * lazy `AdoClient` proxy reads it on demand from any code path
+ * beneath that handler — even several `await`s deep, even from
+ * helpers that don't accept `extra` themselves.
  *
  * This is a one-instrumentation-point fix. Every existing call site in
  * tools/* keeps using `client.get(...)` exactly as before; the proxy

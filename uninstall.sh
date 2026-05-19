@@ -6,7 +6,6 @@
 set -e
 
 INSTALL_DIR="$HOME/.vortex-ado"
-CREDS_DIR="$HOME/.vortex-ado"
 MCP_CONFIG="$HOME/.cursor/mcp.json"
 
 echo "🗑️  Uninstalling VortexADO MCP Server..."
@@ -37,16 +36,15 @@ else
     echo "ℹ️  Installation directory not found"
 fi
 
-# Ask about credentials
+# Credentials note: nothing to clean up here. PATs live in the OS
+# keychain (service "vortex-ado", account "ado::{org}::{project}") and
+# per-workspace config lives in each project's `.vortex-ado/` folder.
+# Removing those is intentionally a manual decision — they may be
+# shared with another tool or with a re-installed VortexADO.
 echo ""
-read -p "Remove credentials file ($CREDS_DIR/credentials.json)? [y/N] " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    rm -rf "$CREDS_DIR"
-    echo "✅ Removed credentials"
-else
-    echo "ℹ️  Credentials preserved at $CREDS_DIR"
-fi
+echo "ℹ️  Per-workspace configs at <project>/.vortex-ado/ and OS keychain"
+echo "   entries (service: vortex-ado) were NOT removed. Delete them"
+echo "   manually if you want a fully clean slate."
 
 echo ""
 echo "🎉 Uninstallation complete!"

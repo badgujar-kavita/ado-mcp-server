@@ -6,21 +6,26 @@
  * real `AdoClient` (`get`, `post`, `patch`, `delete`, `getBinary`,
  * `listProjectTags`, `clearProjectTagsCache`) plus the public `baseUrl`
  * field. Each method, on first call, resolves the underlying real
- * client via `resolveAdoClientForCall(extra, workspaceRoot, bootClient)`
- * using the active `CallContext`, caches the resolved client for the
- * remainder of the handler invocation, and forwards the call.
+ * client via `resolveAdoClientForCall(extra, workspaceRoot)` using the
+ * active `CallContext`, caches the resolved client for the remainder
+ * of the handler invocation, and forwards the call.
  *
  * Caching strategy: keyed by AsyncLocalStorage's CallContext object
  * identity. A `WeakMap<CallContext, Promise<AdoClient | null>>` ensures
  * we only resolve once per handler invocation — even if the handler
- * makes 50 ADO calls. A different invocation gets its own resolution
- * (different `extra` → different roots/list response → potentially
- * different workspace).
+ * makes 50 ADO calls. A different invocation gets its own resolution.
  *
  * `baseUrl` is the one synchronous field on the real AdoClient. We
- * synthesise it from the cached real client when available; otherwise
- * return a placeholder that signals "not yet resolved" without
- * crashing logging code that touches `client.baseUrl`.
+ * synthesise it from a synchronous mirror cache populated when the
+ * resolution promise settles. The handler instrumentation pre-warms
+ * the proxy BEFORE the handler body runs, so URL builders that read
+ * `proxy.baseUrl` synchronously see the real URL. When no resolution
+ * is possible, baseUrl returns a placeholder so logging code that
+ * reads it doesn't crash.
+ *
+ * Throws (on every method) when the active context can't resolve to a
+ * real client — surfaces a clear "credentials not configured" message
+ * pointing the user at /vortex-ado/ado-connect.
  */
 
 import type { AdoClient as RealAdoClient, BinaryResponse } from "../ado-client.ts";
@@ -29,34 +34,21 @@ import { resolveAdoClientForCall } from "./ado-client-for-call.ts";
 
 const cache = new WeakMap<object, Promise<RealAdoClient | null>>();
 // Synchronous mirror of `cache` populated when a resolution promise
-// settles. Used by the synchronous `baseUrl` getter (which can't await)
-// — once the first method call has resolved the real client, baseUrl
-// can return its actual URL instead of the placeholder.
+// settles. Used by the synchronous `baseUrl` getter (which can't await).
 const settledCache = new WeakMap<object, RealAdoClient>();
 
-/**
- * Resolve the real client for the active call context (or return null
- * when no resolution succeeds). Throws when called outside a handler
- * scope — that indicates programmer error.
- */
-async function resolveForActiveContext(
-  bootClient: RealAdoClient | null,
-): Promise<RealAdoClient> {
+async function resolveForActiveContext(): Promise<RealAdoClient> {
   const ctx = getCallContext();
   if (!ctx) {
-    // Outside a handler — shouldn't happen in production. Tests that
-    // bypass the handler instrumentation should pass a real `AdoClient`
-    // directly, not the proxy.
-    if (bootClient) return bootClient;
     throw new Error(
-      "AdoClient proxy: no active call context AND no boot-time client. " +
+      "AdoClient proxy: no active call context. " +
         "This indicates a tool method was invoked outside the handler-instrumentation " +
         "scope (runWithCallContext). Verify the tool call goes through the registered handler.",
     );
   }
   let pending = cache.get(ctx);
   if (!pending) {
-    pending = resolveAdoClientForCall(ctx.extra, ctx.workspaceRoot, bootClient).then(
+    pending = resolveAdoClientForCall(ctx.extra, ctx.workspaceRoot).then(
       (resolved) => {
         // Mirror into the synchronous cache as soon as the promise settles
         // so `baseUrl` (sync getter) can read the real URL on subsequent
@@ -87,11 +79,9 @@ async function resolveForActiveContext(
  * placeholder. Failures are swallowed — the handler will hit the same
  * resolution path on its first method call and surface the error there.
  */
-export async function prewarmAdoClientProxy(
-  bootClient: RealAdoClient | null,
-): Promise<void> {
+export async function prewarmAdoClientProxy(): Promise<void> {
   try {
-    await resolveForActiveContext(bootClient);
+    await resolveForActiveContext();
   } catch {
     // Swallow — handler will surface the error on first real call.
   }
@@ -103,30 +93,14 @@ export async function prewarmAdoClientProxy(
  */
 export type AdoClientProxy = RealAdoClient;
 
-export function createAdoClientProxy(
-  bootClient: RealAdoClient | null,
-): AdoClientProxy {
-  // We expose the same methods + baseUrl getter that `AdoClient` exposes.
-  // Each method awaits the resolved real client for THIS call context,
-  // then forwards verbatim. `baseUrl` synthesises a best-effort string
-  // — when no client has been resolved yet for the active context, we
-  // return a placeholder; in practice baseUrl is read from logs/error
-  // messages AFTER a real call has been made, by which point the cache
-  // is populated.
+export function createAdoClientProxy(): AdoClientProxy {
   const proxy = {
     get baseUrl(): string {
-      // Read from the synchronous mirror populated by
-      // `resolveForActiveContext` once the resolution promise settles.
-      // The handler instrumentation calls `prewarmAdoClientProxy` BEFORE
-      // the handler body runs, so by the time a tool's URL builder
-      // reads `client.baseUrl`, the settled cache already has the real
-      // client.
       const ctx = getCallContext();
       if (ctx) {
         const settled = settledCache.get(ctx);
         if (settled) return settled.baseUrl;
       }
-      if (bootClient) return bootClient.baseUrl;
       return "https://ado-client-not-yet-resolved.invalid";
     },
     async get<T>(
@@ -134,7 +108,7 @@ export function createAdoClientProxy(
       apiVersion?: string,
       queryParams?: Record<string, string>,
     ): Promise<T> {
-      const real = await resolveForActiveContext(bootClient);
+      const real = await resolveForActiveContext();
       return real.get<T>(path, apiVersion, queryParams);
     },
     async getBinary(
@@ -142,7 +116,7 @@ export function createAdoClientProxy(
       apiVersion?: string,
       queryParams?: Record<string, string>,
     ): Promise<BinaryResponse> {
-      const real = await resolveForActiveContext(bootClient);
+      const real = await resolveForActiveContext();
       return real.getBinary(path, apiVersion, queryParams);
     },
     async post<T>(
@@ -151,7 +125,7 @@ export function createAdoClientProxy(
       contentType?: string,
       apiVersion?: string,
     ): Promise<T> {
-      const real = await resolveForActiveContext(bootClient);
+      const real = await resolveForActiveContext();
       return real.post<T>(path, body, contentType, apiVersion);
     },
     async patch<T>(
@@ -160,7 +134,7 @@ export function createAdoClientProxy(
       contentType?: string,
       apiVersion?: string,
     ): Promise<T> {
-      const real = await resolveForActiveContext(bootClient);
+      const real = await resolveForActiveContext();
       return real.patch<T>(path, body, contentType, apiVersion);
     },
     async delete<T>(
@@ -168,24 +142,20 @@ export function createAdoClientProxy(
       apiVersion?: string,
       queryParams?: Record<string, string>,
     ): Promise<T> {
-      const real = await resolveForActiveContext(bootClient);
+      const real = await resolveForActiveContext();
       return real.delete<T>(path, apiVersion, queryParams);
     },
     async listProjectTags(): Promise<string[]> {
-      const real = await resolveForActiveContext(bootClient);
+      const real = await resolveForActiveContext();
       return real.listProjectTags();
     },
     clearProjectTagsCache(): void {
-      // Sync method — only forward when we already have a cached client.
-      // If not, there's nothing to clear (no fetch has happened).
+      // Sync method — only forward when we already have a settled client
+      // for the active context. No active context means no work to do.
       const ctx = getCallContext();
-      if (!ctx) {
-        if (bootClient) bootClient.clearProjectTagsCache();
-        return;
-      }
-      const cached = cache.get(ctx);
-      if (!cached) return;
-      cached.then((real) => real?.clearProjectTagsCache()).catch(() => {});
+      if (!ctx) return;
+      const settled = settledCache.get(ctx);
+      if (settled) settled.clearProjectTagsCache();
     },
   };
 

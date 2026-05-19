@@ -1,18 +1,19 @@
 /**
- * Per-call ConfluenceClient resolver — same pattern as
- * `resolveAdoClientForCall`, but for Confluence credentials. The boot
- * time confluenceClient is null in the standard Cursor topology
- * (cwd ≠ workspace folder); per-call resolution from roots/list +
- * workspaceRoot fixes that.
+ * Per-call ConfluenceClient resolver.
  *
- * Returns null when no Confluence credentials can be found via any
- * source — Confluence is optional, so a null return is graceful.
+ * Resolution order: roots/list → explicit workspaceRoot arg.
+ *
+ * Returns null when no Confluence credentials can be found. Confluence
+ * is optional, so a null return is graceful — `ado_story` and other
+ * consumers skip Confluence enrichment when null.
+ *
+ * No legacy file fallback. No boot-time client. No cwd-based read.
  */
 
 import { fileURLToPath } from "node:url";
 import { resolve as resolvePath } from "node:path";
 import { ConfluenceClient, createConfluenceClient } from "../confluence-client.ts";
-import { loadCredentialsForWorkspace, loadCredentials } from "../credentials.ts";
+import { loadCredentialsForWorkspace } from "../credentials.ts";
 import { fetchClientRoots } from "./fetch-roots.ts";
 
 function buildFromCreds(creds: {
@@ -33,7 +34,6 @@ function buildFromCreds(creds: {
 export async function resolveConfluenceClientForCall(
   extra: { sendRequest?: unknown } | undefined,
   workspaceRoot: string | null | undefined,
-  bootClient: ConfluenceClient | null,
 ): Promise<ConfluenceClient | null> {
   // Step 1 — roots/list.
   const roots = await fetchClientRoots(extra ?? {});
@@ -62,16 +62,6 @@ export async function resolveConfluenceClientForCall(
     } catch {
       // fall through
     }
-  }
-
-  // Step 3 — boot-time client.
-  if (bootClient) return bootClient;
-
-  // Step 4 — last-resort retry of cached/legacy load.
-  const legacy = loadCredentials();
-  if (legacy) {
-    const built = buildFromCreds(legacy);
-    if (built) return built;
   }
 
   return null;

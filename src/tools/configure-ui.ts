@@ -8,11 +8,6 @@ import { basicAuthHeader } from "../helpers/basic-auth.ts";
 import { keychain } from "../keychain/keychain.ts";
 import { WorkspaceConfigSchema, type WorkspaceConfig } from "../config/schema.ts";
 
-// Legacy global path retained for migration READS only. New writes always go
-// to the per-workspace location.
-const LEGACY_CREDS_DIR = join(homedir(), ".vortex-ado");
-const LEGACY_CREDS_FILE = join(LEGACY_CREDS_DIR, "credentials.json");
-
 interface Credentials {
   ado_pat: string;
   ado_org: string;
@@ -104,30 +99,11 @@ export async function loadExistingCredentials(workspaceRoot: string): Promise<Pa
         };
       }
     } catch {
-      // Malformed workspace config — fall through to legacy.
+      // Malformed workspace config — return empty form, user re-enters from scratch.
     }
   }
 
-  // 2. Migration fallback — read from legacy global credentials.json so
-  // the user can review and re-save into the new workspace location.
-  if (existsSync(LEGACY_CREDS_FILE)) {
-    try {
-      const raw = readFileSync(LEGACY_CREDS_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      const placeholders = ["your-personal-access-token", "your-organization-name", "your-project-name"];
-      return {
-        ado_pat: placeholders.includes(data.ado_pat) ? "" : data.ado_pat || "",
-        ado_org: placeholders.includes(data.ado_org) ? "" : data.ado_org || "",
-        ado_project: placeholders.includes(data.ado_project) ? "" : data.ado_project || "",
-        confluence_base_url: data.confluence_base_url || "",
-        confluence_email: data.confluence_email || "",
-        confluence_api_token: data.confluence_api_token || "",
-      };
-    } catch {
-      return {};
-    }
-  }
-
+  // No workspace config yet — user is configuring a fresh workspace.
   return {};
 }
 

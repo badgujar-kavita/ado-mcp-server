@@ -11,7 +11,6 @@ set -e
 INSTALL_DIR="$HOME/.vortex-ado"
 TARBALL_URL="https://github.com/badgujar-kavita/ado-mcp-server/archive/main.tar.gz"
 IS_UPGRADE=false
-CREDS_BACKED_UP=false
 
 # ══════════════════════════════════════════════════════════════
 # Colors & Formatting
@@ -113,13 +112,11 @@ print_tree_last "$(print_success "Node.js $(node -v) at $NODE_BIN")"
 # ══════════════════════════════════════════════════════════════
 print_section "📥 Downloading"
 
-# Backup credentials if upgrading
+# On upgrade, blow away the old install — credentials live per-workspace
+# (`<workspace>/.vortex-ado/config.json`) + OS keychain, so the installer
+# directory has no user state to preserve. Any stale `credentials.json`
+# placeholder gets cleaned up here too.
 if [ "$IS_UPGRADE" = true ]; then
-    if [ -f "$INSTALL_DIR/credentials.json" ]; then
-        print_tree_item "Backing up credentials..."
-        cp "$INSTALL_DIR/credentials.json" "/tmp/vortex-ado-creds-backup.json"
-        CREDS_BACKED_UP=true
-    fi
     print_tree_item "Removing old installation..."
     rm -rf "$INSTALL_DIR"
 fi
@@ -128,13 +125,6 @@ fi
 print_tree_item "Downloading latest version..."
 mkdir -p "$INSTALL_DIR"
 curl -sL "$TARBALL_URL" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
-
-# Restore credentials if backed up
-if [ "$CREDS_BACKED_UP" = true ]; then
-    print_tree_item "Restoring credentials..."
-    cp "/tmp/vortex-ado-creds-backup.json" "$INSTALL_DIR/credentials.json"
-    rm -f "/tmp/vortex-ado-creds-backup.json"
-fi
 
 print_tree_last "$(print_success "Download complete")"
 
@@ -189,29 +179,6 @@ fi
 print_tree_last "$(print_success "Cursor configured")"
 
 # ══════════════════════════════════════════════════════════════
-# Credentials Setup
-# ══════════════════════════════════════════════════════════════
-CREDS_FILE="$INSTALL_DIR/credentials.json"
-CREDS_CREATED=false
-
-print_section "🔑 Credentials"
-if [ ! -f "$CREDS_FILE" ]; then
-    print_tree_item "Creating credentials template..."
-    echo '{
-  "ado_pat": "your-personal-access-token",
-  "ado_org": "your-organization-name",
-  "ado_project": "your-project-name",
-  "confluence_base_url": "",
-  "confluence_email": "",
-  "confluence_api_token": ""
-}' > "$CREDS_FILE"
-    CREDS_CREATED=true
-    print_tree_last "$(print_success "Template created")"
-else
-    print_tree_last "$(print_success "Existing credentials preserved")"
-fi
-
-# ══════════════════════════════════════════════════════════════
 # Success Message
 # ══════════════════════════════════════════════════════════════
 echo ""
@@ -231,26 +198,13 @@ echo ""
 print_divider
 echo ""
 echo -e "  ${BOLD}📍 Location:${NC} ${CYAN}${INSTALL_DIR}${NC}"
-
-if [ "$CREDS_CREATED" = true ]; then
-    echo ""
-    print_divider
-    echo ""
-    echo -e "  ${YELLOW}${BOLD}⚠  Configure Credentials${NC}"
-    echo ""
-    echo -e "  ${BOLD}Option 1: Use the Configuration UI ${DIM}(Recommended)${NC}"
-    echo -e "  ${DIM}└──${NC} Run ${CYAN}/vortex-ado/configure${NC} in Cursor's AI chat"
-    echo -e "  ${DIM}   Opens a beautiful web UI with connection testing${NC}"
-    echo ""
-    echo -e "  ${BOLD}Option 2: Edit manually${NC}"
-    echo -e "  ${DIM}└──${NC} Edit: ${CYAN}${CREDS_FILE}${NC}"
-    echo ""
-    echo -e "  ${DIM}Required fields:${NC}"
-    echo -e "  ${DIM}├──${NC} ${BOLD}ado_pat${NC}      Azure DevOps Personal Access Token"
-    echo -e "  ${DIM}├──${NC} ${BOLD}ado_org${NC}      Organization ${DIM}(dev.azure.com/{org})${NC}"
-    echo -e "  ${DIM}└──${NC} ${BOLD}ado_project${NC}  Project name"
-fi
-
+echo ""
+print_divider
+echo ""
+echo -e "  ${BOLD}🔑 Configure Credentials${NC}"
+echo ""
+echo -e "  ${DIM}└──${NC} Open your project folder in Cursor, then run ${CYAN}/vortex-ado/ado-connect${NC} in the AI chat."
+echo -e "  ${DIM}   The wizard writes <workspace>/.vortex-ado/config.json and stores your PAT in the OS keychain.${NC}"
 echo ""
 print_divider
 echo ""

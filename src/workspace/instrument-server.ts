@@ -7,6 +7,12 @@
  * helpers that don't accept `extra` — can then read those via
  * `getCallContext()` and resolve real credentials on demand.
  *
+ * Also pre-warms the AdoClient proxy's per-context cache BEFORE the
+ * handler body executes. Pre-warming matters for synchronous reads of
+ * `client.baseUrl` (used by URL builders like `adoWorkItemUrl`) — without
+ * it, those reads fire before any awaited call and see the not-yet-
+ * resolved placeholder.
+ *
  * Why monkey-patch instead of edit each `registerTool` call site:
  *
  *   - Zero churn in `tools/*.ts`. None of the dozens of existing
@@ -20,25 +26,13 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { AdoClient } from "../ado-client.ts";
 import { runWithCallContext } from "./call-context.ts";
 import { prewarmAdoClientProxy } from "./ado-client-proxy.ts";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any;
 
-/**
- * Wrap `server.registerTool` so every handler runs inside a CallContext
- * scope AND the AdoClient proxy's per-context cache is pre-warmed
- * BEFORE the handler body executes. Pre-warming matters for synchronous
- * reads of `client.baseUrl` (used by URL builders like `adoWorkItemUrl`)
- * — without it, those reads fire before any awaited call and see the
- * not-yet-resolved placeholder.
- */
-export function instrumentServerWithCallContext(
-  server: McpServer,
-  bootClient: AdoClient | null,
-): void {
+export function instrumentServerWithCallContext(server: McpServer): void {
   const original = server.registerTool.bind(server) as AnyFn;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (server as any).registerTool = (name: string, config: unknown, handler: AnyFn) => {
@@ -54,7 +48,7 @@ export function instrumentServerWithCallContext(
           workspaceRoot: typeof args?.workspaceRoot === "string" ? args.workspaceRoot : null,
         },
         async () => {
-          await prewarmAdoClientProxy(bootClient);
+          await prewarmAdoClientProxy();
           return handler(args, extra);
         },
       );

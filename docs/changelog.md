@@ -6,6 +6,60 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-19 — Eliminate cwd-based credential resolution; delete the `~/.vortex-ado/credentials.json` legacy path
+
+The credential plumbing has accumulated three masking layers over the past few migrations:
+
+1. **`bootstrapCredentials()`** read `process.cwd()/.vortex-ado/config.json` at server startup. Cursor sets cwd to `$HOME` for global MCPs, so this always missed the user's open workspace.
+2. **`bin/bootstrap.mjs` overrode child cwd** to the installer dir (`~/.vortex-ado/`), defeating the Phase 1 design assumption ("Cursor sets cwd reliably").
+3. **`~/.vortex-ado/credentials.json` legacy fallback** existed as the safety net under both. When the placeholder template was present, every ADO-touching tool got a null `AdoClient`. When real values were there, things appeared to work — masking that the workspace+keychain path never actually fired at boot.
+
+Each fix today addressed a single layer. With this commit, all three are removed in one shot — there's no boot-time credential load, no cwd-based read, and no legacy file path. **Per-workspace config + OS keychain is the only source of truth, resolved per-call from the active CallContext.**
+
+**Removed (production code):**
+
+- `src/credentials.ts` — `bootstrapCredentials()`, `loadCredentials()`, `loadLegacyCredentialsSync()`, `credentialsFileExists()`, `getCredentialsSource()`, `getCredentialsPath()`, `__resetCredentialsCacheForTests()`, the module-level `_credentials`/`_credentialsSource`/`_bootstrapped` cache, the `LEGACY_CREDS_*` constants, the `PLACEHOLDER_VALUES` array, and the cwd-based `workspaceConfigPath()`. The file is now ~70 lines (down from ~250) and exports only `getTcDraftsDir()` (env-only) and `loadCredentialsForWorkspace(workspaceRoot)` (the per-call resolver).
+- `src/index.ts` — Boot-time `AdoClient`/`ConfluenceClient` construction, `bootstrapCredentials()` call, `emitLegacyMigrationWarning()`. The boot now just instantiates the proxy and registers tools.
+- `src/workspace/ado-client-for-call.ts` — Step 3 (boot client fallback) and step 4 (legacy `loadCredentials()` retry). Resolution is purely roots/list → workspaceRoot.
+- `src/workspace/ado-client-proxy.ts` — `bootClient` parameter, plus the `bootClient`-fallback paths in `baseUrl` getter and `clearProjectTagsCache()`.
+- `src/workspace/confluence-client-for-call.ts` — Same simplification: roots/list → workspaceRoot, no boot/legacy fallbacks.
+- `src/workspace/confluence-client-proxy.ts` — `bootClient` parameter dropped.
+- `src/workspace/instrument-server.ts` — `bootClient` parameter dropped from `instrumentServerWithCallContext`.
+- `src/tools/setup.ts` — `computeSetupStatus()` no longer reads `loadCredentials()`/`credentialsFileExists()` at module level. The `SetupStatusDeps` interface drops `credentialsFileExists` and `credsPath`, gains `workspaceConfigPath`. The "Credentials file" row becomes "Workspace config", anchored on the resolved workspace path. The `ado-connect` Next-Action replaces the old `~/.vortex-ado/credentials.json` reference. State file moved from `dirname(getCredentialsPath())/.vortex-ado-initialized` to `~/.vortex-ado/.vortex-ado-initialized` directly (it's MCP-install state, not workspace state).
+- `src/tools/confluence.ts` — Per-call resolver replaces the boot-time client. The "not configured" message points at `/vortex-ado/ado-connect` instead of `~/.vortex-ado/credentials.json`.
+- `src/tools/work-items.ts` — `ado_story` resolves Confluence per-call.
+- `src/tools/configure-ui.ts` — Dropped the `LEGACY_CREDS_DIR/LEGACY_CREDS_FILE` constants and the migration-fallback read path that pre-filled the form from the legacy file.
+
+**Removed (installer scripts):**
+
+- `install.sh` — Dropped credentials backup/restore on upgrade, dropped the placeholder-template creation step, dropped the "Configure Credentials Option 1/Option 2" success message that listed the legacy file path. Replaced with a single line pointing at `/vortex-ado/ado-connect`.
+- `uninstall.sh` — Dropped the "Remove credentials file ($CREDS_DIR/credentials.json)?" prompt. Replaced with a note that per-workspace configs and OS keychain entries aren't auto-removed.
+- `bin/bootstrap.mjs` — Dropped `CREDENTIALS_DIR`/`CREDENTIALS_FILE` constants. Restored `cwd: PROJECT_ROOT` for the dist-launch branch (now safe and preferred — the MCP server no longer reads `process.cwd()` for anything credential-related).
+
+**Restored:**
+
+- `bin/bootstrap.mjs` — `cwd: PROJECT_ROOT` for the dist branch. Earlier today I'd dropped this to make cwd inherit from Cursor; now that no production code reads `process.cwd()` for credential resolution, setting cwd to the installer dir is actually preferred (helps the dist resolve sibling files like `package.json` reliably via `import.meta.url`-derived ROOT).
+
+**Test surface:**
+
+- `src/tools/setup.test.ts` — Updated 4 tests to use the new `workspaceConfigPath` field instead of the removed `credentialsFileExists`/`credsPath` fields. The "ado_connect_save" reference assertion (which was already broken — that tool had been deleted) is replaced with a `/vortex-ado/ado-connect` assertion.
+- All 517 tests pass after the refactor.
+
+**End-to-end sanity check (live, against the user's keychain + workspace):**
+
+```
+cwd = /Users/kavita.badgujar/.vortex-ado    (the actual production cwd)
+ADO proxy baseUrl  → https://dev.azure.com/MarsDevTeam/TPM%20Product%20Ecosystem
+Confluence baseUrl → https://marsaoh.atlassian.net/wiki
+```
+
+Both clients resolve correctly via roots/list with cwd at the installer dir — the production deployment scenario.
+
+**Behavioral consequences:**
+
+- Pre-keychain installs that still have a real `~/.vortex-ado/credentials.json` will see all tools fail with "could not resolve credentials for this workspace" until they run `/vortex-ado/ado-connect` once. The wizard writes the per-workspace config and stores the PAT in the OS keychain. The legacy file is no longer consulted, so it can be deleted (or left — it's harmless either way).
+- Fresh installs (the user's stated target audience) never produce a `credentials.json` file at all. The installer no longer creates a placeholder template; the only credential entry point is the `/vortex-ado/ado-connect` wizard.
+
 ### 2026-05-19 — Defer AdoClient credential resolution to first tool call (proper fix for null-client at boot)
 
 The earlier `bootstrap.mjs` cwd fix didn't go far enough: even with `cwd: PROJECT_ROOT` removed, Cursor launches MCPs from the global `~/.cursor/mcp.json` with `cwd = $HOME`, NOT the workspace folder. So `bootstrapCredentials()`'s cwd-based resolution still misses the workspace config, the boot-time `adoClient` ends up null in the standard topology, and every ADO-touching tool throws `Cannot read properties of null (reading 'get')`. `/ado-check` reports HEALTHY only because it does its own per-call workspace resolution.

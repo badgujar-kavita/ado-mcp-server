@@ -26,7 +26,7 @@ function fullCreds(overrides: Partial<Credentials> = {}): Credentials {
 test("all credentials present + Confluence configured → overall=healthy, no Next Actions", () => {
   const status: SetupStatus = computeSetupStatus({
     creds: fullCreds(),
-    credentialsFileExists: true,
+    workspaceConfigPath: "/tmp/.vortex-ado/config.json",
     tcDraftsPath: "/tmp/tc-drafts",
   });
 
@@ -44,31 +44,30 @@ test("all credentials present + Confluence configured → overall=healthy, no Ne
   assert.equal(byName["TC Drafts path"]!.status, "pass");
 });
 
-test("PAT/org/project missing → overall=broken, Next Actions mentions configure", () => {
+test("PAT/org/project missing → overall=broken, Next Actions mentions ado-connect", () => {
   const status = computeSetupStatus({
     creds: null,
-    credentialsFileExists: false,
-    credsPath: "/fake/home/.vortex-ado/credentials.json",
+    workspaceConfigPath: "/fake/workspace/.vortex-ado/config.json",
   });
 
   assert.equal(status.overall, "broken");
-  // Three ADO rows + one credentials-file row all marked fail.
+  // Workspace-config row + three ADO rows all marked fail.
   const failRows = status.rows.filter((r) => r.status === "fail");
   assert.ok(failRows.length >= 4, "expected at least 4 fail rows");
   const names = failRows.map((r) => r.name);
   assert.ok(names.includes("ADO PAT"));
   assert.ok(names.includes("ADO Organization"));
   assert.ok(names.includes("ADO Project"));
+  assert.ok(names.includes("Workspace config"));
 
-  // Next Actions contains the PAT-specific remediation.
+  // The fail-row detail should reference the workspace path we passed in.
+  const wsRow = status.rows.find((r) => r.name === "Workspace config")!;
+  assert.ok(wsRow.detail.includes("/fake/workspace/.vortex-ado/config.json"));
+
+  // Next Actions points the user at /vortex-ado/ado-connect.
   assert.ok(status.nextActions.length >= 1);
   const joined = status.nextActions.join("\n");
-  assert.ok(/configure/i.test(joined), "next actions should mention configure");
-  assert.ok(/PAT/i.test(joined), "next actions should mention PAT");
-
-  // When the credentials file does not exist, ado_connect_save alternative
-  // should be surfaced.
-  assert.ok(/ado_connect_save/.test(joined));
+  assert.ok(/ado-connect/i.test(joined), "next actions should reference /vortex-ado/ado-connect");
 });
 
 test("PAT present but Confluence missing → overall=degraded, Next Actions mentions Confluence as optional", () => {
@@ -78,7 +77,7 @@ test("PAT present but Confluence missing → overall=degraded, Next Actions ment
       confluence_email: undefined,
       confluence_api_token: undefined,
     }),
-    credentialsFileExists: true,
+    workspaceConfigPath: "/tmp/.vortex-ado/config.json",
     tcDraftsPath: null,
   });
 
@@ -89,14 +88,14 @@ test("PAT present but Confluence missing → overall=degraded, Next Actions ment
 
   assert.equal(status.nextActions.length, 1);
   const action = status.nextActions[0]!;
-  assert.ok(/Confluence|confluence_/i.test(action));
+  assert.ok(/Confluence/i.test(action));
   assert.ok(/optional/i.test(action), "should clearly flag as optional");
 });
 
 test("formatSetupStatus renders an Overall line, Markdown table, and Next Actions block", () => {
   const status = computeSetupStatus({
     creds: fullCreds(),
-    credentialsFileExists: true,
+    workspaceConfigPath: "/tmp/.vortex-ado/config.json",
     tcDraftsPath: "/tmp/tc-drafts",
   });
   const rendered = formatSetupStatus(status);

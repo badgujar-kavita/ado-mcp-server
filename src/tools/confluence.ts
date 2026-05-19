@@ -33,32 +33,30 @@ export function buildConfluencePageCanonicalResult(
   };
 }
 
-export function registerConfluenceTools(server: McpServer, bootConfluenceClient: ConfluenceClient | null) {
+export function registerConfluenceTools(server: McpServer, _confluenceClientUnused: ConfluenceClient | null) {
   server.registerTool(
     "confluence_read",
     {
       title: "Read Confluence Page",
       description:
-        "Read a Confluence page by ID for Solution Design reference (requires CONFLUENCE_* env vars)",
+        "Read a Confluence page by ID for Solution Design reference. Requires Confluence to be enabled in <workspace>/.vortex-ado/config.json with the API token stored in the OS keychain (run /vortex-ado/ado-connect to set up).",
       inputSchema: {
         pageId: z.string().describe("Confluence page ID"),
       },
       outputSchema: READ_OUTPUT_SCHEMA,
     },
     async ({ pageId }) => {
-      // Resolve Confluence creds from the active CallContext (roots/list →
-      // workspaceRoot → boot client → legacy). Mirrors the AdoClient proxy
-      // pattern. Returns null when no creds anywhere — same shape as the
-      // pre-existing boot-time null, so the existing guard below works.
+      // Per-call ConfluenceClient resolution from the active CallContext
+      // (roots/list → workspaceRoot). Returns null when Confluence isn't
+      // configured — surface the standard "not configured" message.
       const { resolveConfluenceClientForActiveCall } = await import("../workspace/confluence-client-proxy.ts");
-      const confluenceClient = await resolveConfluenceClientForActiveCall(bootConfluenceClient);
+      const confluenceClient = await resolveConfluenceClientForActiveCall();
       if (!confluenceClient) {
         return {
           content: [{
             type: "text" as const,
             text:
-              "Confluence is not configured. Add confluence_base_url, confluence_email, and confluence_api_token to ~/.vortex-ado/credentials.json, " +
-              "or set CONFLUENCE_BASE_URL, CONFLUENCE_EMAIL, and CONFLUENCE_API_TOKEN environment variables. See docs/setup-guide.md Step 4b.",
+              "Confluence is not configured for this workspace. Run /vortex-ado/ado-connect to enable Confluence in <workspace>/.vortex-ado/config.json and store your API token in the OS keychain.",
           }],
           isError: true,
         };
