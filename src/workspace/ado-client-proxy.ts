@@ -28,6 +28,11 @@ import { getCallContext } from "./call-context.ts";
 import { resolveAdoClientForCall } from "./ado-client-for-call.ts";
 
 const cache = new WeakMap<object, Promise<RealAdoClient | null>>();
+// Synchronous mirror of `cache` populated when a resolution promise
+// settles. Used by the synchronous `baseUrl` getter (which can't await)
+// — once the first method call has resolved the real client, baseUrl
+// can return its actual URL instead of the placeholder.
+const settledCache = new WeakMap<object, RealAdoClient>();
 
 /**
  * Resolve the real client for the active call context (or return null
@@ -51,7 +56,15 @@ async function resolveForActiveContext(
   }
   let pending = cache.get(ctx);
   if (!pending) {
-    pending = resolveAdoClientForCall(ctx.extra, ctx.workspaceRoot, bootClient);
+    pending = resolveAdoClientForCall(ctx.extra, ctx.workspaceRoot, bootClient).then(
+      (resolved) => {
+        // Mirror into the synchronous cache as soon as the promise settles
+        // so `baseUrl` (sync getter) can read the real URL on subsequent
+        // accesses without an extra await.
+        if (resolved) settledCache.set(ctx, resolved);
+        return resolved;
+      },
+    );
     cache.set(ctx, pending);
   }
   const resolved = await pending;
@@ -64,6 +77,24 @@ async function resolveForActiveContext(
     );
   }
   return resolved;
+}
+
+/**
+ * Pre-warm the per-context client resolution. Called by the handler
+ * instrumentation BEFORE the handler runs so that synchronous reads of
+ * `proxy.baseUrl` (e.g. from `adoWorkItemUrl(client, id)` URL builders)
+ * see the real org/project URL instead of the not-yet-resolved
+ * placeholder. Failures are swallowed — the handler will hit the same
+ * resolution path on its first method call and surface the error there.
+ */
+export async function prewarmAdoClientProxy(
+  bootClient: RealAdoClient | null,
+): Promise<void> {
+  try {
+    await resolveForActiveContext(bootClient);
+  } catch {
+    // Swallow — handler will surface the error on first real call.
+  }
 }
 
 /**
@@ -84,20 +115,16 @@ export function createAdoClientProxy(
   // is populated.
   const proxy = {
     get baseUrl(): string {
+      // Read from the synchronous mirror populated by
+      // `resolveForActiveContext` once the resolution promise settles.
+      // The handler instrumentation calls `prewarmAdoClientProxy` BEFORE
+      // the handler body runs, so by the time a tool's URL builder
+      // reads `client.baseUrl`, the settled cache already has the real
+      // client.
       const ctx = getCallContext();
       if (ctx) {
-        const cached = cache.get(ctx);
-        if (cached) {
-          // Best-effort sync read: if the resolution promise is already
-          // settled, expose the URL. Otherwise fall back.
-          // (This is for log lines that read client.baseUrl right after
-          // an awaited call — by that point the cache holds a settled
-          // value and we can reach into it via the real client.)
-          // We can't await here, so we keep this best-effort.
-          let resolved: RealAdoClient | null = null;
-          cached.then((c) => { resolved = c; }).catch(() => {});
-          if (resolved) return (resolved as RealAdoClient).baseUrl;
-        }
+        const settled = settledCache.get(ctx);
+        if (settled) return settled.baseUrl;
       }
       if (bootClient) return bootClient.baseUrl;
       return "https://ado-client-not-yet-resolved.invalid";

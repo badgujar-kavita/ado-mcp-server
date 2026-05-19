@@ -69,9 +69,12 @@ async function main() {
   });
 
   // Wrap server.registerTool so every handler runs inside a CallContext
-  // scope. Must be called BEFORE any tool registration so the wrapper
-  // catches every handler, including setup tools.
-  instrumentServerWithCallContext(server);
+  // scope AND pre-warms the AdoClient proxy's per-context cache before
+  // the handler body runs. Must be called BEFORE any tool registration
+  // so the wrapper catches every handler, including setup tools.
+  // `bootClient` is passed so prewarm can fall back to it when no
+  // workspace resolution succeeds.
+  instrumentServerWithCallContext(server, bootClient);
 
   registerAllTools(server, adoClient, confluenceClient);
   registerSetupTools(server);
