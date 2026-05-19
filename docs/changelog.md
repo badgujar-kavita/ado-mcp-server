@@ -6,6 +6,49 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-19 — Defer AdoClient credential resolution to first tool call (proper fix for null-client at boot)
+
+The earlier `bootstrap.mjs` cwd fix didn't go far enough: even with `cwd: PROJECT_ROOT` removed, Cursor launches MCPs from the global `~/.cursor/mcp.json` with `cwd = $HOME`, NOT the workspace folder. So `bootstrapCredentials()`'s cwd-based resolution still misses the workspace config, the boot-time `adoClient` ends up null in the standard topology, and every ADO-touching tool throws `Cannot read properties of null (reading 'get')`. `/ado-check` reports HEALTHY only because it does its own per-call workspace resolution.
+
+The right fix can't happen at boot — `roots/list` requires an active client connection, which doesn't exist before tool registration. So we defer credential resolution to **first tool call**.
+
+**New architecture:**
+
+1. **`src/workspace/call-context.ts`** — `AsyncLocalStorage<CallContext>` that captures the active handler's `extra` (which carries `sendRequest` for `roots/list`) and any `workspaceRoot` field the agent passed. Survives `await` boundaries, so any code path beneath the handler can read it on demand.
+2. **`src/workspace/ado-client-proxy.ts`** — A lazy proxy with the same shape as `AdoClient` (`get`/`post`/`patch`/`delete`/`getBinary`/`listProjectTags`/`clearProjectTagsCache`/`baseUrl`). Each method, on call, resolves a real `AdoClient` from the active `CallContext` via `resolveAdoClientForCall(extra, workspaceRoot, bootClient)`, caches it per-context (so 50 ADO calls in one handler resolve once), and forwards. Throws a clear `could not resolve credentials` error when no source produces a working client.
+3. **`src/workspace/instrument-server.ts`** — Monkey-patches `server.registerTool` so every handler runs inside `runWithCallContext({ extra, workspaceRoot })`. Done once at server bootstrap. Zero churn in `tools/*.ts` — every existing `client.get(...)` call site keeps working.
+4. **`src/index.ts`** — Boot-time `adoClient` becomes the proxy (passing `bootClient` through as a fallback for tests + power-user flows that prime credentials via env / cwd). Removes the `as any` cast on `registerAllTools` (now structurally a real `AdoClient`).
+
+**Why monkey-patch instead of edit each handler:**
+
+- Zero churn: ~30 handlers across 7 files keep `client.get(...)` exactly as-is.
+- One instrumentation point lets us evolve the resolver without touching tool code.
+- Tests use a stub server that replaces `registerTool` entirely — they bypass the instrumentation, which is correct: tests pass real `AdoClient` instances directly, not the proxy.
+
+**Resolution precedence in the proxy** (same as `resolveAdoClientForCall`):
+
+1. `roots/list` from MCP `extra.sendRequest` (Cursor's open workspace).
+2. Explicit `workspaceRoot` arg from the agent.
+3. Boot-time client (`bootClient`) if non-null — preserves existing tests + cwd-based flows.
+4. Cached/legacy `loadCredentials()` — last-resort retry.
+
+If all four fail, the proxy throws a clear `AdoClient proxy: could not resolve credentials for this workspace…` error pointing at `/vortex-ado/ado-connect` and `/ado-check`.
+
+**Sanity check (live, against the user's keychain):** With `cwd = $HOME` (the actual Cursor topology) and boot creds null, the proxy correctly resolved to the workspace at `/Users/kavita.badgujar/Desktop/ADO MCP` via roots/list, built a real client (`baseUrl = https://dev.azure.com/MarsDevTeam/TPM%20Product%20Ecosystem`), and round-tripped a `/_apis/projects` call. The `qa_publish_push` per-call resolver from earlier is now redundant for the common case but stays in place as defense-in-depth.
+
+**Files changed:**
+
+- `src/workspace/call-context.ts` — NEW. AsyncLocalStorage<CallContext> + `runWithCallContext()` + `getCallContext()`.
+- `src/workspace/ado-client-proxy.ts` — NEW. `createAdoClientProxy(bootClient)` returning a structurally-typed `AdoClient` with per-context lazy resolution + `WeakMap<CallContext, Promise<AdoClient>>` cache.
+- `src/workspace/instrument-server.ts` — NEW. `instrumentServerWithCallContext(server)` monkey-patches `registerTool`.
+- `src/index.ts` — Wire all three together; drop the `as any` cast on `registerAllTools`.
+
+**No tests added** — the proxy is a thin compose of well-tested existing primitives (`fetchClientRoots`, `loadCredentialsForWorkspace`, `loadCredentials`, `AdoClient` construction). The end-to-end sanity check covered the integration. Adding integration tests for AsyncLocalStorage flow under the SDK would mean reproducing the SDK's request/response cycle — high cost, low signal beyond what the underlying tests already provide.
+
+**No behavior change for callers when boot creds were already non-null.** The proxy returns the boot client at step 3 only when steps 1+2 didn't yield a per-workspace match. Existing test fixtures and power-user flows that prime credentials via env / cwd are untouched. Tests stay at 517/517.
+
+**Activation:** Fully quit and reopen Cursor (toggle-MCP doesn't reload `bootstrap.mjs` or `dist/index.js` — has to spawn a fresh child).
+
 ### 2026-05-19 — `bootstrap.mjs`: don't override child cwd for the dist launch (fixes null AdoClient at boot)
 
 **Symptom.** Every ADO-touching tool (`ado_story`, `qa_tests`, `qa_publish_push`, `qa_draft`, `ado_fields`, `qa_tc_*`, …) failing with `TypeError: Cannot read properties of null (reading 'get')` whenever `~/.vortex-ado/credentials.json` was the placeholder template (the post-keychain-migration default state). `/ado-check` reported HEALTHY because it does its own per-call workspace resolution and never touched the boot-time client.
