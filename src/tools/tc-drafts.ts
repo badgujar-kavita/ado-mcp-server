@@ -15,7 +15,6 @@ import { READ_OUTPUT_SCHEMA, type CanonicalReadResult } from "./read-result.ts";
 import { resolveTagsMatchOnly } from "../helpers/tag-resolver.ts";
 import { analyzePushState } from "../helpers/push-state-analyzer.ts";
 import { assertValidSuffix, suffixToTag } from "../helpers/suffix-tag.ts";
-import { resolveAdoClientForCall } from "../workspace/ado-client-for-call.ts";
 
 async function fetchLinkedTestCaseIds(adoClient: AdoClient, userStoryId: number): Promise<number[]> {
   const us = await adoClient.get<AdoWorkItem>(
@@ -675,39 +674,6 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
             isError: true,
           };
         }
-
-        // Resolve the AdoClient for THIS call. The boot-time client (passed
-        // into the closure as `adoClient`) is constructed from cwd-derived
-        // credentials, which for MCP processes Cursor spawns via the
-        // ~/.vortex-ado/bin/bootstrap.mjs launcher points at the installer
-        // dir — NOT the user's project. Re-resolving per call from the
-        // workspace (roots/list, then explicit workspaceRoot, then legacy)
-        // gives us a client backed by the tenant's actual PAT from the OS
-        // keychain. Reassigning the closure param keeps every downstream
-        // call site (fetchLinkedTestCasesWithTitles, ensureSuiteHierarchy
-        // ForUs, the Phase B analyzer, the create/update loop, the sub-suite
-        // creator, …) unchanged. Boot-time client is preserved as the
-        // fallback so existing test fixtures and power-user flows that
-        // prime credentials via cwd or env keep working.
-        const resolvedClient = await resolveAdoClientForCall(extra, workspaceRoot, adoClient);
-        if (!resolvedClient) {
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify({
-              status: "needs-input",
-              reason: "ado-credentials-missing",
-              message:
-                `🚫 BLOCK: VortexADO has no usable ADO credentials for this workspace. ` +
-                `The workspace config at <workspaceRoot>/.vortex-ado/config.json was not found via roots/list or the explicit workspaceRoot arg, ` +
-                `and the boot-time credentials are also missing or placeholder.`,
-              suggestion: workspaceRoot
-                ? `Run /vortex-ado/ado-connect with workspaceRoot="${workspaceRoot}" (or open that folder in Cursor) to write .vortex-ado/config.json + store the PAT in the OS keychain. Then re-run.`
-                : `Run /vortex-ado/ado-connect to write .vortex-ado/config.json + store the PAT in the OS keychain. Then re-run with the same workspaceRoot.`,
-              resolvedSoFar: { userStoryId, workspaceRoot: workspaceRoot ?? null },
-            }, null, 2) }],
-            isError: true,
-          };
-        }
-        adoClient = resolvedClient;
 
         // Resolve workspace conventions ONCE for this push so the parser,
         // create/update helpers, and suite-structure helpers all see the
