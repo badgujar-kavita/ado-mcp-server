@@ -6,6 +6,31 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-19 — Remove hardcoded `Custom.TechnicalSolution` fallback for the Solution Design field
+
+The Solution Design field reference was always tenant-specific, but the code had a hardcoded fallback to `Custom.TechnicalSolution` (which exists on the original tenant's project but no other organization's). When a tenant didn't configure `solutionDesign.adoFieldRef`, the MCP would silently look for `Custom.TechnicalSolution` — invisibly broken for everyone except that one project.
+
+**Fix.** Dropped the `?? "Custom.TechnicalSolution"` fallback in `src/tools/work-items.ts`. `solutionFieldRef` is now `string | null`. When null, the Solution Design row is simply omitted from `namedFieldDefs`, and the deprecated `solutionNotesHtml` alias is guarded for null. The standard ADO platform fields (`System.Title`, `System.Description`, `Microsoft.VSTS.Common.AcceptanceCriteria`) remain always-scanned, so Confluence URLs anywhere in those fields are still fetched.
+
+**Behavior matrix (verified end-to-end):**
+
+| Scenario | Result |
+|---|---|
+| 1. Wizard configures a tenant-specific Solution Design field | Field added to `namedFields`; URLs in it fetched alongside Title/Desc/AC |
+| 2. No field configured, Confluence PAT set, URLs in Description/AC | URLs found and fetched — Solution Design field NOT searched |
+| 3. Confluence PAT set, no field, no URLs anywhere | `solutionDesignContent: null`, `fetchedConfluencePages: []` — no error |
+| 4. No Confluence PAT at all | Confluence client null → fetch skipped — no error, agent works from US fields |
+
+**Audit completed for other potential tenant-specific hardcodes:**
+
+- `prerequisiteFieldRef ?? "System.Description"` — the fallback is a STANDARD ADO platform field that exists on every project, used as a sensible default location for prereqs when no custom field is configured. Documented as "optional override" in the wizard. Kept as-is per user direction.
+- `System.Title`, `System.Description`, `System.AreaPath`, `System.IterationPath`, `System.State`, `System.Parent`, `System.Tags`, `Microsoft.VSTS.Common.AcceptanceCriteria`, `Microsoft.VSTS.Common.Priority` — universal ADO platform/Microsoft VSTS Common fields, present on every ADO instance. Not tenant-specific.
+- The other two `Custom.TechnicalSolution` references are JSDoc/wizard-tooltip examples (showing what a value LOOKS like, not enforcing one). Kept.
+
+**Files changed:** `src/tools/work-items.ts` (fallback removed, namedFieldDefs builder guards the null case, deprecated alias guards the null case).
+
+**No tests added** — the change is verified by an end-to-end sanity matrix that exercises all 4 use cases against the real `extractUserStoryContext` function. All 517 existing tests pass.
+
 ### 2026-05-19 — Eliminate cwd-based credential resolution; delete the `~/.vortex-ado/credentials.json` legacy path
 
 The credential plumbing has accumulated three masking layers over the past few migrations:

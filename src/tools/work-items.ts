@@ -288,8 +288,15 @@ export async function extractUserStoryContext(
   }
 
   // ── namedFields (primaries + configured additional context fields) ───────
-  const solutionFieldRef =
-    config.solutionDesign?.adoFieldRef ?? "Custom.TechnicalSolution";
+  // Solution Design field reference is OPTIONAL and tenant-specific. When
+  // unset (no `solutionDesign.adoFieldRef` in the workspace config), we do
+  // NOT fall back to any hardcoded field name — different organizations
+  // name their Solution Design fields differently (Custom.TechnicalSolution,
+  // Custom.SolutionNotes, Custom.DesignDoc, …) and many don't have one at
+  // all. The system-standard fields (Title, Description, AcceptanceCriteria)
+  // are always scanned, so Confluence URLs in those fields are still
+  // fetched even with no Solution Design field configured.
+  const solutionFieldRef = config.solutionDesign?.adoFieldRef ?? null;
   const namedFieldDefs: Array<{ ref: string; label: string }> = [
     { ref: "System.Title", label: "Title" },
     { ref: "System.Description", label: "Description" },
@@ -297,7 +304,9 @@ export async function extractUserStoryContext(
       ref: "Microsoft.VSTS.Common.AcceptanceCriteria",
       label: "Acceptance Criteria",
     },
-    { ref: solutionFieldRef, label: config.solutionDesign?.uiLabel ?? "Solution Notes" },
+    ...(solutionFieldRef
+      ? [{ ref: solutionFieldRef, label: config.solutionDesign?.uiLabel ?? "Solution Notes" }]
+      : []),
     ...(config.additionalContextFields ?? []).map((a) => ({
       ref: a.adoFieldRef,
       label: a.label,
@@ -543,7 +552,13 @@ export async function extractUserStoryContext(
   }
 
   // ── Deprecated aliases (backward compatibility) ──────────────────────────
-  const solutionNotesHtml = namedFields[solutionFieldRef]?.html;
+  // `solutionFieldRef` is null when the tenant didn't configure a dedicated
+  // Solution Design field — in that case we don't have a single anchored
+  // field to extract a URL from, but `firstConfluencePage` may still hold a
+  // page fetched from Title/Description/AC.
+  const solutionNotesHtml = solutionFieldRef
+    ? namedFields[solutionFieldRef]?.html
+    : undefined;
   const firstConfluencePage = fetchedConfluencePages[0];
   const solutionDesignUrl =
     firstConfluencePage?.url ??
