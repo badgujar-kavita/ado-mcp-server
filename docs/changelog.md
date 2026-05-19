@@ -6,6 +6,36 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-19 — `bootstrap.mjs`: don't override child cwd for the dist launch (fixes null AdoClient at boot)
+
+**Symptom.** Every ADO-touching tool (`ado_story`, `qa_tests`, `qa_publish_push`, `qa_draft`, `ado_fields`, `qa_tc_*`, …) failing with `TypeError: Cannot read properties of null (reading 'get')` whenever `~/.vortex-ado/credentials.json` was the placeholder template (the post-keychain-migration default state). `/ado-check` reported HEALTHY because it does its own per-call workspace resolution and never touched the boot-time client.
+
+**Root cause.** `bin/bootstrap.mjs`'s `launchFullServer()` always spawned the dist child with `cwd: PROJECT_ROOT` (= the installer dir at `~/.vortex-ado/`). Inside the MCP child, `bootstrapCredentials()` then read `process.cwd()/.vortex-ado/config.json` = `~/.vortex-ado/.vortex-ado/config.json` (which doesn't exist), fell through to the legacy `~/.vortex-ado/credentials.json` (placeholder), and ended up with `_credentials = null`. `index.ts:37` constructed `adoClient = null` and cast it `as any` for every tool registration. The first `adoClient.get(...)` threw.
+
+The Phase 1 commit (`e58a402`, 2026-05-10) explicitly documented its assumption: *"Phase 1 uses `process.cwd()` since Cursor sets it reliably"*. That assumption was correct for direct Cursor launches but was being defeated by `bootstrap.mjs` overriding cwd to the installer dir before spawning the child.
+
+**Fix.** Removed `cwd: PROJECT_ROOT` from the dist-launch branch of `launchFullServer()`. The child now inherits the parent process's cwd — Cursor launches `bootstrap.mjs` with the user's open workspace as cwd, that propagates through to the MCP process, and `bootstrapCredentials()` finds `<workspace>/.vortex-ado/config.json` correctly.
+
+The dist branch is safe to drop the override because:
+- The bundled `dist/index.js` has no relative-module loads at runtime (esbuild inlined everything).
+- Constants like `ROOT` and `PACKAGE_JSON` derive from `import.meta.url` (file location), not cwd — those still resolve to the installer dir as designed.
+- Only the workspace-config resolvers (`workspaceConfigPath()`, `loadConventionsConfig()`) read cwd, and those are the ones that NEED cwd to point at the workspace.
+
+The `npx tsx src/index.ts` branch (used in dev when no dist is built) keeps `cwd: PROJECT_ROOT` because npx + tsx resolves modules relative to cwd.
+
+**Sanity check.** With cwd set to `/Users/kavita.badgujar/MARS-TCs-ADO`, `bootstrapCredentials()` correctly resolves to `workspace+keychain` source: org `MarsDevTeam`, project `TPM Product Ecosystem`, PAT loaded from OS keychain (84 chars). Pre-fix, the same call returned `null`.
+
+**Files changed:**
+
+- `bin/bootstrap.mjs` — Removed `cwd: PROJECT_ROOT` from the `spawn(nodeCmd, [distEntry], …)` call. Added an inline comment block explaining why the override is wrong for the dist branch and right for the npx/tsx branch.
+- `dist-package/bin/bootstrap.mjs` — Identical fix applied (this is the published copy that gets bundled into the release tarball).
+
+**No code or test changes.** No behavior change for any tool. Pure deployment plumbing fix. Tests stay at 517/517.
+
+**Rollout.** The installed bootstrap at `~/.vortex-ado/bin/bootstrap.mjs` was patched in place. To activate: **fully quit and reopen Cursor** (toggle-MCP doesn't reload bootstrap.mjs — it has to spawn a fresh child process).
+
+**Why earlier `qa_publish_push` worked while everything else broke.** Earlier today I added a per-call AdoClient resolver in `qa_publish_push` (commit `751fada`) that bypasses the boot-time client entirely — that masked the bug for that one tool. With this bootstrap fix, the per-call resolver is no longer load-bearing — every tool's boot-time client is now non-null in this topology. The per-call resolver stays for defense-in-depth (and to support roots/list-based workspace resolution when cwd doesn't match), but it's no longer the only thing keeping `qa_publish_push` alive.
+
 ### 2026-05-17 — Drop suffixed sub-suite creation: suffixed and canonical publishes share one US-level suite
 
 The original suffixed-publish design created a `<Capitalized Suffix>` static folder under the US-level dynamic suite, with a query-based child filtering on `TC_<usId>_<TAG>_*`. Live testing surfaced that **ADO rejects this with HTTP 400**: `Cannot create new suite inside non-static parent suite. Parameter name: parent`. Static suites can have children; dynamic (query-based) suites cannot. Every option-A pick failed at the API boundary, surfacing a `⚠️ Sub-suite creation failed` warning even though the TCs themselves had pushed successfully.
