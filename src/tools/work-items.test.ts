@@ -265,25 +265,18 @@ test("US with a Confluence URL on the configured instance produces a fetchedConf
   }
 });
 
-test("Confluence tiny URL (/wiki/x/{token}) is resolved via 302 and fetched as a real page", async () => {
+test("Confluence tiny URL (/wiki/x/{token}) is decoded offline and fetched as a real page", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  // AYCTqAE decodes offline to pageId 7123206145 (real Confluence Cloud token).
   const tinyUrl = "https://example.atlassian.net/wiki/x/AYCTqAE";
-  const canonicalUrl =
-    "https://example.atlassian.net/wiki/spaces/FOO/pages/77/Resolved";
 
-  const restore = mockFetch((url, init) => {
-    if (url === tinyUrl) {
-      // The redirect probe is sent with `redirect: 'manual'`; check it so we
-      // don't silently fall back to the auto-followed path that breaks for
-      // private pages.
-      assert.equal((init as RequestInit).redirect, "manual");
-      return new Response(null, {
-        status: 302,
-        headers: { location: canonicalUrl },
-      });
+  const restore = mockFetch((url) => {
+    // Offline decoder must NOT touch the network for the tiny URL itself.
+    if (url.includes("/wiki/x/")) {
+      throw new Error("Offline decode should not call /wiki/x/: " + url);
     }
-    if (url.includes("/rest/api/content/77?")) {
+    if (url.includes("/rest/api/content/7123206145?")) {
       return new Response(
         JSON.stringify({
           title: "Resolved Page",
@@ -311,7 +304,7 @@ test("Confluence tiny URL (/wiki/x/{token}) is resolved via 302 and fetched as a
     const ctx = await extractUserStoryContext(item, adoClient, confClient);
     assert.equal(ctx.fetchedConfluencePages!.length, 1);
     const p = ctx.fetchedConfluencePages![0]!;
-    assert.equal(p.pageId, "77");
+    assert.equal(p.pageId, "7123206145");
     assert.equal(p.title, "Resolved Page");
     // The original tiny URL is preserved in the fetched-page record so the
     // user still sees the link they pasted, not a rewritten canonical URL.
@@ -326,16 +319,19 @@ test("Confluence tiny URL (/wiki/x/{token}) is resolved via 302 and fetched as a
 test("Confluence tiny URL that fails to resolve falls through to unfetchedLinks reason=not-found", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
-  const tinyUrl = "https://example.atlassian.net/wiki/x/UNKNOWN";
+  // UNDISCOVERED is 12 chars → > 8 raw bytes → offline decoder rejects → fallback
+  // path runs. Tenant returns 404 for the redirect probe AND the api.atlassian.com
+  // fallback, so resolveTinyUrl returns null and the link lands in unfetchedLinks.
+  const tinyUrl = "https://example.atlassian.net/wiki/x/UNDISCOVERED";
 
   const restore = mockFetch((url) => {
     if (url === tinyUrl) {
-      // Tenant not signed in / page not visible — Confluence returns 404
-      // (or sometimes 200 to a login page); either way no Location header.
       return new Response("Not Found", { status: 404 });
     }
     if (url.includes("api.atlassian.com")) {
-      // Tenant cloudId lookup or scoped-token fallback — also fails.
+      return new Response("nope", { status: 404 });
+    }
+    if (url.endsWith("/_edge/tenant_info")) {
       return new Response("nope", { status: 404 });
     }
     throw new Error("Unexpected URL: " + url);
@@ -733,17 +729,14 @@ test("Branch 2: empty additionalContextFields → Confluence URL in any Custom.*
 test("Branch 2: tiny URL in unlisted Custom.* field is auto-discovered AND tiny-resolved", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  // IgB9qAE decodes offline to pageId 7121731618 — the real MARS Solution
+  // Design tiny URL token from the bug that motivated this work.
   const tinyUrl = "https://example.atlassian.net/wiki/x/IgB9qAE";
-  const canonical =
-    "https://example.atlassian.net/wiki/spaces/FOO/pages/909/Resolved";
   const restore = mockFetch((url) => {
-    if (url === tinyUrl) {
-      return new Response(null, {
-        status: 302,
-        headers: { location: canonical },
-      });
+    if (url.includes("/wiki/x/")) {
+      throw new Error("Offline decode should not call /wiki/x/: " + url);
     }
-    if (url.includes("/rest/api/content/909?")) {
+    if (url.includes("/rest/api/content/7121731618?")) {
       return new Response(
         JSON.stringify({
           title: "Resolved",
@@ -771,7 +764,7 @@ test("Branch 2: tiny URL in unlisted Custom.* field is auto-discovered AND tiny-
     const config = configWithOverrides({ additionalContextFields: undefined });
     const ctx = await extractUserStoryContext(item, adoClient, confClient, config);
     assert.equal(ctx.fetchedConfluencePages!.length, 1);
-    assert.equal(ctx.fetchedConfluencePages![0]!.pageId, "909");
+    assert.equal(ctx.fetchedConfluencePages![0]!.pageId, "7121731618");
     // The original tiny URL is preserved in fetchedConfluencePages[].url.
     assert.equal(ctx.fetchedConfluencePages![0]!.url, tinyUrl);
     assert.equal(ctx.pendingDecision, undefined);

@@ -6,6 +6,34 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-22 — Confluence tiny-URL resolution: offline decode (no network)
+
+The previous tiny-URL resolver ([same-day commit](#2026-05-22--auto-resolve-confluence-tiny-urls-wikixtoken)) followed the server-issued 302 to recover the canonical page URL. That worked in test mocks but **did not** work reliably on real Confluence Cloud tenants: the redirect probe depends on tenant edge-config, scoped-token permissions, and 302-vs-200-to-login behavior. The MARS user's screenshot showed the failure: a Solution Design tiny URL (`/wiki/x/IgB9qAE`) reported `not-found` because the redirect probe didn't return what we expected.
+
+**Fix.** Tiny URL tokens are now decoded **offline**, as their first resort. The Confluence Cloud token format is deterministic and stable: `pageId` is encoded as little-endian bytes (trailing zeros stripped) then base64url-encoded. Reversing it locally — base64url-decode → pad to 8 → read as `uint64 LE` → return as decimal string — is pure, doesn't require auth, doesn't touch the network, and works offline.
+
+**New helpers in `src/helpers/confluence-url.ts`:**
+
+- `decodeTinyUrlToken(token)`: pure-function decoder. Rejects empty input, invalid base64url chars, tokens > 8 raw bytes, and the all-zero decode (no real page has pageId 0). Returns the decimal pageId string or null.
+- `tinyUrlToPageId(urlOrPath)`: one-step shortcut that calls `extractTinyUrlPath()` then `decodeTinyUrlToken()`.
+
+**`ConfluenceClient.resolveTinyUrl()` rewrite:**
+
+- **Primary path (new):** call `tinyUrlToPageId()`. On success, return a synthesized `${baseUrl}/pages/{id}/x` canonical URL — downstream callers (`work-items.ts`, `confluence_read`) extract the pageId via the existing `extractConfluencePageIdFromUrl()` exactly as for any other Confluence link, no special-case path.
+- **Fallback path (retained):** the 302 redirect probe + `api.atlassian.com` 401-fallback from the previous commit. Triggers only when the offline decoder rejects the token (long Server-style tokens, future encoding variants). Same null-on-failure contract.
+
+**Real-world verification.** The MARS-incident token `IgB9qAE` decodes offline to pageId 7121731618. `AYCTqAE` (a different MARS Solution Design page in the test fixture) decodes to 7123206145. Both match Atlassian's documented encoder. There's a regression test on each.
+
+**Test updates:**
+
+- `helpers/confluence-url.test.ts`: 12 new cases for `decodeTinyUrlToken` and `tinyUrlToPageId` (small-id roundtrip, real-world tokens, invalid base64, > 8-byte rejection, all-zero rejection, trailing-slash tolerance, null-safety, end-to-end URL → pageId, canonical URL → null, long-token → null).
+- `confluence-client.test.ts`: split into "offline-decode primary path" and "302 redirect-probe fallback" sections. Existing 302-mocking tests now use a 14-char token (`TOOLONGTOKEN12`) so they still exercise the fallback. Three new tests assert the offline path makes **zero network calls** and that the synthesized canonical URL contains a `/pages/{id}/...` segment.
+- `tools/work-items.test.ts`: real-world tokens (`AYCTqAE`, `IgB9qAE`) now go through the offline decoder, so the `/wiki/x/` mock branch is replaced by a `/wiki/x/` THROW (catches any regression that drops the offline-first behavior). The "tiny URL fails to resolve" test uses `UNDISCOVERED` (12 chars → forces fallback path) so the old "redirect probe returns 404" assertion still tests what it claims to test.
+
+**Files changed:** `src/helpers/confluence-url.ts` (`decodeTinyUrlToken`, `tinyUrlToPageId`), `src/confluence-client.ts` (`resolveTinyUrl` offline-first), tests in the three files above.
+
+**Docs updated:** `docs/setup-guide.md` (Confluence integration: tiny URLs are auto-resolved offline), `docs/implementation.md` (Confluence URL Parser section: full algorithm + fallback explanation).
+
 ### 2026-05-22 — Two-branch Confluence link discovery + multi-field disambiguation
 
 The `Custom.TechnicalSolution` removal in [2026-05-19](#2026-05-19--remove-hardcoded-customtechnicalsolution-fallback-for-the-solution-design-field) made the system tenant-agnostic, but introduced a real-world failure mode: when a tenant DOESN'T configure `solutionDesign.adoFieldRef` AND has the Confluence URL in a custom field that isn't listed in `additionalContextFields`, the link was silently invisible. This is exactly what happened on the MARS workspace — `Custom.TechnicalSolution` held the Solution Design tiny URL, but `solutionDesign.adoFieldRef` was unset and the field wasn't in `additionalContextFields`, so neither the link extractor nor the [tiny-URL resolver](#2026-05-22--auto-resolve-confluence-tiny-urls-wikixtoken) ever saw it. The end-user experience: `fetchedConfluencePages: []`, `unfetchedLinks: []`, no warning, agent drafts test cases without the Solution Design context.

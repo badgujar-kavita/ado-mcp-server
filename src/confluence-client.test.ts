@@ -315,64 +315,63 @@ test("getPageContentRaw returns raw storage HTML plus stripped body", async () =
   }
 });
 
-// ── resolveTinyUrl ─────────────────────────────────────────────────────────
+// ── resolveTinyUrl — offline-decode primary path ──────────────────────────
+//
+// Token shape: little-endian uint64 of the pageId, trailing zero bytes
+// stripped, base64url-encoded. Tokens of <=8 raw bytes (i.e. <= 11 base64
+// chars approximately) decode locally; longer tokens fall through to the
+// redirect-probe fallback.
 
-test("resolveTinyUrl returns canonical absolute URL from 302 Location", async () => {
-  const tinyUrl = "https://example.atlassian.net/wiki/x/ABC123";
-  const canonical =
-    "https://example.atlassian.net/wiki/spaces/FOO/pages/4242/Hello";
-  const restore = mockFetch((url, init) => {
-    assert.equal(url, tinyUrl);
-    assert.equal((init as RequestInit).redirect, "manual");
-    // Auth header MUST be present — Confluence resolves tiny URLs through page
-    // permissions; an unauthenticated probe gets bounced to /login.
-    const headers = new Headers(init.headers);
-    assert.ok(headers.get("authorization")?.startsWith("Basic "));
-    return new Response(null, { status: 302, headers: { location: canonical } });
-  });
-  try {
-    const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
-    const resolved = await client.resolveTinyUrl(tinyUrl);
-    assert.equal(resolved, canonical);
-  } finally {
-    restore();
-  }
-});
-
-test("resolveTinyUrl resolves a relative Location against the request URL", async () => {
-  const tinyUrl = "https://example.atlassian.net/wiki/x/REL";
+test("resolveTinyUrl decodes a real-world Cloud token offline (no network)", async () => {
+  // IgB9qAE = the actual MARS Solution Design tiny URL token from the bug
+  // report. Decodes to pageId 7121731618.
+  const tinyUrl = "https://example.atlassian.net/wiki/x/IgB9qAE";
+  let networkCalled = false;
   const restore = mockFetch(() => {
-    return new Response(null, {
-      status: 302,
-      headers: { location: "/wiki/spaces/FOO/pages/9/Title" },
-    });
+    networkCalled = true;
+    return new Response("should-not-be-called", { status: 500 });
   });
   try {
     const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
     const resolved = await client.resolveTinyUrl(tinyUrl);
+    assert.equal(networkCalled, false);
     assert.equal(
       resolved,
-      "https://example.atlassian.net/wiki/spaces/FOO/pages/9/Title",
+      "https://example.atlassian.net/wiki/pages/7121731618/x",
     );
   } finally {
     restore();
   }
 });
 
-test("resolveTinyUrl accepts a relative tiny path and prefixes baseUrl", async () => {
-  let capturedUrl = "";
-  const restore = mockFetch((url) => {
-    capturedUrl = url;
-    return new Response(null, {
-      status: 302,
-      headers: { location: "https://example.atlassian.net/wiki/pages/1/T" },
-    });
+test("resolveTinyUrl decoded URL is parseable by extractConfluencePageIdFromUrl", async () => {
+  // Sanity-check the integration contract: the synthesized canonical URL
+  // must contain a /pages/{id}/... segment, otherwise downstream callers
+  // (work-items.ts, confluence_read) can't recover the pageId.
+  const restore = mockFetch(() => new Response("nope", { status: 500 }));
+  try {
+    const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
+    const resolved = await client.resolveTinyUrl(
+      "https://example.atlassian.net/wiki/x/Fc1bBw", // pageId 123456789
+    );
+    assert.ok(resolved);
+    assert.match(resolved!, /\/pages\/123456789\//);
+  } finally {
+    restore();
+  }
+});
+
+test("resolveTinyUrl: offline decode works for a relative tiny path too", async () => {
+  let networkCalled = false;
+  const restore = mockFetch(() => {
+    networkCalled = true;
+    return new Response("nope", { status: 500 });
   });
   try {
     const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
-    const resolved = await client.resolveTinyUrl("/wiki/x/REL2");
-    assert.equal(capturedUrl, "https://example.atlassian.net/wiki/wiki/x/REL2");
-    assert.ok(resolved?.includes("/pages/1/"));
+    const resolved = await client.resolveTinyUrl("/wiki/x/Fc1bBw");
+    assert.equal(networkCalled, false);
+    assert.match(resolved!, /\/pages\/123456789\//);
   } finally {
     restore();
   }
@@ -396,12 +395,84 @@ test("resolveTinyUrl returns null for a non-tiny URL (no network call)", async (
   }
 });
 
+// ── resolveTinyUrl — 302 redirect-probe fallback ──────────────────────────
+//
+// Tokens longer than 8 raw bytes (e.g. legacy Server installs that may
+// emit a different shape) skip the offline decode and exercise the
+// redirect probe. We use 12+ char tokens here to force that path.
+
+const LONG_TOKEN_1 = "TOOLONGTOKEN12"; // 14 base64 chars → > 8 raw bytes → decode rejects
+
+test("resolveTinyUrl returns canonical absolute URL from 302 Location (fallback path)", async () => {
+  const tinyUrl = `https://example.atlassian.net/wiki/x/${LONG_TOKEN_1}`;
+  const canonical =
+    "https://example.atlassian.net/wiki/spaces/FOO/pages/4242/Hello";
+  const restore = mockFetch((url, init) => {
+    assert.equal(url, tinyUrl);
+    assert.equal((init as RequestInit).redirect, "manual");
+    // Auth header MUST be present — Confluence resolves tiny URLs through page
+    // permissions; an unauthenticated probe gets bounced to /login.
+    const headers = new Headers(init.headers);
+    assert.ok(headers.get("authorization")?.startsWith("Basic "));
+    return new Response(null, { status: 302, headers: { location: canonical } });
+  });
+  try {
+    const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
+    const resolved = await client.resolveTinyUrl(tinyUrl);
+    assert.equal(resolved, canonical);
+  } finally {
+    restore();
+  }
+});
+
+test("resolveTinyUrl resolves a relative Location against the request URL (fallback path)", async () => {
+  const tinyUrl = `https://example.atlassian.net/wiki/x/${LONG_TOKEN_1}`;
+  const restore = mockFetch(() => {
+    return new Response(null, {
+      status: 302,
+      headers: { location: "/wiki/spaces/FOO/pages/9/Title" },
+    });
+  });
+  try {
+    const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
+    const resolved = await client.resolveTinyUrl(tinyUrl);
+    assert.equal(
+      resolved,
+      "https://example.atlassian.net/wiki/spaces/FOO/pages/9/Title",
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("resolveTinyUrl accepts a relative tiny path and prefixes baseUrl (fallback path)", async () => {
+  let capturedUrl = "";
+  const restore = mockFetch((url) => {
+    capturedUrl = url;
+    return new Response(null, {
+      status: 302,
+      headers: { location: "https://example.atlassian.net/wiki/pages/1/T" },
+    });
+  });
+  try {
+    const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
+    const resolved = await client.resolveTinyUrl(`/wiki/x/${LONG_TOKEN_1}`);
+    assert.equal(
+      capturedUrl,
+      `https://example.atlassian.net/wiki/wiki/x/${LONG_TOKEN_1}`,
+    );
+    assert.ok(resolved?.includes("/pages/1/"));
+  } finally {
+    restore();
+  }
+});
+
 test("resolveTinyUrl returns null when tenant returns non-redirect response", async () => {
   const restore = mockFetch(() => new Response("Not Found", { status: 404 }));
   try {
     const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
     const resolved = await client.resolveTinyUrl(
-      "https://example.atlassian.net/wiki/x/MISSING",
+      `https://example.atlassian.net/wiki/x/${LONG_TOKEN_1}`,
     );
     assert.equal(resolved, null);
   } finally {
@@ -410,7 +481,7 @@ test("resolveTinyUrl returns null when tenant returns non-redirect response", as
 });
 
 test("resolveTinyUrl falls back to api.atlassian.com path on 401 from site URL", async () => {
-  const tinyUrl = "https://example.atlassian.net/wiki/x/SCOPED";
+  const tinyUrl = `https://example.atlassian.net/wiki/x/${LONG_TOKEN_1}`;
   const canonical =
     "https://example.atlassian.net/wiki/spaces/FOO/pages/5050/Scoped";
   const calls: string[] = [];
@@ -426,7 +497,7 @@ test("resolveTinyUrl falls back to api.atlassian.com path on 401 from site URL",
         headers: { "content-type": "application/json" },
       });
     }
-    if (url.includes("api.atlassian.com/ex/confluence/cloud-xyz/wiki/x/SCOPED")) {
+    if (url.includes(`api.atlassian.com/ex/confluence/cloud-xyz/wiki/x/${LONG_TOKEN_1}`)) {
       return new Response(null, {
         status: 302,
         headers: { location: canonical },
@@ -438,12 +509,11 @@ test("resolveTinyUrl falls back to api.atlassian.com path on 401 from site URL",
     const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
     const resolved = await client.resolveTinyUrl(tinyUrl);
     assert.equal(resolved, canonical);
-    // Verify both probes happened (site URL → tenant_info → api.atlassian.com).
     assert.ok(calls.some((u) => u === tinyUrl));
     assert.ok(calls.some((u) => u.endsWith("/_edge/tenant_info")));
     assert.ok(
       calls.some((u) =>
-        u.includes("api.atlassian.com/ex/confluence/cloud-xyz/wiki/x/SCOPED"),
+        u.includes(`api.atlassian.com/ex/confluence/cloud-xyz/wiki/x/${LONG_TOKEN_1}`),
       ),
     );
   } finally {
@@ -451,14 +521,14 @@ test("resolveTinyUrl falls back to api.atlassian.com path on 401 from site URL",
   }
 });
 
-test("resolveTinyUrl returns null when fetch throws (network error)", async () => {
+test("resolveTinyUrl returns null when fetch throws (network error, fallback path)", async () => {
   const restore = mockFetch(() => {
     throw new TypeError("network down");
   });
   try {
     const client = new ConfluenceClient(BASE_URL, "u@x.com", "tok");
     const resolved = await client.resolveTinyUrl(
-      "https://example.atlassian.net/wiki/x/NETERR",
+      `https://example.atlassian.net/wiki/x/${LONG_TOKEN_1}`,
     );
     assert.equal(resolved, null);
   } finally {

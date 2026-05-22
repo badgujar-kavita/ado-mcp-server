@@ -29,6 +29,57 @@ const isConfluenceUrl = (url: string): boolean =>
   url.includes("atlassian.net") || url.includes("confluence");
 
 /**
+ * Decode a Confluence tiny-URL token (the `{token}` in `/wiki/x/{token}`)
+ * directly to a numeric pageId, **without** any network call.
+ *
+ * Confluence's tiny-URL token is the page's 64-bit pageId encoded as
+ * little-endian bytes, with trailing zero bytes stripped, then base64url-
+ * encoded. The encoding is deterministic and stable across the Confluence
+ * Cloud platform. Reversing it locally avoids the unreliable redirect
+ * probe (which depends on tenant edge config, scoped-token permissions,
+ * and 302 vs 200-to-login behavior) and works without authentication or
+ * network reachability.
+ *
+ * Returns the decimal pageId string on success, or null when the token is
+ * empty / not valid base64url / too long to fit in a uint64. Always falls
+ * through to null rather than throwing.
+ *
+ * Note: Node's `Buffer.from(*, "base64url")` accepts both the URL-safe
+ * (`-_`) and standard (`+/`) base64 alphabets and is tolerant of missing
+ * padding, so callers don't need to pre-normalize the token. We additionally
+ * strip a single trailing slash for the path-style helpers that may pass
+ * `IgB9qAE/` instead of `IgB9qAE`.
+ */
+export function decodeTinyUrlToken(token: string): string | null {
+  if (!token || typeof token !== "string") return null;
+  // Tolerate a trailing slash from path-form callers (e.g. "/wiki/x/IgB9qAE/").
+  const clean = token.replace(/\/$/, "");
+  // Only [A-Za-z0-9_-] is valid base64url; anything else is bogus.
+  if (!/^[A-Za-z0-9_-]+$/.test(clean)) return null;
+
+  let bytes: Buffer;
+  try {
+    bytes = Buffer.from(clean, "base64url");
+  } catch {
+    return null;
+  }
+  // Empty decode (e.g. token of length 0 after sanitization) → fail.
+  if (bytes.length === 0) return null;
+  // Confluence pageIds are 64-bit signed; tokens longer than 8 raw bytes
+  // can't be valid encodings. Reject rather than silently truncate.
+  if (bytes.length > 8) return null;
+
+  const padded = Buffer.alloc(8);
+  bytes.copy(padded, 0);
+  const id = padded.readBigUInt64LE(0);
+  // Filter the all-zero decode (token like "AAAA"): a real Confluence
+  // pageId is always > 0. Treating 0 as null means tests / handlers don't
+  // accidentally fetch /rest/api/content/0.
+  if (id === 0n) return null;
+  return id.toString();
+}
+
+/**
  * Extract the path portion of a Confluence "tiny URL" (the `/wiki/x/{token}`
  * short link Confluence's "Copy link" button produces by default), or
  * return null if the input isn't one. Accepts either an absolute URL or a
@@ -63,6 +114,22 @@ export function extractTinyUrlPath(urlOrPath: string): string | null {
   // Confluence tiny URLs sit at `/wiki/x/{token}` (cloud) or `/x/{token}`
   // (some self-hosted setups). Token is base64-url-ish, never contains slashes.
   return /^(?:\/wiki)?\/x\/[A-Za-z0-9_-]+\/?$/.test(pathname) ? pathname : null;
+}
+
+/**
+ * One-step shortcut: given a tiny URL (absolute or relative), return the
+ * decoded numeric pageId, or null if the input isn't a tiny URL OR the
+ * token doesn't decode to a usable pageId. Combines the two pure helpers
+ * so callers don't have to chain them manually.
+ */
+export function tinyUrlToPageId(urlOrPath: string): string | null {
+  const path = extractTinyUrlPath(urlOrPath);
+  if (!path) return null;
+  // Path is `/wiki/x/{token}` or `/x/{token}`, optionally with a trailing
+  // slash. Take everything after the last `/x/`.
+  const match = path.match(/\/x\/([^/]+)\/?$/);
+  if (!match) return null;
+  return decodeTinyUrlToken(match[1]);
 }
 
 /**

@@ -5,7 +5,10 @@ import type {
   ConfluenceBinaryResponse,
 } from "./types.ts";
 import { basicAuthHeader } from "./helpers/basic-auth.ts";
-import { extractTinyUrlPath } from "./helpers/confluence-url.ts";
+import {
+  extractTinyUrlPath,
+  tinyUrlToPageId,
+} from "./helpers/confluence-url.ts";
 import { stripHtml } from "./helpers/strip-html.ts";
 
 /** Extract site host from base URL, e.g. your-org.atlassian.net from https://your-org.atlassian.net/wiki */
@@ -85,24 +88,42 @@ export class ConfluenceClient {
 
   /**
    * Resolve a Confluence "tiny URL" (the `/wiki/x/{token}` short link
-   * Confluence's "Copy link" button produces by default) to its canonical
-   * `/pages/{id}/...` form by following the server-issued 302 manually.
+   * Confluence's "Copy link" button produces by default) to a canonical URL
+   * containing a numeric pageId.
    *
-   * Returns the canonical URL string on success (the `Location` header), or
-   * `null` if the URL is not a tiny URL, the redirect can't be followed, or
-   * the page isn't visible to the configured credentials. Never throws —
-   * callers fall through to the existing "unfetched link" reporting on null.
+   * **Primary path: offline decode.** The token is `pageId` encoded as
+   * little-endian bytes (trailing zeros stripped) then base64url-encoded.
+   * `tinyUrlToPageId()` reverses that purely in memory — no network, no
+   * authentication, works on any tenant. We synthesize a minimal canonical
+   * URL (`${baseUrl}/pages/{id}/x`) so callers downstream can extract the
+   * pageId via `extractConfluencePageIdFromUrl()` exactly as they do for any
+   * other Confluence link. The "/x" leaf is a placeholder slug; Confluence
+   * accepts any non-empty string there and the API only reads the numeric ID.
    *
-   * Authentication is required because Confluence resolves tiny URLs through
-   * the page's permissions: an unauthenticated call returns 302 to `/login`
-   * for restricted pages. We send Basic auth on the redirect probe and, on
-   * 401, retry through the `api.atlassian.com/ex/confluence/{cloudId}` path
-   * so scoped API tokens work too.
+   * **Fallback path: 302 redirect probe.** Retained for the rare cases
+   * where the offline algorithm doesn't apply: legacy self-hosted
+   * Confluence Server installs that may use a different encoding, or
+   * future tenant-specific shortener variants. Authenticated GET against
+   * `${baseUrl}${path}` with `redirect: 'manual'`; on 401 falls back to
+   * `api.atlassian.com/ex/confluence/{cloudId}` for scoped tokens. Returns
+   * the `Location` header value on 3xx.
+   *
+   * Returns null when both paths fail (unrecognized token AND redirect
+   * probe couldn't reach the page). Never throws — callers fall through to
+   * the existing "unfetched link" reporting on null.
    */
   async resolveTinyUrl(urlOrPath: string): Promise<string | null> {
     const tinyPath = extractTinyUrlPath(urlOrPath);
     if (!tinyPath) return null;
 
+    // Primary path: pure-function decode. Wins for ~all Confluence Cloud
+    // tenants — no auth, no network, no edge-case redirect handling.
+    const decodedPageId = tinyUrlToPageId(urlOrPath);
+    if (decodedPageId) {
+      return `${this.baseUrl}/pages/${decodedPageId}/x`;
+    }
+
+    // Fallback path: 302 redirect probe. Same logic as before.
     // Absolute URL → use as-is (mirrors fetchAttachmentBinary's pattern, which
     // avoids double-`/wiki` when the input already includes the baseUrl path).
     // Relative path → prefix baseUrl. _toApiAtlassianUrl always works from the

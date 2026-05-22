@@ -275,7 +275,7 @@ When you fetch a User Story with `ado_story`, the tool:
 2. Extracts every Confluence URL from the chosen fields. Supported URL shapes:
    - `/pages/{pageId}/...` (canonical)
    - `?pageId=...` (legacy query-param)
-   - `/wiki/x/{token}` (Confluence "short" / "tiny" URL — the default produced by Confluence's **Copy link** button). The MCP server resolves these automatically by following the server-issued 302 to the canonical form, so authors can paste whichever URL Confluence hands them.
+   - `/wiki/x/{token}` (Confluence "short" / "tiny" URL — the default produced by Confluence's **Copy link** button). The MCP server resolves these automatically and offline (the token decodes deterministically to a page ID), so authors can paste whichever URL Confluence hands them and there's no extra network round-trip.
 3. **If links span TWO OR MORE distinct fields**, the tool does NOT fetch any page body. Instead, it peeks the title of each candidate (one cheap call per page) and returns a `pendingDecision` block listing the candidates as `(field, page title, URL)`. The agent surfaces the choices to you; you pick one or more; the agent re-calls `ado_story` with `confluencePageUrls: [your selection]`. Only those page bodies are fetched on the second call. This avoids both wasted bandwidth and the risk of the agent guessing the wrong page as Solution Design.
 4. **If all links are in ONE field** (or there's only one link total), the tool fetches every page directly — there's no ambiguity to resolve.
 5. Returns each fetched page as a `fetchedConfluencePages[]` entry alongside the other User Story fields.

@@ -2,11 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   categorizeLink,
+  decodeTinyUrlToken,
   extractAllLinks,
   extractConfluencePageId,
   extractConfluencePageIdFromUrl,
   extractConfluenceUrl,
   extractTinyUrlPath,
+  tinyUrlToPageId,
 } from "./confluence-url.ts";
 
 // ── categorizeLink ──
@@ -252,6 +254,87 @@ test("extractTinyUrlPath: empty / null / non-string input returns null", () => {
 test("extractTinyUrlPath: token with slash is rejected (defends against pasted URL fragments)", () => {
   assert.equal(
     extractTinyUrlPath("https://myco.atlassian.net/wiki/x/AYC/extra"),
+    null,
+  );
+});
+
+// ── decodeTinyUrlToken — pure-function offline decoder ──
+
+test("decodeTinyUrlToken: small pageId roundtrip (100 → 'ZA' → 100)", () => {
+  // Sanity check the algorithm: the encoder strips trailing zero bytes,
+  // so encode(100) is just "ZA" (one byte, base64url-encoded).
+  assert.equal(decodeTinyUrlToken("ZA"), "100");
+});
+
+test("decodeTinyUrlToken: medium pageId (123456789 → 'Fc1bBw')", () => {
+  assert.equal(decodeTinyUrlToken("Fc1bBw"), "123456789");
+});
+
+test("decodeTinyUrlToken: real Confluence Cloud token IgB9qAE → 7121731618", () => {
+  // Captured from the MARS Solution Design tiny URL that motivated the
+  // offline-decoder rewrite. If this assertion fails, the algorithm has
+  // drifted — that's a regression Confluence changed encoding (very unlikely).
+  assert.equal(decodeTinyUrlToken("IgB9qAE"), "7121731618");
+});
+
+test("decodeTinyUrlToken: real Confluence Cloud token AYCTqAE → 7123206145", () => {
+  assert.equal(decodeTinyUrlToken("AYCTqAE"), "7123206145");
+});
+
+test("decodeTinyUrlToken: empty string returns null", () => {
+  assert.equal(decodeTinyUrlToken(""), null);
+});
+
+test("decodeTinyUrlToken: token with invalid base64 chars returns null", () => {
+  assert.equal(decodeTinyUrlToken("invalid!!"), null);
+});
+
+test("decodeTinyUrlToken: token longer than 8 raw bytes (>11 base64 chars) is rejected", () => {
+  // 14 base64 chars → 10 raw bytes → can't fit in uint64.
+  assert.equal(decodeTinyUrlToken("TOOLONGTOKEN12"), null);
+});
+
+test("decodeTinyUrlToken: all-zero token returns null (no Confluence pageId is 0)", () => {
+  // "AAAA" decodes to 3 zero bytes → padded uint64 is 0.
+  assert.equal(decodeTinyUrlToken("AAAA"), null);
+});
+
+test("decodeTinyUrlToken: trailing slash on token is tolerated", () => {
+  assert.equal(decodeTinyUrlToken("Fc1bBw/"), "123456789");
+});
+
+test("decodeTinyUrlToken: null / undefined / non-string input returns null", () => {
+  // @ts-expect-error — runtime null-safety check
+  assert.equal(decodeTinyUrlToken(null), null);
+  // @ts-expect-error — runtime null-safety check
+  assert.equal(decodeTinyUrlToken(undefined), null);
+  // @ts-expect-error — runtime null-safety check
+  assert.equal(decodeTinyUrlToken(42), null);
+});
+
+// ── tinyUrlToPageId — URL → pageId one-step ──
+
+test("tinyUrlToPageId: cloud URL is decoded end-to-end", () => {
+  assert.equal(
+    tinyUrlToPageId("https://myco.atlassian.net/wiki/x/IgB9qAE"),
+    "7121731618",
+  );
+});
+
+test("tinyUrlToPageId: relative path is decoded too", () => {
+  assert.equal(tinyUrlToPageId("/wiki/x/Fc1bBw"), "123456789");
+});
+
+test("tinyUrlToPageId: canonical URL returns null (not a tiny URL)", () => {
+  assert.equal(
+    tinyUrlToPageId("https://myco.atlassian.net/wiki/spaces/X/pages/42/T"),
+    null,
+  );
+});
+
+test("tinyUrlToPageId: long token fails decode (returns null, callers fall back)", () => {
+  assert.equal(
+    tinyUrlToPageId("https://myco.atlassian.net/wiki/x/TOOLONGTOKEN12"),
     null,
   );
 });

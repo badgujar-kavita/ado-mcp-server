@@ -1058,7 +1058,13 @@ Extracts Confluence page IDs from any ADO field that may contain a Confluence li
 - A plain URL: `https://yoursite.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title`
 - An HTML anchor: `<a href="https://...">Solution Design</a>`
 - A query-param URL: `https://yoursite.atlassian.net/wiki/pages/viewpage.action?pageId=123456789`
-- A **tiny URL** / "short link": `https://yoursite.atlassian.net/wiki/x/{token}` — Confluence's "Copy link" button produces these by default, so they are common in real ADO fields. Tiny URLs don't expose a numeric pageId in the URL itself; the parser flags them via `extractTinyUrlPath()`, and `ConfluenceClient.resolveTinyUrl()` follows the server-issued 302 (Basic-auth probe with `redirect: 'manual'`) to obtain the canonical `/pages/{id}/...` URL. On 401 the resolution falls back to the `api.atlassian.com/ex/confluence/{cloudId}` proxy so scoped API tokens work too.
+- A **tiny URL** / "short link": `https://yoursite.atlassian.net/wiki/x/{token}` — Confluence's "Copy link" button produces these by default, so they are common in real ADO fields.
+
+  Tiny-URL resolution is **offline-first**: the token is `pageId` encoded as little-endian bytes (trailing zero bytes stripped) then base64url-encoded, so the page ID can be recovered locally without any network call. `decodeTinyUrlToken()` does the inverse: base64url-decode → pad to 8 bytes → read as `uint64 LE` → return as decimal string. `tinyUrlToPageId()` is a one-step `URL → pageId` shortcut. The decoder rejects empty tokens, invalid base64, tokens longer than 8 raw bytes, and the all-zero decode (no real page has pageId 0).
+
+  When the offline decoder succeeds, `ConfluenceClient.resolveTinyUrl()` returns a synthesized canonical URL of the form `${baseUrl}/pages/{id}/x` (the `/x` leaf is a placeholder slug; Confluence APIs only read the numeric ID). Downstream callers extract that pageId via the existing `extractConfluencePageIdFromUrl()` and fetch the page through the normal `/rest/api/content/{pageId}` path.
+
+  When the offline decoder rejects the token (rare — only legacy self-hosted Confluence Server installs that may use a different encoding), `resolveTinyUrl()` falls back to a 302 redirect probe: authenticated `GET ${baseUrl}${path}` with `redirect: 'manual'` reads the `Location` header. On 401 the probe falls back further to `api.atlassian.com/ex/confluence/{cloudId}` so scoped API tokens work too. Returns null if both paths fail; callers fall through to the standard "unfetched link" reporting.
 
 The parser handles all four formats and returns the numeric page ID.
 
