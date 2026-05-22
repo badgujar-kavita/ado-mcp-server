@@ -33,8 +33,8 @@ Guide AI when updating test case prerequisites in Azure DevOps via `qa_tc_update
   "prerequisites": {
     "personas": null,
     "preConditions": [
-      "Promotion.Status = Adjusted",
-      "Tactic.Planned_Dollar_Per_Case__c != NULL"
+      "Opportunity.StageName = Negotiation/Review",
+      "Opportunity.Amount != NULL"
     ],
     "testData": "N/A"
   }
@@ -46,7 +46,7 @@ Guide AI when updating test case prerequisites in Azure DevOps via `qa_tc_update
 ```json
 {
   "prerequisites": {
-    "preConditions": ["Promotion.Status = Adjusted"],
+    "preConditions": ["Case.Origin = Web"],
     "testDataTable": {
       "headers": ["Data", "Value"],
       "rows": [

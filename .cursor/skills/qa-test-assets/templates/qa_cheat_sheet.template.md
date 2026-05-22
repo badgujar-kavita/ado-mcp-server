@@ -29,7 +29,7 @@ Quick reference for test execution. Keep scannable (max 50-60 lines).
 **Category/Type Source:**
 | Object | Category Field | Example Values |
 |--------|----------------|----------------|
-| Promotion | `Effective_Categories__c` | Electronics, Apparel |
+| Case | `Category__c` | Billing, Technical |
 
 ---
 
@@ -72,7 +72,7 @@ Quick reference for test execution. Keep scannable (max 50-60 lines).
 
 | Role | Key Reminders |
 |------|---------------|
-| KAM | Must be queue member; fills Resolution Notes before close |
+| Support User | Must be queue member; fills Resolution Notes before close |
 | System Admin | Validates field API names, rule formulas, exact error messages |
 
 ---

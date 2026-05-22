@@ -4,60 +4,59 @@ Use these as reference when preparing the **Config Summary** section for the Pre
 
 ---
 
-## Example 1: Promotion Template + Tactic Validation
+## Example 1: Opportunity Stage + Validation Rules
 
 ```
-* User.Sales Organization = 1111 / 0404
-* PromotionTemplate.TPM_Required_Promotion_Fields__c != NULL
-* PromotionTemplate.TPM_Required_Tactic_Fields__c != NULL
-* PromotionTemplate.TPM_Tactic_Fund_Validation__c = TRUE
-* TacticTemplate.TPM_Required_Tactic_Fields__c != NULL
-* Promotion Field Set: TPM_Required_Promotion_Fields
-* Tactic Field Set: TPM_Required_Tactic_Fields
-```
-
----
-
-## Example 2: Reapproval Workflow (Rate Changes)
-
-```
-* User.Sales Organization = 1111
-* Promotion.Status = Adjusted
-* Promotion.Phase = Not Yet Started OR In-Flight
-* Tactic.CompensationModel = Planned $ Per Case OR Planned % Per Case
-* Tactic.Planned_Dollar_Per_Case__c != NULL
-* Tactic.Planned_Percent_Per_Case__c != NULL
-* Promotion.LOA_Threshold__c != NULL
-* PromotionTemplate.Reapproval_Workflow_Enabled__c = TRUE
-* Lightning Action: "Save and Refresh" assigned to Promotion Page Layout
-* Lightning Action: "Review Status" assigned to Promotion Page Layout
-* LOA Approver User.IsActive = TRUE
+* User.Region__c IN (North America, EMEA)
+* OpportunityValidationConfig.Required_Opportunity_Fields__c != NULL
+* OpportunityValidationConfig.Required_Product_Fields__c != NULL
+* OpportunityValidationConfig.Amount_Check_Enabled__c = TRUE
+* ProductValidationConfig.Required_Product_Fields__c != NULL
+* Opportunity Field Set: Required_Opportunity_Fields
+* Opportunity Product Field Set: Required_Product_Fields
 ```
 
 ---
 
-## Example 3: LOA / Config-Driven Logic
+## Example 2: Reapproval Workflow (Amount Changes)
 
 ```
-* User.Sales Organization = 1111 (or market-specific)
-* PromotionTemplate.TriggerPromotionStatuses = [Configured values]
-* PromotionTemplate.TargetPromotionStatus = [Configured value]
-* PromotionTemplate.TriggerThresholdPromotionFields = [Configured fields]
-* PromotionTemplate.LOAComparisonPromotionFields = [Configured fields]
-* PromotionTemplate.EnableLOACheck = TRUE / FALSE (per scenario)
-* TPM_LOA__c != NULL (when LOA enabled)
+* User.Region__c = North America
+* Opportunity.StageName = Negotiation/Review
+* Opportunity.Type = New Business OR Existing Business
+* Opportunity.Amount != NULL
+* Opportunity.Previous_Approved_Amount__c != NULL
+* ApprovalThresholdConfig.Amount_Change_Threshold__c != NULL
+* OpportunityApprovalConfig.Reapproval_Workflow_Enabled__c = TRUE
+* Lightning Action: "Submit for Approval" assigned to Opportunity Page Layout
+* Lightning Action: "Refresh Approval Status" assigned to Opportunity Page Layout
+* Approver User.IsActive = TRUE
 ```
 
 ---
 
-## Example 4: GL Mapping / Tactic Template
+## Example 3: Escalation / Config-Driven Logic
 
 ```
-* User.Sales Organization = 1111
-* TPM_Tactic_SAP_GLAccount_Mapping__c = [Config should be setup/available]
-* TacticTemplate.Tactic_Template_Condition_Creation_Def__c = [Config should be setup/available]
-* Tactic Template without Tactic Template Condition Creation Def config OR Tactic for which no mapping exists
-* Workflow State Transition Action [Approved->Committed] => [Config should be setup]
+* User.Region__c = [Configured region]
+* CaseRoutingConfig.TriggerCaseStatuses = [Configured values]
+* CaseRoutingConfig.TargetCaseStatus = [Configured value]
+* CaseRoutingConfig.TriggerThresholdCaseFields = [Configured fields]
+* CaseRoutingConfig.EscalationComparisonFields = [Configured fields]
+* CaseRoutingConfig.EnableEscalationCheck = TRUE / FALSE (per scenario)
+* Case.Escalation_Threshold__c != NULL (when escalation is enabled)
+```
+
+---
+
+## Example 4: Queue Mapping / Routing Template
+
+```
+* User.Region__c = North America
+* Case_Routing_Queue_Mapping__c = [Config should be setup/available]
+* CaseTemplate.Routing_Condition_Definition__c = [Config should be setup/available]
+* Case template without routing condition definition OR case for which no queue mapping exists
+* Workflow State Transition Action [New->In Progress] => [Config should be setup]
 ```
 
 ---
@@ -68,4 +67,4 @@ Use these as reference when preparing the **Config Summary** section for the Pre
 - Use `[Config should be setup/available]` when config is required but not specified
 - Use `OR` for alternate conditions
 - Include Sales Org when market-specific
-- List Field Sets when relevant (e.g., TPM_Required_Promotion_Fields)
+- List Field Sets when relevant (e.g., Required_Opportunity_Fields)

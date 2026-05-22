@@ -205,7 +205,7 @@ The link MUST substitute the real ADO work-item ID. Every unknown that prevented
 
 ### Required elements in EVERY flow (Tier 1 + Tier 2)
 
-1. **Actor / entry point** — who triggers it (KAM User, Admin, System, Scheduled Job, etc.)
+1. **Actor / entry point** — who triggers it (Sales User, Support User, Admin, System, Scheduled Job, etc.)
 2. **Action chain** — sequential edges with documented labels
 3. **All variations covered** (not just the happy path) — branch nodes for Variation A / B / C with their criteria as labels
 4. **Terminal observable state** — every flow MUST end with a documented end state:
@@ -262,7 +262,7 @@ Follow existing project conventions:
 - **Title:** `TC_{USID}_{##} -> [Feature Tag] -> [Sub-Feature/Context] -> Verify that [Action/Verification]` (≤ 256 chars). Keep it simple, clear, and to the point.
 - **Feature Tags:** Use generic feature tags derived from the Acceptance Criteria and documented business language. Do not assume project-specific entities unless they appear in the source material.
 - **Expected results (AUTOMATION-FRIENDLY):** Use "should" form with structured, measurable outcomes. When a single test step produces multiple validations, format as a numbered list using automation-friendly patterns:
-  - **Field validation:** `Object.Field__c should = Value` (e.g., `Promotion.Status__c should = Adjusted`)
+  - **Field validation:** `Object.Field__c should = Value` (e.g., `Opportunity.StageName should = Qualification`)
   - **UI element:** `UI_Element should be state` (e.g., `Edit button should be enabled`)
   - **Action outcome:** `Action should outcome` (e.g., `Save action should succeed`)
   - **Message/Error:** `Message should [not] be displayed` (e.g., `Error message should = "Required fields missing"`)

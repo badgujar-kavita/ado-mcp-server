@@ -29,8 +29,8 @@ tc-drafts/
 ### Naming Conventions
 
 **Folder:**
-- `US_<ID>` — preferred (e.g., `US_1399001`)
-- `US_<ID>_<short_title_slug>` — optional when disambiguation needed (e.g., `US_1399001_product_category_access`)
+- `US_<ID>` — preferred (e.g., `US_123456`)
+- `US_<ID>_<short_title_slug>` — optional when disambiguation needed (e.g., `US_123456_opportunity_stage_validation`)
 
 **Files:**
 - `US_<ID>_test_cases.md` — main test case draft
@@ -175,14 +175,14 @@ When absent (default), images are referenced only via `originalUrl` links that r
 
 | Pattern                                  | Example                                                                |
 | ---------------------------------------- | ---------------------------------------------------------------------- |
-| `<Object>.<Field> = <Value>`             | `Promotion.Status = Adjusted`, `CustomerManager.Access__c = Edit`      |
-| `<Object>.<Field> != NULL`               | `Tactic.Planned_Rate__c != NULL`                                       |
-| `<Object>.<Field> = TRUE/FALSE`          | `Template.TPM_Enable_LOA__c = TRUE`                                    |
+| `<Object>.<Field> = <Value>`             | `Opportunity.StageName = Qualification`, `Case.Origin = Web`           |
+| `<Object>.<Field> != NULL`               | `Opportunity.CloseDate != NULL`                                        |
+| `<Object>.<Field> = TRUE/FALSE`          | `FeatureFlag.Enable_Case_Escalation__c = TRUE`                         |
 | `<Object>.<Field> CONTAINS <Value>`      | `FieldSet.Fields CONTAINS Rate`                                        |
-| `<Object>.<Field> IN (<Values>)`         | `User.Sales_Org IN (1111, 0404)`                                       |
-| `<CustomLabel> = <Value>`                | `TPM_Error_Message = "Record not found"`                               |
-| `<CustomMetadataType>.<Field> = <Value>` | `TPM_Setting.Enabled__c = TRUE`                                        |
-| `<CustomSetting>.<Field> = <Value>`      | `TPM_Config__c.Max_Records__c = 100`                                   |
+| `<Object>.<Field> IN (<Values>)`         | `User.Profile IN (Sales Rep, Support Agent)`                           |
+| `<CustomLabel> = <Value>`                | `CASE_ROUTING_ERROR_MESSAGE = "Record not found"`                      |
+| `<CustomMetadataType>.<Field> = <Value>` | `RoutingRuleConfig.DefaultQueue__c = Tier1Support`                     |
+| `<CustomSetting>.<Field> = <Value>`      | `OrgFeatureSettings.Max_Open_Cases__c = 100`                           |
 
 **Minimize vague phrasing (use only as last resort):**
 
@@ -266,10 +266,10 @@ Use this structured format for maximum automation compatibility:
 
 **1. Field Validation (API/Data validation):**
 ```
-1. Promotion.Status__c should = Adjusted
-2. Promotion.Approved_By__c should = [Current User]
-3. Promotion.Approval_Date__c should = [Today's Date]
-4. Tactic.Planned_Rate__c should != NULL
+1. Opportunity.StageName should = Proposal/Price Quote
+2. Opportunity.OwnerId should = [Current User]
+3. Opportunity.LastModifiedDate should = [Today's Date]
+4. Opportunity.Amount should != NULL
 ```
 *Automation mapping: Direct field assertions*
 
@@ -284,17 +284,17 @@ Use this structured format for maximum automation compatibility:
 
 **3. Ordered Logic/Rules (Rule engine testing):**
 ```
-Rule Order 1: Case_Category__c = Technical → Technical Support Queue should be assigned
-Rule Order 2: Case_Category__c = Billing → Billing Support Queue should be assigned
-Rule Order 3: Case_Category__c = blank/other → Default Support Queue should be assigned
+Rule Order 1: Case.Type = Technical Issue -> Technical Support Queue should be assigned
+Rule Order 2: Case.Type = Billing -> Billing Support Queue should be assigned
+Rule Order 3: Case.Type = blank/other -> Default Support Queue should be assigned
 ```
 *Automation mapping: Conditional assertions*
 
 **4. Access Control (Combined validation):**
 ```
-1. CBP record should be visible in list view
+1. Case record should be visible in list view
 2. Detail page should open successfully
-3. Record.Access_Level__c should = Full Access
+3. Case.Access_Level__c should = Full Access
 4. Edit action should be available
 5. Save action should succeed
 ```
@@ -304,7 +304,7 @@ Rule Order 3: Case_Category__c = blank/other → Default Support Queue should be
 ```
 1. Save action should fail
 2. Error message should = "Required fields are missing: Name, Status"
-3. Promotion.Status__c should = Draft (unchanged)
+3. Opportunity.StageName should = Qualification (unchanged)
 4. User should remain on edit page
 ```
 *Automation mapping: Failure assertions + state verification*
@@ -316,7 +316,7 @@ Rule Order 3: Case_Category__c = blank/other → Default Support Queue should be
 - "Should have read access" (ambiguous - what does "read" mean?)
 
 **✅ Good Examples (Automation-friendly):**
-- "Record.Access_Level__c should = Read Only"
+- "Case.Access_Level__c should = Read Only"
 - "Edit button should be disabled"
 - "Record should be visible in list view"
 - "Save action should succeed"
@@ -372,7 +372,7 @@ Examples in this plan document are **learning patterns**, not copy-paste content
 
 **Never copy verbatim:**
 - Domain-specific field names
-- Project-specific business logic
+- Org-specific business logic
 - User Story-specific assumptions
 - Sample test data values
 

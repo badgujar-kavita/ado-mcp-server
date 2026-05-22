@@ -39,8 +39,8 @@ OR text-based:
 
 | Section              | Conditions                                 |
 | -------------------- | ------------------------------------------ |
-| **Persona**          | System Administrator, ADMIN User, KAM User |
-| **Pre-requisite**    | User.Sales_Organization = Object.Field =   |
+| **Persona**          | System Administrator, Sales User, Support User |
+| **Pre-requisite**    | User.Profile IN (Sales Rep, Support Agent) |
 | **Test Data**        | N/A                                        |
 
 ---
@@ -63,7 +63,7 @@ OR text-based:
 
 | Step | Action            | Expected Result             |
 | ---- | ----------------- | --------------------------- |
-| 1    | Login as KAM User | you should be able to do so |
+| 1    | Login as Sales User | you should be able to do so |
 | 2    |                   |                             |
 
 ---
@@ -76,7 +76,7 @@ OR text-based:
 
 | Step | Action            | Expected Result                                                  |
 | ---- | ----------------- | ---------------------------------------------------------------- |
-| 1    | Login as KAM User | you should be able to do so                                      |
+| 1    | Login as Support User | you should be able to do so                                   |
 | 2    | Perform action with multiple validations | 1. Object.Field__c should = Value<br>2. UI_Element should be enabled<br>3. Action should succeed<br>4. Error message should not be displayed |
 
 ---
