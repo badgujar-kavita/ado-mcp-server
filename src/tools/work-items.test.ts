@@ -12,7 +12,7 @@ import {
   registerWorkItemTools,
 } from "./work-items.ts";
 import type { AdoWorkItem, EmbeddedImage, UserStoryContext } from "../types.ts";
-import { __resetConventionsCacheForTests } from "../config.ts";
+import { __resetConventionsCacheForTests, loadConventionsConfig } from "../config.ts";
 
 // ── Per-workspace config fixture ───────────────────────────────────────────
 // These tests assert on additionalContextFields and solutionDesign.adoFieldRef.
@@ -642,6 +642,367 @@ test("deprecated solutionDesignUrl is populated even when confluence fetch retur
     assert.equal(ctx.fetchedConfluencePages!.length, 0);
     assert.equal(ctx.solutionDesignUrl, pageUrl);
     assert.equal(ctx.solutionDesignContent, null);
+  } finally {
+    restore();
+  }
+});
+
+// ── Two-branch field discovery + multi-field disambiguation ───────────────
+//
+// Builds a deep-cloned ConventionsConfig from the fixture and lets each test
+// override pieces (e.g. `additionalContextFields = []` to exercise Branch 2)
+// without mutating the cached config the other tests rely on.
+function configWithOverrides(
+  overrides: Partial<ReturnType<typeof loadConventionsConfig>>,
+): ReturnType<typeof loadConventionsConfig> {
+  const base = structuredClone(loadConventionsConfig());
+  return { ...base, ...overrides };
+}
+
+test("Branch 1: additionalContextFields defined → Confluence link in unlisted Custom.* field is NOT auto-discovered", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const restore = mockFetch(() => {
+    throw new Error("no network expected — link should not be discovered");
+  });
+  try {
+    const tinyUrl = "https://example.atlassian.net/wiki/x/UNDISCOVERED";
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": "<p>d</p>",
+        // Field is neither the configured solutionDesign field
+        // (Custom.TechnicalSolution) nor in additionalContextFields
+        // (Custom.ImpactAssessment, Custom.ReferenceDocumentation).
+        "Custom.UnscannedDoc": `<a href="${tinyUrl}">link</a>`,
+      },
+    });
+    // Branch 1 active → Custom.UnscannedDoc is silently ignored.
+    const ctx = await extractUserStoryContext(item, adoClient, confClient);
+    assert.equal(ctx.fetchedConfluencePages!.length, 0);
+    assert.equal(ctx.unfetchedLinks!.length, 0);
+    assert.equal(ctx.pendingDecision, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("Branch 2: empty additionalContextFields → Confluence URL in any Custom.* field is auto-discovered and fetched", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const pageUrl =
+    "https://example.atlassian.net/wiki/spaces/FOO/pages/707/Auto";
+  const restore = mockFetch((url) => {
+    if (url.includes("/rest/api/content/707?")) {
+      return new Response(
+        JSON.stringify({
+          title: "Auto-discovered Page",
+          body: { storage: { value: "<p>Auto body</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("child/attachment")) {
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": "<p>d</p>",
+        // No declared field for this — must be picked up by auto-discovery.
+        "Custom.TechnicalSolution": `<a href="${pageUrl}">link</a>`,
+      },
+    });
+    const config = configWithOverrides({ additionalContextFields: [] });
+    const ctx = await extractUserStoryContext(item, adoClient, confClient, config);
+    assert.equal(ctx.fetchedConfluencePages!.length, 1);
+    assert.equal(ctx.fetchedConfluencePages![0]!.pageId, "707");
+    assert.equal(ctx.fetchedConfluencePages![0]!.sourceField, "Custom.TechnicalSolution");
+    assert.equal(ctx.pendingDecision, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("Branch 2: tiny URL in unlisted Custom.* field is auto-discovered AND tiny-resolved", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const tinyUrl = "https://example.atlassian.net/wiki/x/IgB9qAE";
+  const canonical =
+    "https://example.atlassian.net/wiki/spaces/FOO/pages/909/Resolved";
+  const restore = mockFetch((url) => {
+    if (url === tinyUrl) {
+      return new Response(null, {
+        status: 302,
+        headers: { location: canonical },
+      });
+    }
+    if (url.includes("/rest/api/content/909?")) {
+      return new Response(
+        JSON.stringify({
+          title: "Resolved",
+          body: { storage: { value: "<p>Body</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("child/attachment")) {
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": "<p>d</p>",
+        "Custom.TechnicalSolution": `<a href="${tinyUrl}">solution</a>`,
+      },
+    });
+    const config = configWithOverrides({ additionalContextFields: undefined });
+    const ctx = await extractUserStoryContext(item, adoClient, confClient, config);
+    assert.equal(ctx.fetchedConfluencePages!.length, 1);
+    assert.equal(ctx.fetchedConfluencePages![0]!.pageId, "909");
+    // The original tiny URL is preserved in fetchedConfluencePages[].url.
+    assert.equal(ctx.fetchedConfluencePages![0]!.url, tinyUrl);
+    assert.equal(ctx.pendingDecision, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("Single field with multiple Confluence links → all fetched, no disambiguation prompt", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const url1 = "https://example.atlassian.net/wiki/spaces/FOO/pages/11/A";
+  const url2 = "https://example.atlassian.net/wiki/spaces/FOO/pages/22/B";
+  const restore = mockFetch((url) => {
+    const m = url.match(/\/rest\/api\/content\/(\d+)\?/);
+    if (m) {
+      return new Response(
+        JSON.stringify({
+          title: `Page ${m[1]}`,
+          body: { storage: { value: "<p>body</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("child/attachment")) {
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": `<p><a href="${url1}">a</a> and <a href="${url2}">b</a></p>`,
+      },
+    });
+    // Both links live in System.Description (single sourceField) → no ambiguity.
+    const ctx = await extractUserStoryContext(item, adoClient, confClient);
+    assert.equal(ctx.fetchedConfluencePages!.length, 2);
+    assert.equal(ctx.pendingDecision, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("Multi-field Confluence links → pendingDecision returned with peeked titles, no body fetched", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const url1 = "https://example.atlassian.net/wiki/spaces/FOO/pages/100/A";
+  const url2 = "https://example.atlassian.net/wiki/spaces/FOO/pages/200/B";
+  const fetchLog: string[] = [];
+  const restore = mockFetch((url) => {
+    fetchLog.push(url);
+    const m = url.match(/\/rest\/api\/content\/(\d+)\?/);
+    if (m) {
+      return new Response(
+        JSON.stringify({
+          title: `Title ${m[1]}`,
+          body: { storage: { value: "<p>full body do not return</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": `<a href="${url1}">first</a>`,
+        "Custom.TechnicalSolution": `<a href="${url2}">second</a>`,
+      },
+    });
+    // Branch 2 (empty additionalContextFields) so Custom.TechnicalSolution is auto-discovered.
+    const config = configWithOverrides({ additionalContextFields: [] });
+    const ctx = await extractUserStoryContext(item, adoClient, confClient, config);
+
+    // No bodies fetched.
+    assert.equal(ctx.fetchedConfluencePages!.length, 0);
+    // pendingDecision present with both candidates and their peeked titles.
+    assert.ok(ctx.pendingDecision);
+    assert.equal(ctx.pendingDecision!.kind, "confluence-multi-field");
+    assert.equal(ctx.pendingDecision!.candidates.length, 2);
+    const byUrl = new Map(ctx.pendingDecision!.candidates.map((c) => [c.url, c]));
+    assert.equal(byUrl.get(url1)!.title, "Title 100");
+    assert.equal(byUrl.get(url1)!.sourceField, "System.Description");
+    assert.equal(byUrl.get(url1)!.pageId, "100");
+    assert.equal(byUrl.get(url2)!.title, "Title 200");
+    assert.equal(byUrl.get(url2)!.sourceField, "Custom.TechnicalSolution");
+    assert.equal(byUrl.get(url2)!.pageId, "200");
+    // The title peek calls hit /rest/api/content but we asserted no body
+    // was placed in fetchedConfluencePages — that's the gate doing its job.
+    assert.ok(fetchLog.length >= 2);
+  } finally {
+    restore();
+  }
+});
+
+test("Same Confluence URL across two fields → counts as 1 (dedup), no prompt", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const sharedUrl =
+    "https://example.atlassian.net/wiki/spaces/FOO/pages/55/Shared";
+  const restore = mockFetch((url) => {
+    if (url.includes("/rest/api/content/55?")) {
+      return new Response(
+        JSON.stringify({
+          title: "Shared",
+          body: { storage: { value: "<p>shared body</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("child/attachment")) {
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": `<a href="${sharedUrl}">a</a>`,
+        "Custom.TechnicalSolution": `<a href="${sharedUrl}">b</a>`,
+      },
+    });
+    const config = configWithOverrides({ additionalContextFields: [] });
+    const ctx = await extractUserStoryContext(item, adoClient, confClient, config);
+    assert.equal(ctx.fetchedConfluencePages!.length, 1);
+    assert.equal(ctx.pendingDecision, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("Re-call with confluencePageUrls=[chosen] fetches only the selected URL, bypasses disambiguation gate", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const url1 = "https://example.atlassian.net/wiki/spaces/FOO/pages/300/A";
+  const url2 = "https://example.atlassian.net/wiki/spaces/FOO/pages/400/B";
+  const restore = mockFetch((url) => {
+    const m = url.match(/\/rest\/api\/content\/(\d+)\?/);
+    if (m) {
+      return new Response(
+        JSON.stringify({
+          title: `Page ${m[1]}`,
+          body: { storage: { value: "<p>body</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("child/attachment")) {
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": `<a href="${url1}">a</a>`,
+        "Custom.TechnicalSolution": `<a href="${url2}">b</a>`,
+      },
+    });
+    const config = configWithOverrides({ additionalContextFields: [] });
+    // Caller passes the user's selection — only fetch url2 (the "B" page).
+    const ctx = await extractUserStoryContext(
+      item,
+      adoClient,
+      confClient,
+      config,
+      { confluencePageUrls: [url2] },
+    );
+    assert.equal(ctx.pendingDecision, undefined);
+    assert.equal(ctx.fetchedConfluencePages!.length, 1);
+    assert.equal(ctx.fetchedConfluencePages![0]!.url, url2);
+  } finally {
+    restore();
+  }
+});
+
+test("Cross-instance link does not trigger disambiguation (single fetchable field)", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const localUrl = "https://example.atlassian.net/wiki/spaces/FOO/pages/55/Local";
+  const otherUrl = "https://other.atlassian.net/wiki/spaces/BAR/pages/77/Other";
+  const restore = mockFetch((url) => {
+    if (url.includes("/rest/api/content/55?")) {
+      return new Response(
+        JSON.stringify({
+          title: "Local",
+          body: { storage: { value: "<p>body</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("child/attachment")) {
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": `<a href="${localUrl}">local</a>`,
+        // Cross-instance link is unfetchable → not counted toward
+        // distinctSourceFields → no disambiguation prompt.
+        "Custom.TechnicalSolution": `<a href="${otherUrl}">other</a>`,
+      },
+    });
+    const config = configWithOverrides({ additionalContextFields: [] });
+    const ctx = await extractUserStoryContext(item, adoClient, confClient, config);
+    assert.equal(ctx.pendingDecision, undefined);
+    assert.equal(ctx.fetchedConfluencePages!.length, 1);
+    assert.equal(
+      ctx.unfetchedLinks!.find((l) => l.url === otherUrl)?.reason,
+      "cross-instance",
+    );
   } finally {
     restore();
   }

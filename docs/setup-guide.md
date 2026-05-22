@@ -269,14 +269,16 @@ If your team later migrates to an Atlassian OAuth 2.0 (3-legged) app for shared/
 
 When you fetch a User Story with `ado_story`, the tool:
 
-1. Reads the **Technical Solution** field from the ADO work item
-2. Extracts the Confluence page URL from the field value
-3. Parses the page ID from the URL. Supported shapes:
+1. Decides **which ADO fields to scan** for Confluence links:
+   - **If `additionalContextFields` is configured** in `<workspace>/.vortex-ado/config.json`: scan only Title, Description, Acceptance Criteria, the configured `solutionDesign.adoFieldRef` (if set), and the listed `additionalContextFields`. The tenant has declared their preference; auto-discovery is disabled.
+   - **If `additionalContextFields` is undefined or empty**: in addition to the primaries, scan **every** HTML-valued field on the work item whose content contains a Confluence host indicator (`atlassian.net` / `confluence`). This is the zero-configuration path: tenants who haven't run the wizard still get their Solution Design page fetched, regardless of which custom field holds the link (e.g. `Custom.TechnicalSolution`, `Custom.SolutionNotes`, `Custom.DesignDoc`).
+2. Extracts every Confluence URL from the chosen fields. Supported URL shapes:
    - `/pages/{pageId}/...` (canonical)
    - `?pageId=...` (legacy query-param)
    - `/wiki/x/{token}` (Confluence "short" / "tiny" URL — the default produced by Confluence's **Copy link** button). The MCP server resolves these automatically by following the server-issued 302 to the canonical form, so authors can paste whichever URL Confluence hands them.
-4. Fetches the page content from Confluence
-5. Returns it as `solutionDesignContent` alongside the other User Story fields
+3. **If links span TWO OR MORE distinct fields**, the tool does NOT fetch any page body. Instead, it peeks the title of each candidate (one cheap call per page) and returns a `pendingDecision` block listing the candidates as `(field, page title, URL)`. The agent surfaces the choices to you; you pick one or more; the agent re-calls `ado_story` with `confluencePageUrls: [your selection]`. Only those page bodies are fetched on the second call. This avoids both wasted bandwidth and the risk of the agent guessing the wrong page as Solution Design.
+4. **If all links are in ONE field** (or there's only one link total), the tool fetches every page directly — there's no ambiguity to resolve.
+5. Returns each fetched page as a `fetchedConfluencePages[]` entry alongside the other User Story fields.
 
 If Confluence is not configured, the field is empty, or the linked page cannot be fetched, `solutionDesignUrl` and `solutionDesignContent` will stay `null` — the core ADO workflow continues normally with no degraded experience.
 

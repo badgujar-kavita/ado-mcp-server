@@ -30,6 +30,14 @@ export interface UserStoryContext {
   fetchedConfluencePages?: FetchedConfluencePage[];
   unfetchedLinks?: UnfetchedLink[];
   embeddedImages?: EmbeddedImage[];
+  /**
+   * Present when `ado_story` discovered Confluence links across two or more
+   * distinct ADO fields and the caller didn't pre-select which to fetch.
+   * When present, `fetchedConfluencePages` is `[]` and the agent should
+   * relay the candidates to the user, then re-call `ado_story` with
+   * `confluencePageUrls` populated.
+   */
+  pendingDecision?: ConfluenceMultiFieldDecision;
   /** @deprecated Use namedFields / fetchedConfluencePages instead. */
   solutionDesignUrl: string | null;
   /** @deprecated Use namedFields / fetchedConfluencePages instead. */
@@ -360,4 +368,43 @@ export interface UnfetchedLink {
   sourceField: string;
   reason: "cross-instance" | "non-confluence" | "access-denied" | "not-found" | "auth-failure" | "link-budget" | "time-budget";
   workaround: string;
+}
+
+/**
+ * One Confluence page candidate surfaced when `ado_story` finds Confluence
+ * links across two or more distinct ADO fields and the caller didn't
+ * pre-select which to fetch via `confluencePageUrls`.
+ *
+ * Includes a peeked `title` (one cheap title-only fetch per candidate) so the
+ * end-user can pick by name, not by opaque tiny-URL token. `pageId` is
+ * populated when extractable from the URL (canonical form or post-tiny-URL
+ * resolution); absent when the URL is a tiny URL whose resolution failed —
+ * that pathway also emits an `unfetchedLink` with reason `not-found`.
+ */
+export interface ConfluenceCandidate {
+  url: string;
+  sourceField: string;
+  fieldLabel: string;
+  title?: string;
+  pageId?: string;
+}
+
+/**
+ * Block returned in `UserStoryContext` when `ado_story` needs the user to
+ * disambiguate which Confluence page(s) to treat as the Solution Design
+ * source. The agent should surface the candidates as a numbered list and
+ * re-call `ado_story` with `confluencePageUrls` set to the user's choice
+ * (one URL, several URLs, or all of them).
+ *
+ * - `kind: "confluence-multi-field"` is the only kind today; reserved for
+ *   future disambiguation flows (e.g. "non-confluence-source-required").
+ * - `fetchedConfluencePages` is `[]` while a decision is pending: we
+ *   deliberately don't fetch bodies until the user chooses, to avoid both
+ *   wasted bandwidth and the risk of contaminating the test draft with a
+ *   page the user didn't intend.
+ */
+export interface ConfluenceMultiFieldDecision {
+  kind: "confluence-multi-field";
+  message: string;
+  candidates: ConfluenceCandidate[];
 }

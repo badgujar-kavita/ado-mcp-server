@@ -1054,13 +1054,36 @@ Enabled only when all three credential fields are present: `confluence_base_url`
 
 ### Confluence URL Parser (`src/helpers/confluence-url.ts`)
 
-Extracts Confluence page IDs from the "Technical Solution" ADO field. The field value may be:
+Extracts Confluence page IDs from any ADO field that may contain a Confluence link (which fields are scanned is decided by `extractUserStoryContext`; see "Confluence link discovery" below). The field value may be:
 - A plain URL: `https://yoursite.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title`
 - An HTML anchor: `<a href="https://...">Solution Design</a>`
 - A query-param URL: `https://yoursite.atlassian.net/wiki/pages/viewpage.action?pageId=123456789`
 - A **tiny URL** / "short link": `https://yoursite.atlassian.net/wiki/x/{token}` — Confluence's "Copy link" button produces these by default, so they are common in real ADO fields. Tiny URLs don't expose a numeric pageId in the URL itself; the parser flags them via `extractTinyUrlPath()`, and `ConfluenceClient.resolveTinyUrl()` follows the server-issued 302 (Basic-auth probe with `redirect: 'manual'`) to obtain the canonical `/pages/{id}/...` URL. On 401 the resolution falls back to the `api.atlassian.com/ex/confluence/{cloudId}` proxy so scoped API tokens work too.
 
 The parser handles all four formats and returns the numeric page ID.
+
+### Confluence link discovery — two-branch precedence (`src/tools/work-items.ts`)
+
+`extractUserStoryContext` decides which ADO fields to scan for Confluence links using two branches with explicit precedence:
+
+- **Branch 1 — `additionalContextFields` defined (length ≥ 1):** scan only `System.Title`, `System.Description`, `Microsoft.VSTS.Common.AcceptanceCriteria`, the configured `solutionDesign.adoFieldRef` (if set), and the listed `additionalContextFields`. Tenant has declared their preference; auto-discovery is OFF.
+- **Branch 2 — `additionalContextFields` undefined or empty array:** scan the namedFields above, **plus** every HTML-valued field in `allFields` whose content contains `atlassian.net` or `confluence` (case-insensitive substring match — cheap gate). The real categorisation happens downstream via `extractAllLinks` → `categorizeLink`, which is hostname-precise. This is the zero-configuration path: tenants without wizard configuration still get their Confluence pages fetched, regardless of which custom field holds them.
+
+Empty array (`[]`) and undefined are treated identically — both mean "auto-discover."
+
+### Multi-field disambiguation gate
+
+After link extraction and dedup-by-URL, `extractUserStoryContext` counts the number of **distinct sourceFields** among fetchable Confluence links. If ≥ 2 AND the caller did not pass `confluencePageUrls`, the tool:
+
+1. Skips body fetches.
+2. Resolves any tiny URLs to canonical form (so candidates have a real `pageId` where extractable).
+3. Peeks just the page **title** for each candidate (one `getPageContent` call per page; the body is discarded).
+4. Returns a `pendingDecision: { kind: "confluence-multi-field", message, candidates: [{ url, sourceField, fieldLabel, title?, pageId? }] }` block.
+5. Leaves `fetchedConfluencePages: []`.
+
+The `ado_story` tool surfaces this block in the prose so the agent can prompt the user. The user picks one or more URLs; the agent re-calls `ado_story` with `confluencePageUrls: [user's selection]`, which short-circuits the gate (selection filter applied before the count check) and fetches only the chosen pages.
+
+Single-field (one or many links) and zero-field cases bypass the gate entirely — there is no ambiguity to resolve. Cross-instance and other unfetchable links are excluded from the count (`fetchableConfluence` only contains links that survive cross-instance gating + budget caps).
 
 ---
 

@@ -6,6 +6,33 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-22 — Two-branch Confluence link discovery + multi-field disambiguation
+
+The `Custom.TechnicalSolution` removal in [2026-05-19](#2026-05-19--remove-hardcoded-customtechnicalsolution-fallback-for-the-solution-design-field) made the system tenant-agnostic, but introduced a real-world failure mode: when a tenant DOESN'T configure `solutionDesign.adoFieldRef` AND has the Confluence URL in a custom field that isn't listed in `additionalContextFields`, the link was silently invisible. This is exactly what happened on the MARS workspace — `Custom.TechnicalSolution` held the Solution Design tiny URL, but `solutionDesign.adoFieldRef` was unset and the field wasn't in `additionalContextFields`, so neither the link extractor nor the [tiny-URL resolver](#2026-05-22--auto-resolve-confluence-tiny-urls-wikixtoken) ever saw it. The end-user experience: `fetchedConfluencePages: []`, `unfetchedLinks: []`, no warning, agent drafts test cases without the Solution Design context.
+
+**Fix.** Two-branch precedence + multi-field disambiguation. No new config keys.
+
+**Branch 1 — `additionalContextFields` is configured (length ≥ 1):** unchanged. Scan only Title/Desc/AC + the configured Solution Design field + the listed extras. Tenant has spoken.
+
+**Branch 2 — `additionalContextFields` is undefined or empty array:** the new path. After scanning the namedFields, walk every HTML-valued field in `allFields` and pull in any whose content matches `atlassian.net` or `confluence` (cheap substring gate; the real categorisation happens through `extractAllLinks` → `categorizeLink`, which is hostname-precise). The synthesised label for auto-discovered fields is the field's reference suffix split on camelCase (`Custom.TechnicalSolution` → "Technical Solution"); used in disambiguation prompts and prose only.
+
+**Multi-field disambiguation gate.** After link extraction + dedup-by-URL, count distinct sourceFields among fetchable Confluence links. If ≥ 2 AND the caller didn't pre-select via `confluencePageUrls`:
+- Skip body fetches (the expensive part).
+- Resolve tiny URLs to canonical (so candidates have a `pageId`).
+- Peek **just the title** for each candidate (one cheap `getPageContent` call per page).
+- Return a `pendingDecision: { kind: "confluence-multi-field", message, candidates: [{ url, sourceField, fieldLabel, title?, pageId? }] }` block in `UserStoryContext`.
+- Leave `fetchedConfluencePages: []`.
+
+The agent surfaces the candidates to the user as a numbered list. The user picks one or more URLs. The agent re-calls `ado_story` with `confluencePageUrls: [chosen]`. The selection filter runs BEFORE the count check, so the gate is bypassed and only the chosen pages are fetched. Single-field (with one or many links) and zero-field cases bypass the gate entirely — no ambiguity to resolve. Cross-instance and budget-exceeded links are excluded from the count (they're already in `unfetchedLinks` with their reason).
+
+**`ado_story` schema.** New optional `confluencePageUrls?: string[]` parameter. Documented in the tool description; backward-compatible (omitted on first-call → existing behavior or new disambiguation gate). Existing prose+structuredContent shape unchanged otherwise.
+
+**Canonical result.** `pendingDecision` shows up as an `info`-severity `diagnostic` and contributes to `completeness.isPartial = true` with reason "Confluence multi-field choice pending" — so structuredContent consumers see the same signal the prose carries.
+
+**Files changed:** `src/tools/work-items.ts` (field-list builder branched, disambiguation gate, selection filter, `ado_story` schema, canonical result diagnostics), `src/types.ts` (new `ConfluenceCandidate` and `ConfluenceMultiFieldDecision` exports + `UserStoryContext.pendingDecision`), tests in `tools/work-items.test.ts` (8 new cases: Branch 1 unscanned-field skip; Branch 2 auto-discovery; Branch 2 + tiny URL; single-field multi-link; multi-field pending decision with title peek; same-URL-across-fields dedup; selection round-trip; cross-instance link doesn't trigger gate).
+
+**Docs updated:** `docs/setup-guide.md` (Confluence integration walkthrough explains both branches and disambiguation flow), `docs/implementation.md` (new sections on two-branch discovery and multi-field disambiguation gate), `docs/testing-guide.md` (tools-table entry for `ado_story` notes new optional param + auto-discovery behavior).
+
 ### 2026-05-22 — Auto-resolve Confluence tiny URLs (`/wiki/x/{token}`)
 
 Confluence's **Copy link** button defaults to a "tiny URL" / short-link form: `https://<tenant>.atlassian.net/wiki/x/{token}`. The MCP server's URL parser only matched `/pages/{id}/…` and `?pageId=` shapes, so any User Story whose Solution Design field contained a tiny URL produced an `unfetchedLinks` entry with `reason: "not-found"` and "Could not extract Confluence page ID from URL." The agent had to ask the user to open Confluence and paste the canonical URL — exactly the friction the MCP exists to remove.

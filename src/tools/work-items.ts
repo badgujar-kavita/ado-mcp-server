@@ -5,6 +5,8 @@ import type { ConfluenceClient } from "../confluence-client.ts";
 import type {
   AdoWorkItem,
   CategorizedLink,
+  ConfluenceCandidate,
+  ConfluenceMultiFieldDecision,
   EmbeddedImage,
   FetchedConfluencePage,
   UnfetchedLink,
@@ -90,17 +92,26 @@ export function registerWorkItemTools(
     {
       title: "Read User Story",
       description:
-        "Fetch a User Story from ADO with description, acceptance criteria, parent info, Solution Design content from Confluence, and all relations",
+        "Fetch a User Story from ADO with description, acceptance criteria, parent info, Solution Design content from Confluence, and all relations. " +
+        "Confluence-link discovery: if `additionalContextFields` is configured, only those (plus Title/Description/AC + the configured Solution Design field) are scanned. " +
+        "Otherwise the tool auto-discovers any Confluence URL anywhere in the work item. " +
+        "When Confluence links are found in two or more distinct fields, the tool returns a `pendingDecision` block listing each candidate (field + page title + URL) and does NOT fetch any body — re-call with `confluencePageUrls` set to the user's choice.",
       inputSchema: {
         workItemId: z
           .number()
           .int()
           .positive()
           .describe("The ADO work item ID of the User Story"),
+        confluencePageUrls: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Optional. When the previous call returned a `pendingDecision`, pass the chosen URL(s) here on the second call to fetch only those page bodies. URLs must match values from the candidates list exactly.",
+          ),
       },
       outputSchema: READ_OUTPUT_SCHEMA,
     },
-    async ({ workItemId }, extra) => {
+    async ({ workItemId, confluencePageUrls }, extra) => {
       try {
         const item = await client.get<AdoWorkItem>(
           `/_apis/wit/workitems/${workItemId}`,
@@ -115,7 +126,15 @@ export function registerWorkItemTools(
         // null gracefully (skips Confluence enrichment).
         const { resolveConfluenceClientForActiveCall } = await import("../workspace/confluence-client-proxy.ts");
         const confluenceClient = await resolveConfluenceClientForActiveCall();
-        const context = await extractUserStoryContext(item, client, confluenceClient, config);
+        const context = await extractUserStoryContext(
+          item,
+          client,
+          confluenceClient,
+          config,
+          confluencePageUrls && confluencePageUrls.length > 0
+            ? { confluencePageUrls }
+            : undefined,
+        );
         const { content, withUrl } = buildGetUserStoryResponse(context, {
           webUrl: adoWorkItemUrl(client, context.id),
           returnMcpImageParts: config.images?.returnMcpImageParts === true,
@@ -231,6 +250,21 @@ export function registerWorkItemTools(
 }
 
 /**
+ * Options accepted by `extractUserStoryContext` to influence the Confluence
+ * link-fetching pipeline on a per-call basis.
+ *
+ * - `confluencePageUrls`: when set and non-empty, ONLY links whose URL
+ *   exactly matches one of the listed URLs are fetched. The
+ *   multi-field disambiguation gate is bypassed in this case (the user has
+ *   already made a selection on a prior call). Non-matching Confluence
+ *   links are silently dropped; they are NOT recorded in `unfetchedLinks`
+ *   because the user explicitly opted them out.
+ */
+export interface ExtractUserStoryContextOptions {
+  confluencePageUrls?: string[];
+}
+
+/**
  * Build the full `UserStoryContext` payload: primary fields, parent resolution,
  * all-fields pass-through, configured-named rich-text fields with plaintext,
  * Confluence link fetching (with cross-instance/budget gating), ADO image
@@ -244,6 +278,7 @@ export async function extractUserStoryContext(
   adoClient: AdoClient,
   confluenceClient: ConfluenceClient | null,
   config: ConventionsConfig = loadConventionsConfig(),
+  options: ExtractUserStoryContextOptions = {},
 ): Promise<UserStoryContext> {
   const fields = item.fields;
   const relations = item.relations ?? [];
@@ -337,9 +372,27 @@ export async function extractUserStoryContext(
   const maxTotalFetchMs = (config.context?.maxTotalFetchSeconds ?? 45) * 1000;
   const startTime = Date.now();
 
-  // Every primary namedField is scanned by default. Additional fields respect
-  // their `fetchLinks` flag (defaults to true per config schema).
+  // ── Field-list precedence ────────────────────────────────────────────────
+  // Branch 1 — `additionalContextFields` is non-empty: trust the tenant's
+  //   declared list. Scan only Title/Desc/AC + configured solution-design
+  //   field + the listed extras. Do NOT auto-discover across other fields.
+  // Branch 2 — `additionalContextFields` is undefined or empty array: scan
+  //   the namedFields plus every HTML-valued field in `allFields` whose
+  //   value contains a Confluence host indicator. This is the "no setup
+  //   needed" path: tenants without the wizard configuration still get
+  //   their Confluence links fetched, regardless of which custom field
+  //   holds them (Custom.TechnicalSolution, Custom.SolutionNotes, etc.).
+  const additionalContextDefined =
+    Array.isArray(config.additionalContextFields) &&
+    config.additionalContextFields.length > 0;
+
+  // Field labels for Branch 2 auto-discovered fields default to the field's
+  // reference name (no human-friendly label is available without config).
+  const fieldLabels: Record<string, string> = {};
+  for (const def of namedFieldDefs) fieldLabels[def.ref] = def.label;
+
   const linkFields: Array<{ ref: string; html: string }> = [];
+  const seenLinkFieldRefs = new Set<string>();
   for (const def of namedFieldDefs) {
     const f = namedFields[def.ref];
     if (!f) continue;
@@ -347,7 +400,29 @@ export async function extractUserStoryContext(
       (a) => a.adoFieldRef === def.ref
     );
     const shouldScan = cfg ? cfg.fetchLinks !== false : true;
-    if (shouldScan) linkFields.push({ ref: def.ref, html: f.html });
+    if (shouldScan) {
+      linkFields.push({ ref: def.ref, html: f.html });
+      seenLinkFieldRefs.add(def.ref);
+    }
+  }
+
+  // Branch 2 fallback: walk allFields and pick up any HTML field that looks
+  // like it contains a Confluence URL. Cheap substring check (`atlassian.net`
+  // / `confluence`) is enough to gate; the real categorisation runs through
+  // `extractAllLinks` → `categorizeLink` below, which is hostname-precise.
+  if (!additionalContextDefined) {
+    for (const [ref, value] of Object.entries(allFields)) {
+      if (seenLinkFieldRefs.has(ref)) continue;
+      if (typeof value !== "string" || !value) continue;
+      if (!/atlassian\.net|confluence/i.test(value)) continue;
+      linkFields.push({ ref, html: value });
+      seenLinkFieldRefs.add(ref);
+      // Synthesise a label from the field's reference suffix
+      // (e.g. `Custom.TechnicalSolution` → "Technical Solution"). The
+      // reference name is fine when the suffix isn't camelCase.
+      const suffix = ref.includes(".") ? ref.split(".").pop()! : ref;
+      fieldLabels[ref] = suffix.replace(/([a-z])([A-Z])/g, "$1 $2");
+    }
   }
 
   // Collect categorized links across all scanned fields (doc order, dedup by URL).
@@ -449,12 +524,85 @@ export async function extractUserStoryContext(
     inlineSvgAsText: imagesCfg?.inlineSvgAsText ?? true,
   };
 
+  // ── Selection filter (when caller pre-selected URLs) ─────────────────────
+  // When the agent re-calls with `confluencePageUrls` (after the user
+  // disambiguated on a previous turn), keep only links whose URL is in the
+  // selection set. Non-selected links are dropped silently — they're not
+  // failures, the user opted them out.
+  const selectedUrls = options.confluencePageUrls && options.confluencePageUrls.length > 0
+    ? new Set(options.confluencePageUrls)
+    : null;
+  const filteredFetchable = selectedUrls
+    ? fetchableConfluence.filter((l) => selectedUrls.has(l.url))
+    : fetchableConfluence;
+
+  // ── Multi-field disambiguation gate ──────────────────────────────────────
+  // When Confluence links span TWO OR MORE distinct ADO fields and the
+  // caller didn't pre-select via `confluencePageUrls`, we can't safely
+  // assume which page is the canonical Solution Design. Skip body fetches,
+  // peek titles only, and surface a `pendingDecision` block so the agent
+  // can ask the user. The user re-calls `ado_story` with their choice on
+  // `confluencePageUrls`, which short-circuits this gate.
+  //
+  // Single-field (with one or many links) and zero-field cases bypass this
+  // gate entirely — there is no ambiguity to resolve.
+  const distinctSourceFields = new Set(filteredFetchable.map((l) => l.sourceField));
+  const needsDisambiguation =
+    !selectedUrls && confluenceClient !== null && distinctSourceFields.size >= 2;
+
+  let pendingDecision: ConfluenceMultiFieldDecision | undefined;
+  if (needsDisambiguation && confluenceClient) {
+    const candidates: ConfluenceCandidate[] = [];
+    for (const link of filteredFetchable) {
+      // Resolve tiny URL → pageId so we can peek the title. On failure, we
+      // still surface the candidate (sans title) so the user has a complete
+      // list; the re-call path will report the failure as `unfetchedLink`.
+      let pageId = link.pageId;
+      if (!pageId && extractTinyUrlPath(link.url)) {
+        const resolvedUrl = await confluenceClient.resolveTinyUrl(link.url);
+        if (resolvedUrl) {
+          pageId = extractConfluencePageIdFromUrl(resolvedUrl) ?? undefined;
+        }
+      }
+
+      let title: string | undefined;
+      if (pageId) {
+        try {
+          const peeked = await confluenceClient.getPageContent(pageId);
+          title = peeked.title;
+        } catch {
+          /* title peek is best-effort; absence won't block the choice */
+        }
+      }
+
+      candidates.push({
+        url: link.url,
+        sourceField: link.sourceField,
+        fieldLabel: fieldLabels[link.sourceField] ?? link.sourceField,
+        ...(title ? { title } : {}),
+        ...(pageId ? { pageId } : {}),
+      });
+    }
+
+    pendingDecision = {
+      kind: "confluence-multi-field",
+      message:
+        `Found ${candidates.length} Confluence pages across ${distinctSourceFields.size} fields. ` +
+        "Pick which to use as Solution Design context, then re-call ado_story with `confluencePageUrls` set to your choice (one or more URLs).",
+      candidates,
+    };
+  }
+
   // ── Fetch each in-scope Confluence page ──────────────────────────────────
   const allEmbeddedImages: EmbeddedImage[] = [];
   const countKept = () => allEmbeddedImages.filter((i) => !i.skipped).length;
 
+  // When a decision is pending, body fetches are deferred until the user
+  // disambiguates. The candidates already include peeked titles + pageIds.
+  const linksToFetch = pendingDecision ? [] : filteredFetchable;
+
   if (confluenceClient) {
-    for (const link of fetchableConfluence) {
+    for (const link of linksToFetch) {
       if (Date.now() - startTime > maxTotalFetchMs) {
         unfetchedLinks.push({
           url: link.url,
@@ -596,6 +744,7 @@ export async function extractUserStoryContext(
     fetchedConfluencePages,
     unfetchedLinks,
     embeddedImages: allEmbeddedImages,
+    ...(pendingDecision ? { pendingDecision } : {}),
     solutionDesignUrl,
     solutionDesignContent,
   };
@@ -764,9 +913,20 @@ export function buildUserStoryCanonicalResult(
       message: `${fetchFailedImages.length} image${fetchFailedImages.length === 1 ? "" : "s"} failed to fetch`,
     });
   }
+  // Surface multi-field disambiguation as an info-severity diagnostic so
+  // structuredContent consumers see the same signal the prose carries.
+  if (withUrl.pendingDecision) {
+    diagnostics.push({
+      severity: "info",
+      message: withUrl.pendingDecision.message,
+    });
+  }
 
   const unfetchedCount = withUrl.unfetchedLinks?.length ?? 0;
-  const isPartial = unfetchedCount > 0 || fetchFailedImages.length > 0;
+  const isPartial =
+    unfetchedCount > 0 ||
+    fetchFailedImages.length > 0 ||
+    withUrl.pendingDecision !== undefined;
   let partialReason: string | undefined;
   if (isPartial) {
     const parts: string[] = [];
@@ -775,6 +935,9 @@ export function buildUserStoryCanonicalResult(
     }
     if (fetchFailedImages.length > 0) {
       parts.push(`${fetchFailedImages.length} image fetch failure${fetchFailedImages.length === 1 ? "" : "s"}`);
+    }
+    if (withUrl.pendingDecision) {
+      parts.push("Confluence multi-field choice pending");
     }
     partialReason = parts.join(", ");
   }
