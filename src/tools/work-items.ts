@@ -12,7 +12,9 @@ import type {
 } from "../types.ts";
 import {
   extractAllLinks,
+  extractConfluencePageIdFromUrl,
   extractConfluenceUrl,
+  extractTinyUrlPath,
 } from "../helpers/confluence-url.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { loadConventionsConfig } from "../config.ts";
@@ -464,7 +466,17 @@ export async function extractUserStoryContext(
         continue;
       }
 
-      const pageId = link.pageId;
+      let pageId = link.pageId;
+      // Tiny URLs (`/wiki/x/{token}` — Confluence's "Copy link" default)
+      // never expose a numeric pageId in the URL itself, so the link-extractor
+      // leaves `pageId` undefined. Resolve them by following the server-issued
+      // 302 to the canonical `/pages/{id}/...` URL. Always-on; no config flag.
+      if (!pageId && extractTinyUrlPath(link.url)) {
+        const resolvedUrl = await confluenceClient.resolveTinyUrl(link.url);
+        if (resolvedUrl) {
+          pageId = extractConfluencePageIdFromUrl(resolvedUrl) ?? undefined;
+        }
+      }
       if (!pageId) {
         unfetchedLinks.push({
           url: link.url,

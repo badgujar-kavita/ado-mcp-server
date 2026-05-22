@@ -5,6 +5,7 @@ import type {
   ConfluenceBinaryResponse,
 } from "./types.ts";
 import { basicAuthHeader } from "./helpers/basic-auth.ts";
+import { extractTinyUrlPath } from "./helpers/confluence-url.ts";
 import { stripHtml } from "./helpers/strip-html.ts";
 
 /** Extract site host from base URL, e.g. your-org.atlassian.net from https://your-org.atlassian.net/wiki */
@@ -80,6 +81,83 @@ export class ConfluenceClient {
   async getPageContent(pageId: string): Promise<ConfluencePageResult> {
     const { title, rawStorageHtml } = await this._fetchPage(pageId);
     return { title, body: stripHtml(rawStorageHtml) };
+  }
+
+  /**
+   * Resolve a Confluence "tiny URL" (the `/wiki/x/{token}` short link
+   * Confluence's "Copy link" button produces by default) to its canonical
+   * `/pages/{id}/...` form by following the server-issued 302 manually.
+   *
+   * Returns the canonical URL string on success (the `Location` header), or
+   * `null` if the URL is not a tiny URL, the redirect can't be followed, or
+   * the page isn't visible to the configured credentials. Never throws —
+   * callers fall through to the existing "unfetched link" reporting on null.
+   *
+   * Authentication is required because Confluence resolves tiny URLs through
+   * the page's permissions: an unauthenticated call returns 302 to `/login`
+   * for restricted pages. We send Basic auth on the redirect probe and, on
+   * 401, retry through the `api.atlassian.com/ex/confluence/{cloudId}` path
+   * so scoped API tokens work too.
+   */
+  async resolveTinyUrl(urlOrPath: string): Promise<string | null> {
+    const tinyPath = extractTinyUrlPath(urlOrPath);
+    if (!tinyPath) return null;
+
+    // Absolute URL → use as-is (mirrors fetchAttachmentBinary's pattern, which
+    // avoids double-`/wiki` when the input already includes the baseUrl path).
+    // Relative path → prefix baseUrl. _toApiAtlassianUrl always works from the
+    // path form, so 401-fallback is consistent regardless of input shape.
+    const primaryUrl = urlOrPath.startsWith("http")
+      ? urlOrPath
+      : `${this.baseUrl}${tinyPath}`;
+    const location = await this._fetchTinyUrlLocation(primaryUrl);
+    if (location) return location;
+
+    // 401 fallback path: scoped tokens reject site-URL calls and need the
+    // api.atlassian.com proxy. Mirror the same path under /ex/confluence/{cloudId}.
+    // `_toApiAtlassianUrl` prepends `basePath` (`/wiki` for cloud), so we must
+    // strip a leading `/wiki` from `tinyPath` before passing it in — otherwise
+    // the helper produces `/wiki/wiki/x/{token}` and the proxy 404s.
+    const proxyPath = tinyPath.startsWith("/wiki/") ? tinyPath.slice(5) : tinyPath;
+    const fallbackUrl = await this._toApiAtlassianUrl(proxyPath);
+    if (fallbackUrl) {
+      const fbLocation = await this._fetchTinyUrlLocation(fallbackUrl);
+      if (fbLocation) return fbLocation;
+    }
+
+    return null;
+  }
+
+  /** GET the tiny URL with manual-redirect, return Location on 3xx or null otherwise. */
+  private async _fetchTinyUrlLocation(url: string): Promise<string | null> {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "GET",
+        redirect: "manual",
+        headers: {
+          Authorization: this.authHeader,
+          // No Accept header — we only care about the redirect target.
+        },
+      });
+    } catch {
+      return null;
+    }
+
+    // `redirect: 'manual'` surfaces 3xx responses with the Location header
+    // intact; an authenticated tiny URL on a visible page returns 302.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) return null;
+      // Some tenants emit a relative Location (e.g. `/wiki/spaces/...`); resolve
+      // it against the original request URL so callers always get an absolute URL.
+      try {
+        return new URL(location, url).toString();
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   async getPageContentRaw(pageId: string): Promise<ConfluencePageResultRaw> {

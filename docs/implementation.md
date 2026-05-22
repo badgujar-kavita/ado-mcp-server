@@ -1058,8 +1058,9 @@ Extracts Confluence page IDs from the "Technical Solution" ADO field. The field 
 - A plain URL: `https://yoursite.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title`
 - An HTML anchor: `<a href="https://...">Solution Design</a>`
 - A query-param URL: `https://yoursite.atlassian.net/wiki/pages/viewpage.action?pageId=123456789`
+- A **tiny URL** / "short link": `https://yoursite.atlassian.net/wiki/x/{token}` — Confluence's "Copy link" button produces these by default, so they are common in real ADO fields. Tiny URLs don't expose a numeric pageId in the URL itself; the parser flags them via `extractTinyUrlPath()`, and `ConfluenceClient.resolveTinyUrl()` follows the server-issued 302 (Basic-auth probe with `redirect: 'manual'`) to obtain the canonical `/pages/{id}/...` URL. On 401 the resolution falls back to the `api.atlassian.com/ex/confluence/{cloudId}` proxy so scoped API tokens work too.
 
-The parser handles all three formats and returns the numeric page ID.
+The parser handles all four formats and returns the numeric page ID.
 
 ---
 

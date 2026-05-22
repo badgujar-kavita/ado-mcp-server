@@ -271,7 +271,10 @@ When you fetch a User Story with `ado_story`, the tool:
 
 1. Reads the **Technical Solution** field from the ADO work item
 2. Extracts the Confluence page URL from the field value
-3. Parses the page ID from the URL (supports `/pages/{pageId}/...` and `?pageId=...` formats)
+3. Parses the page ID from the URL. Supported shapes:
+   - `/pages/{pageId}/...` (canonical)
+   - `?pageId=...` (legacy query-param)
+   - `/wiki/x/{token}` (Confluence "short" / "tiny" URL — the default produced by Confluence's **Copy link** button). The MCP server resolves these automatically by following the server-issued 302 to the canonical form, so authors can paste whichever URL Confluence hands them.
 4. Fetches the page content from Confluence
 5. Returns it as `solutionDesignContent` alongside the other User Story fields
 

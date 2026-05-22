@@ -3,9 +3,42 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ConfluenceClient } from "../confluence-client.ts";
 import type { ConfluencePageResult } from "../types.ts";
 import {
+  extractConfluencePageIdFromUrl,
+  extractTinyUrlPath,
+} from "../helpers/confluence-url.ts";
+import {
   READ_OUTPUT_SCHEMA,
   type CanonicalReadResult,
 } from "./read-result.ts";
+
+/**
+ * Resolve any of the inputs `confluence_read` accepts (numeric pageId,
+ * canonical `/pages/{id}/...` URL, query-param URL, or `/wiki/x/{token}`
+ * tiny URL) to a numeric pageId string. Returns null if the input doesn't
+ * contain a recognizable pageId AND tiny-URL resolution didn't succeed.
+ *
+ * Pure pageIds are returned as-is (no network round-trip), so existing
+ * callers that pass a numeric ID see no extra latency or failure mode.
+ */
+async function resolveToPageId(
+  input: string,
+  confluenceClient: ConfluenceClient,
+): Promise<string | null> {
+  const trimmed = input.trim();
+  if (/^\d+$/.test(trimmed)) return trimmed;
+
+  const direct = extractConfluencePageIdFromUrl(trimmed);
+  if (direct) return direct;
+
+  if (extractTinyUrlPath(trimmed)) {
+    const resolvedUrl = await confluenceClient.resolveTinyUrl(trimmed);
+    if (resolvedUrl) {
+      return extractConfluencePageIdFromUrl(resolvedUrl);
+    }
+  }
+
+  return null;
+}
 
 /**
  * Build the CanonicalReadResult for `confluence_read`.
@@ -39,9 +72,13 @@ export function registerConfluenceTools(server: McpServer, _confluenceClientUnus
     {
       title: "Read Confluence Page",
       description:
-        "Read a Confluence page by ID for Solution Design reference. Requires Confluence to be enabled in <workspace>/.vortex-ado/config.json with the API token stored in the OS keychain (run /vortex-ado/ado-connect to set up).",
+        "Read a Confluence page for Solution Design reference. Accepts a numeric page ID, a canonical /pages/{id}/... URL, a ?pageId= URL, or a /wiki/x/{token} short ('tiny') URL — short URLs are resolved automatically. Requires Confluence to be enabled in <workspace>/.vortex-ado/config.json with the API token stored in the OS keychain (run /vortex-ado/ado-connect to set up).",
       inputSchema: {
-        pageId: z.string().describe("Confluence page ID"),
+        pageId: z
+          .string()
+          .describe(
+            "Confluence page ID, page URL, or tiny URL (https://*.atlassian.net/wiki/x/...)",
+          ),
       },
       outputSchema: READ_OUTPUT_SCHEMA,
     },
@@ -62,10 +99,24 @@ export function registerConfluenceTools(server: McpServer, _confluenceClientUnus
         };
       }
 
+      const resolvedPageId = await resolveToPageId(pageId, confluenceClient);
+      if (!resolvedPageId) {
+        return {
+          content: [{
+            type: "text" as const,
+            text:
+              `Could not resolve "${pageId}" to a Confluence page ID. ` +
+              "Pass a numeric page ID, a /pages/{id}/... URL, a ?pageId= URL, or a /wiki/x/{token} short URL. " +
+              "If you passed a short URL, the page may not be visible to the configured Confluence credentials.",
+          }],
+          isError: true,
+        };
+      }
+
       try {
-        const page = await confluenceClient.getPageContent(pageId);
+        const page = await confluenceClient.getPageContent(resolvedPageId);
         const prose = `# ${page.title}\n\n${page.body}`;
-        const canonical = buildConfluencePageCanonicalResult(pageId, page);
+        const canonical = buildConfluencePageCanonicalResult(resolvedPageId, page);
         return {
           content: [{
             type: "text" as const,
@@ -77,7 +128,7 @@ export function registerConfluenceTools(server: McpServer, _confluenceClientUnus
         return {
           content: [{
             type: "text" as const,
-            text: `Error fetching Confluence page ${pageId}: ${err}\n\nPlease check the page ID and your Confluence credentials.`,
+            text: `Error fetching Confluence page ${resolvedPageId}: ${err}\n\nPlease check the page ID and your Confluence credentials.`,
           }],
           isError: true,
         };

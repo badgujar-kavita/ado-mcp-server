@@ -265,6 +265,99 @@ test("US with a Confluence URL on the configured instance produces a fetchedConf
   }
 });
 
+test("Confluence tiny URL (/wiki/x/{token}) is resolved via 302 and fetched as a real page", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const tinyUrl = "https://example.atlassian.net/wiki/x/AYCTqAE";
+  const canonicalUrl =
+    "https://example.atlassian.net/wiki/spaces/FOO/pages/77/Resolved";
+
+  const restore = mockFetch((url, init) => {
+    if (url === tinyUrl) {
+      // The redirect probe is sent with `redirect: 'manual'`; check it so we
+      // don't silently fall back to the auto-followed path that breaks for
+      // private pages.
+      assert.equal((init as RequestInit).redirect, "manual");
+      return new Response(null, {
+        status: 302,
+        headers: { location: canonicalUrl },
+      });
+    }
+    if (url.includes("/rest/api/content/77?")) {
+      return new Response(
+        JSON.stringify({
+          title: "Resolved Page",
+          body: { storage: { value: "<p>Tiny resolved body</p>" } },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (url.includes("child/attachment")) {
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": "<p>d</p>",
+        "Custom.TechnicalSolution": `<a href="${tinyUrl}">Solution Design</a>`,
+      },
+    });
+    const ctx = await extractUserStoryContext(item, adoClient, confClient);
+    assert.equal(ctx.fetchedConfluencePages!.length, 1);
+    const p = ctx.fetchedConfluencePages![0]!;
+    assert.equal(p.pageId, "77");
+    assert.equal(p.title, "Resolved Page");
+    // The original tiny URL is preserved in the fetched-page record so the
+    // user still sees the link they pasted, not a rewritten canonical URL.
+    assert.equal(p.url, tinyUrl);
+    assert.ok(p.body.includes("Tiny resolved body"));
+    assert.equal(ctx.unfetchedLinks!.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("Confluence tiny URL that fails to resolve falls through to unfetchedLinks reason=not-found", async () => {
+  const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
+  const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");
+  const tinyUrl = "https://example.atlassian.net/wiki/x/UNKNOWN";
+
+  const restore = mockFetch((url) => {
+    if (url === tinyUrl) {
+      // Tenant not signed in / page not visible — Confluence returns 404
+      // (or sometimes 200 to a login page); either way no Location header.
+      return new Response("Not Found", { status: 404 });
+    }
+    if (url.includes("api.atlassian.com")) {
+      // Tenant cloudId lookup or scoped-token fallback — also fails.
+      return new Response("nope", { status: 404 });
+    }
+    throw new Error("Unexpected URL: " + url);
+  });
+  try {
+    const item = makeWorkItem({
+      fields: {
+        "System.Title": "x",
+        "System.Description": "<p>d</p>",
+        "Custom.TechnicalSolution": `<a href="${tinyUrl}">Solution Design</a>`,
+      },
+    });
+    const ctx = await extractUserStoryContext(item, adoClient, confClient);
+    assert.equal(ctx.fetchedConfluencePages!.length, 0);
+    assert.equal(ctx.unfetchedLinks!.length, 1);
+    assert.equal(ctx.unfetchedLinks![0]!.reason, "not-found");
+    assert.equal(ctx.unfetchedLinks![0]!.url, tinyUrl);
+  } finally {
+    restore();
+  }
+});
+
 test("Cross-instance Confluence URL is recorded in unfetchedLinks with reason cross-instance", async () => {
   const adoClient = new AdoClient(ADO_ORG, ADO_PROJ, "pat");
   const confClient = new ConfluenceClient("https://example.atlassian.net/wiki", "u@x.com", "tok");

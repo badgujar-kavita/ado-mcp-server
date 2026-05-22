@@ -29,6 +29,43 @@ const isConfluenceUrl = (url: string): boolean =>
   url.includes("atlassian.net") || url.includes("confluence");
 
 /**
+ * Extract the path portion of a Confluence "tiny URL" (the `/wiki/x/{token}`
+ * short link Confluence's "Copy link" button produces by default), or
+ * return null if the input isn't one. Accepts either an absolute URL or a
+ * relative path; output is always normalized to a leading-slash path so it
+ * can be appended to any tenant baseUrl.
+ *
+ * Rationale: tiny URLs don't expose a numeric pageId, so the regex-based
+ * extractors return null for them. `ConfluenceClient.resolveTinyUrl()`
+ * trades the token for a canonical URL by following the 302 from
+ * `${baseUrl}${path}`; this helper isolates the "is this a tiny URL?"
+ * decision so tiny-vs-canonical handling stays uniform across the codebase.
+ */
+export function extractTinyUrlPath(urlOrPath: string): string | null {
+  if (!urlOrPath || typeof urlOrPath !== "string") return null;
+  const s = urlOrPath.trim();
+  if (!s) return null;
+
+  let pathname: string;
+  if (/^https?:\/\//i.test(s)) {
+    let parsed: URL;
+    try {
+      parsed = new URL(s);
+    } catch {
+      return null;
+    }
+    if (!isConfluenceUrl(parsed.hostname)) return null;
+    pathname = parsed.pathname;
+  } else {
+    pathname = s.startsWith("/") ? s : `/${s}`;
+  }
+
+  // Confluence tiny URLs sit at `/wiki/x/{token}` (cloud) or `/x/{token}`
+  // (some self-hosted setups). Token is base64-url-ish, never contains slashes.
+  return /^(?:\/wiki)?\/x\/[A-Za-z0-9_-]+\/?$/.test(pathname) ? pathname : null;
+}
+
+/**
  * Extracts the Confluence page ID from a rich text field value.
  * Single-pass scan: searches the entire string for distinctive Confluence patterns.
  * Works with HTML anchors, plain URLs, or mixed content.

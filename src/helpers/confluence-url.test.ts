@@ -6,6 +6,7 @@ import {
   extractConfluencePageId,
   extractConfluencePageIdFromUrl,
   extractConfluenceUrl,
+  extractTinyUrlPath,
 } from "./confluence-url.ts";
 
 // ── categorizeLink ──
@@ -196,6 +197,63 @@ test("extractAllLinks: sourceField is echoed on every link", () => {
   assert.equal(result.length, 2);
   assert.equal(result[0].sourceField, "Custom.Design");
   assert.equal(result[1].sourceField, "Custom.Design");
+});
+
+// ── extractTinyUrlPath ──
+
+test("extractTinyUrlPath: cloud /wiki/x/{token} absolute URL returns the path", () => {
+  assert.equal(
+    extractTinyUrlPath("https://myco.atlassian.net/wiki/x/AYCTqAE"),
+    "/wiki/x/AYCTqAE",
+  );
+});
+
+test("extractTinyUrlPath: trailing slash is allowed", () => {
+  assert.equal(
+    extractTinyUrlPath("https://myco.atlassian.net/wiki/x/AYCTqAE/"),
+    "/wiki/x/AYCTqAE/",
+  );
+});
+
+test("extractTinyUrlPath: self-hosted /x/{token} (no /wiki prefix) is accepted", () => {
+  assert.equal(
+    extractTinyUrlPath("https://confluence.example.com/x/abc-DEF_123"),
+    "/x/abc-DEF_123",
+  );
+});
+
+test("extractTinyUrlPath: relative path (with leading slash) is accepted", () => {
+  assert.equal(extractTinyUrlPath("/wiki/x/Token1"), "/wiki/x/Token1");
+});
+
+test("extractTinyUrlPath: relative path (no leading slash) is normalized", () => {
+  assert.equal(extractTinyUrlPath("wiki/x/Token2"), "/wiki/x/Token2");
+});
+
+test("extractTinyUrlPath: canonical /pages/{id}/... URL returns null", () => {
+  assert.equal(
+    extractTinyUrlPath("https://myco.atlassian.net/wiki/spaces/X/pages/42/T"),
+    null,
+  );
+});
+
+test("extractTinyUrlPath: non-Confluence host returns null", () => {
+  assert.equal(extractTinyUrlPath("https://github.com/x/AYCTqAE"), null);
+});
+
+test("extractTinyUrlPath: empty / null / non-string input returns null", () => {
+  assert.equal(extractTinyUrlPath(""), null);
+  // @ts-expect-error — runtime null-safety check
+  assert.equal(extractTinyUrlPath(null), null);
+  // @ts-expect-error — runtime null-safety check
+  assert.equal(extractTinyUrlPath(undefined), null);
+});
+
+test("extractTinyUrlPath: token with slash is rejected (defends against pasted URL fragments)", () => {
+  assert.equal(
+    extractTinyUrlPath("https://myco.atlassian.net/wiki/x/AYC/extra"),
+    null,
+  );
 });
 
 // ── extractConfluenceUrl backward-compat ──

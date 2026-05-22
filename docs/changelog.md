@@ -6,6 +6,25 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-05-22 — Auto-resolve Confluence tiny URLs (`/wiki/x/{token}`)
+
+Confluence's **Copy link** button defaults to a "tiny URL" / short-link form: `https://<tenant>.atlassian.net/wiki/x/{token}`. The MCP server's URL parser only matched `/pages/{id}/…` and `?pageId=` shapes, so any User Story whose Solution Design field contained a tiny URL produced an `unfetchedLinks` entry with `reason: "not-found"` and "Could not extract Confluence page ID from URL." The agent had to ask the user to open Confluence and paste the canonical URL — exactly the friction the MCP exists to remove.
+
+**Fix.** Tiny URLs are now resolved automatically with no setup required from end users.
+
+- `ConfluenceClient.resolveTinyUrl(url)` issues an authenticated `GET` against `${baseUrl}${path}` with `redirect: 'manual'` and reads the canonical URL from the `Location` header on the 302 response. Tiny URLs are gated by the page's permissions, so the probe MUST send Basic auth or Confluence bounces it to `/login`.
+- On 401 from the site URL, falls back to `https://api.atlassian.com/ex/confluence/{cloudId}/x/{token}` so scoped Atlassian API tokens work too. (Mirrors the existing `_toApiAtlassianUrl` fallback used by `getPageContent` / `listAttachments`. The path-prefix is stripped before re-prefixing to avoid `/wiki/wiki/x/...` doubling.)
+- Wired into the `ado_story` flow at the existing "no pageId" branch in `src/tools/work-items.ts` — when `extractTinyUrlPath()` matches and we have a `ConfluenceClient`, we call `resolveTinyUrl()`, re-extract the pageId from the resolved URL, and continue the normal fetch path. On any failure (non-redirect response, 401 even after fallback, network error) we fall through to the existing `unfetched: not-found` reporting so users still see a clear, actionable message.
+- The original tiny URL is preserved in the `fetchedConfluencePages[].url` so the user still sees the link they pasted; only the internal pageId comes from the resolved URL.
+
+**`confluence_read` schema loosened.** Per the same change, `confluence_read` now accepts a numeric pageId (existing behavior), a `/pages/{id}/...` URL, a `?pageId=` URL, or a tiny URL — all are normalized to a pageId internally. Pure-pageId callers see no extra latency or failure mode (string matches `/^\d+$/` short-circuits before any network round-trip).
+
+**Always-on, no config flag.** End users never had to know about short URLs vs. canonical URLs, and shouldn't have to. The behavior is on for any tenant that has Confluence configured. Failure paths still degrade gracefully to the same "unfetched link" surface as before.
+
+**Files changed:** `src/confluence-client.ts` (new `resolveTinyUrl` + `_fetchTinyUrlLocation` helpers), `src/helpers/confluence-url.ts` (new `extractTinyUrlPath`), `src/tools/work-items.ts` (resolution wired into the `ado_story` link loop), `src/tools/confluence.ts` (`confluence_read` accepts URL or pageId), tests in `confluence-client.test.ts` (302 parsing, scoped-token fallback, failure paths, network error), `helpers/confluence-url.test.ts` (path detection across cloud / self-hosted / relative shapes), `tools/work-items.test.ts` (tiny URL in `Custom.TechnicalSolution` ends up in `fetchedConfluencePages`; resolution failure falls through to `unfetched: not-found`).
+
+**Docs updated:** `docs/setup-guide.md` (Confluence integration walkthrough lists tiny URL as a supported shape), `docs/implementation.md` (Confluence URL Parser section documents the 302-resolution behavior and the scoped-token fallback path), `docs/testing-guide.md` (tools table notes `confluence_read` accepts URL forms).
+
 ### 2026-05-19 — keychain: broaden ACL on write to stop macOS access prompts
 
 QA installs were getting interactive macOS Keychain prompts on every tool call after running `/vortex-ado/ado-connect`. Symptom: a popover asking "AddressBookSourceSync wants to use the iCloud keychain" or "Cursor wants to access vortex-ado entry" appearing repeatedly, blocking the workflow.

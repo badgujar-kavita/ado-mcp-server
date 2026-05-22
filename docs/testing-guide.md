@@ -381,7 +381,7 @@ Restart the MCP server after saving these.
 Fetch Confluence page {PAGE_ID}
 ```
 
-> **Finding the page ID:** Open the Confluence page in your browser. The URL contains the page ID, e.g., `https://yoursite.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title` -- the `123456789` is the page ID.
+> **Finding the page ID:** Open the Confluence page in your browser. The URL contains the page ID, e.g., `https://yoursite.atlassian.net/wiki/spaces/SPACE/pages/123456789/Page+Title` -- the `123456789` is the page ID. You can also paste the **full URL** or the **short / "tiny" URL** (`https://yoursite.atlassian.net/wiki/x/{token}` — what Confluence's *Copy link* button produces by default); `confluence_read` resolves either form to a pageId for you.
 
 **Expected result:** The page title and body content in plain text.
 
@@ -517,7 +517,7 @@ consumers that parse text see zero change.
 | `qa_tc_update` | Update one or more TC fields (partial or full) on a single TC or a uniform batch. **`workItemId: number \| number[]`** — array input applies the same field values UNIFORMLY to every ID; per-TC variation not supported (reroute to `/qa-publish` + repush). Runs a type precheck on every ID before any PATCH — `reason: "precheck-failed"` (🚫 BLOCK) with `typeRefusals[]` + `fetchFailures[]` if any ID isn't a Test Case or is unreachable, all-or-nothing. Bulk updates spanning more than one User Story return `reason: "cross-us-bulk-update"` (⚠️ WARN) with a per-US breakdown — user must confirm, agent re-runs with `acknowledgeCrossUs: true`. On partial PATCH failure (after precheck passes), returns `isError: true` with a per-ID ✅/❌ markdown table; no retry, no abort. Single-ID response shape unchanged. | `workItemId: number \| number[]`, `acknowledgeCrossUs` (optional), *(optional fields: title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath)* |
 | `qa_tc_delete` | Delete a test case (Recycle Bin by default) | `workItemId`, `destroy` (optional) |
 | `qa_suite_add_tests` | Add TCs to static suite | `planId`, `suiteId`, `testCaseIds` |
-| `confluence_read` | Read Confluence page content; returns structuredContent | `pageId` |
+| `confluence_read` | Read Confluence page content; returns structuredContent. `pageId` accepts a numeric ID, a `/pages/{id}/...` URL, a `?pageId=` URL, or a `/wiki/x/{token}` short URL — short URLs are auto-resolved via 302. | `pageId` |
 
 ---
 
