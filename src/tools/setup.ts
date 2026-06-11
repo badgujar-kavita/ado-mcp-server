@@ -415,12 +415,14 @@ export function registerSetupTools(server: McpServer) {
 
       let creds: Credentials | null = null;
       let credsSource: string | null = null;
+      let credsError: string | null = null;
       let wsConfigPath: string | undefined;
       if (resolvedWorkspace) {
         wsConfigPath = join(resolvedWorkspace, ".vortex-ado", "config.json");
         const result = await loadCredentialsForWorkspace(resolvedWorkspace);
         creds = result.credentials;
         credsSource = result.source;
+        credsError = result.error;
       }
 
       const status = computeSetupStatus({ creds, workspaceConfigPath: wsConfigPath });
@@ -430,6 +432,11 @@ export function registerSetupTools(server: McpServer) {
         lines.push(`Workspace: ${resolvedWorkspace}`);
         lines.push(`Resolved via: ${workspaceResolutionSource}`);
         lines.push(`Credentials source: ${credsSource ?? "(none found)"}`);
+        if (credsError) {
+          // Workspace IS configured but reading credentials failed —
+          // make this loud so users don't chase the wrong fix.
+          lines.push(`⚠  Credential read error: ${credsError}`);
+        }
         lines.push("");
       } else {
         lines.push("Workspace: (not resolved — open a folder in Cursor or pass `workspaceRoot`)");

@@ -46,44 +46,83 @@ export function getTcDraftsDir(): string | null {
  *
  * Reads `<workspaceRoot>/.vortex-ado/config.json` for the org/project
  * scaffolding, then fetches the matching PAT and (when enabled) Confluence
- * token from the OS keychain. Returns `{ credentials: null, source: null }`
- * when the workspace config is missing, malformed, or the keychain has
- * no PAT for the configured org/project.
+ * token from the OS keychain. Returns `{ credentials: null, source: null,
+ * error: null }` when the workspace is genuinely unconfigured (no config
+ * file, missing org/project, no keychain entry). Returns
+ * `{ credentials: null, source: null, error: "<message>" }` when the
+ * workspace IS configured but reading credentials FAILED — typically a
+ * hung macOS keychain prompt or a malformed config file.
+ *
+ * Callers (the AdoClient proxy, /ado-check) must surface `error` to the
+ * user when present so they don't get the misleading "Run /ado-connect
+ * to set up credentials" message for a workspace that's already set up.
  *
  * The `source` string is a human-readable diagnostic for `/ado-check`.
  */
 export async function loadCredentialsForWorkspace(
   workspaceRoot: string,
-): Promise<{ credentials: Credentials | null; source: string | null }> {
+): Promise<{ credentials: Credentials | null; source: string | null; error: string | null }> {
   const wsPath = join(workspaceRoot, ".vortex-ado", "config.json");
   if (!existsSync(wsPath)) {
-    return { credentials: null, source: null };
+    return { credentials: null, source: null, error: null };
   }
+  let ws;
   try {
     const raw = JSON.parse(readFileSync(wsPath, "utf-8"));
-    const ws = WorkspaceConfigSchema.parse(raw);
-    if (!ws.ado?.org || !ws.ado?.project) {
-      return { credentials: null, source: null };
-    }
-    const pat = await keychain.getAdoToken(ws.ado.org, ws.ado.project);
-    if (!pat) {
-      return { credentials: null, source: null };
-    }
-    const confluenceToken = ws.confluence?.enabled
-      ? await keychain.getConfluenceToken(ws.ado.org, ws.ado.project)
-      : null;
+    ws = WorkspaceConfigSchema.parse(raw);
+  } catch (err) {
     return {
-      credentials: {
-        ado_pat: pat,
-        ado_org: ws.ado.org,
-        ado_project: ws.ado.project,
-        ...(ws.confluence?.url ? { confluence_base_url: ws.confluence.url } : {}),
-        ...(ws.confluence?.email ? { confluence_email: ws.confluence.email } : {}),
-        ...(confluenceToken ? { confluence_api_token: confluenceToken } : {}),
-      },
-      source: `workspace+keychain (${wsPath})`,
+      credentials: null,
+      source: null,
+      error: `Could not parse ${wsPath}: ${err instanceof Error ? err.message : String(err)}`,
     };
-  } catch {
-    return { credentials: null, source: null };
   }
+  if (!ws.ado?.org || !ws.ado?.project) {
+    return { credentials: null, source: null, error: null };
+  }
+  // Keychain reads are bounded by getPasswordTimeoutMs in keychain.ts and
+  // can throw on a hidden macOS prompt / locked login keychain. Surface
+  // that error verbatim — the AdoClient proxy turns it into the
+  // user-facing message instead of "credentials not configured."
+  let pat: string | null;
+  try {
+    pat = await keychain.getAdoToken(ws.ado.org, ws.ado.project);
+  } catch (err) {
+    return {
+      credentials: null,
+      source: null,
+      error: `Could not read PAT from OS keychain: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  if (!pat) {
+    return { credentials: null, source: null, error: null };
+  }
+  let confluenceToken: string | null = null;
+  if (ws.confluence?.enabled) {
+    try {
+      confluenceToken = await keychain.getConfluenceToken(ws.ado.org, ws.ado.project);
+    } catch (err) {
+      // Don't fail the whole resolution for a Confluence read error —
+      // the ADO PAT is the primary credential. Log to stderr so it
+      // surfaces in the MCP server log; the user will see "Confluence
+      // token unavailable" downstream when they actually try to fetch
+      // a Confluence page.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[credentials] Could not read Confluence token from OS keychain: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+  return {
+    credentials: {
+      ado_pat: pat,
+      ado_org: ws.ado.org,
+      ado_project: ws.ado.project,
+      ...(ws.confluence?.url ? { confluence_base_url: ws.confluence.url } : {}),
+      ...(ws.confluence?.email ? { confluence_email: ws.confluence.email } : {}),
+      ...(confluenceToken ? { confluence_api_token: confluenceToken } : {}),
+    },
+    source: `workspace+keychain (${wsPath})`,
+    error: null,
+  };
 }

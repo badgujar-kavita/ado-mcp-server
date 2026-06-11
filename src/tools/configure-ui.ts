@@ -18,6 +18,31 @@ interface Credentials {
 }
 
 /**
+ * Default ceiling on every outbound HTTP call from the wizard server
+ * (ADO, Confluence, Atlassian Cloud). undici's `fetch` ships with no
+ * default request timeout; on a stalled corporate proxy, captive
+ * portal, or DNS hang, an unbounded `fetch` blocks forever and the
+ * wizard's "Validating connection against ADO..." spinner hangs with
+ * no error. 15s is generous: ADO and Confluence calls used here all
+ * complete in under a second on a healthy network.
+ */
+const OUTBOUND_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * `fetch` with an AbortSignal-backed timeout. Use for every server-side
+ * call to a third party. The thrown AbortError lands in the caller's
+ * existing try/catch and surfaces in the wizard UI as a clean
+ * "Connection failed: TimeoutError" instead of an indefinite spinner.
+ */
+function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  ms: number = OUTBOUND_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(ms) });
+}
+
+/**
  * Per-workspace config paths computed from an explicit workspace root.
  *
  * The workspace root MUST be passed in. Cursor's MCP launches don't reliably
@@ -69,6 +94,29 @@ function isWorkspaceSafeForWrite(
 }
 
 /**
+ * Read a token from the keychain without letting a single read failure
+ * abort the whole page-load. The keychain layer applies a hard timeout
+ * to reads (`getPasswordTimeoutMs` in keychain.ts); when that fires, we
+ * log the message and return null so the form still renders. The user
+ * sees a blank field instead of an indefinite spinner — they can re-type
+ * the credential, which triggers a save with the broadened ACL.
+ */
+async function readKeychainTokenSafely(
+  read: () => Promise<string | null>,
+  label: string,
+): Promise<string | null> {
+  try {
+    return await read();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[configure-ui] Skipped reading ${label} from keychain: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
+  }
+}
+
+/**
  * Load existing per-workspace config (preferred) for re-runs of the wizard.
  * Falls back to the legacy global file ONLY for first-time migrations from
  * pre-Phase-1 installs — values are read but new writes go to workspace.
@@ -85,8 +133,21 @@ export async function loadExistingCredentials(workspaceRoot: string): Promise<Pa
       const raw = JSON.parse(readFileSync(wsFile, "utf-8"));
       const ws = WorkspaceConfigSchema.parse(raw);
       if (ws.ado?.org && ws.ado?.project) {
-        const pat = await keychain.getAdoToken(ws.ado.org, ws.ado.project);
-        const confluenceToken = await keychain.getConfluenceToken(ws.ado.org, ws.ado.project);
+        // Each keychain read is wrapped individually: a hung or rejected
+        // read for one provider must not prevent the page from rendering
+        // (the user can still edit the form). Treat read errors as
+        // "not stored" so the wizard prompts for fresh input — that
+        // forces the next save to overwrite the bad entry with a
+        // broadened-ACL one. The error itself is logged so it shows
+        // up in the MCP server log if anyone goes looking.
+        const pat = await readKeychainTokenSafely(
+          () => keychain.getAdoToken(ws.ado!.org, ws.ado!.project),
+          "ADO PAT",
+        );
+        const confluenceToken = await readKeychainTokenSafely(
+          () => keychain.getConfluenceToken(ws.ado!.org, ws.ado!.project),
+          "Confluence token",
+        );
         return {
           ado_pat: "", // never pre-fill the PAT itself; UI shows "(stored)" indicator
           ado_org: ws.ado.org,
@@ -112,8 +173,8 @@ async function testAdoConnection(pat: string, org: string, project: string): Pro
     const authHeader = basicAuthHeader("", pat);
     // Use the project API at organization level to verify access
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/projects/${encodeURIComponent(project)}?api-version=7.1`;
-    
-    const response = await fetch(url, {
+
+    const response = await fetchWithTimeout(url, {
       headers: {
         Authorization: authHeader,
         Accept: "application/json",
@@ -158,7 +219,7 @@ function extractSiteHost(baseUrl: string): string | null {
 /** Fetch cloud ID from tenant_info (no auth required) */
 async function fetchCloudId(siteHost: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://${siteHost}/_edge/tenant_info`);
+    const res = await fetchWithTimeout(`https://${siteHost}/_edge/tenant_info`);
     if (!res.ok) return null;
     const data = (await res.json()) as { cloudId?: string };
     return data.cloudId ?? null;
@@ -174,7 +235,7 @@ async function testConfluenceConnection(baseUrl: string, email: string, apiToken
     
     // Try the user/current endpoint first (simpler, works with most tokens)
     const userUrl = `${cleanUrl}/rest/api/user/current`;
-    const userResponse = await fetch(userUrl, {
+    const userResponse = await fetchWithTimeout(userUrl, {
       headers: {
         Authorization: authHeader,
         Accept: "application/json",
@@ -189,7 +250,7 @@ async function testConfluenceConnection(baseUrl: string, email: string, apiToken
 
     // If user endpoint fails, try space list
     const spaceUrl = `${cleanUrl}/rest/api/space?limit=1`;
-    const spaceResponse = await fetch(spaceUrl, {
+    const spaceResponse = await fetchWithTimeout(spaceUrl, {
       headers: {
         Authorization: authHeader,
         Accept: "application/json",
@@ -209,7 +270,7 @@ async function testConfluenceConnection(baseUrl: string, email: string, apiToken
         const cloudId = await fetchCloudId(siteHost);
         if (cloudId) {
           const cloudUrl = `https://api.atlassian.com/ex/confluence/${cloudId}/rest/api/user/current`;
-          const cloudResponse = await fetch(cloudUrl, {
+          const cloudResponse = await fetchWithTimeout(cloudUrl, {
             headers: {
               Authorization: authHeader,
               Accept: "application/json",
@@ -275,7 +336,7 @@ export async function probeAdoPlans(
 ): Promise<ProbeResult<ProbedPlan[]>> {
   try {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/testplan/plans?api-version=7.1`;
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         Authorization: basicAuthHeader("", pat),
         Accept: "application/json",
@@ -343,7 +404,7 @@ export async function probeAdoFields(
 ): Promise<ProbeResult<ProbedFields>> {
   try {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/fields?api-version=7.1`;
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         Authorization: basicAuthHeader("", pat),
         Accept: "application/json",
@@ -402,7 +463,7 @@ export async function probeIterationPrefix(
 ): Promise<ProbeResult<{ suggestedPrefix: string | null; samples: string[] }>> {
   try {
     const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/classificationnodes/Iterations?$depth=10&api-version=7.1`;
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         Authorization: basicAuthHeader("", pat),
         Accept: "application/json",
@@ -479,7 +540,18 @@ export async function checkKeychainPat(
   if (!parsed.ado?.org || !parsed.ado?.project) {
     return { ok: false, message: "Workspace config has no ADO org/project. Save your connection first." };
   }
-  const pat = await keychain.getAdoToken(parsed.ado.org, parsed.ado.project);
+  // Surface keychain read failures (timeout from a hidden macOS prompt,
+  // restrictive ACL, locked login keychain) as a JSON {ok:false, message}
+  // instead of letting them bubble up and hang the HTTP handler.
+  let pat: string | null;
+  try {
+    pat = await keychain.getAdoToken(parsed.ado.org, parsed.ado.project);
+  } catch (err) {
+    return {
+      ok: false,
+      message: `Could not read saved PAT: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
   if (!pat) {
     return { ok: false, message: "No PAT found in OS keychain for this workspace. Re-save your connection." };
   }
@@ -583,14 +655,29 @@ export async function saveCredentials(
   }
 
   if (creds.ado_pat) {
-    await keychain.setAdoToken(creds.ado_org, creds.ado_project, creds.ado_pat);
+    try {
+      await keychain.setAdoToken(creds.ado_org, creds.ado_project, creds.ado_pat);
+    } catch (err) {
+      throw new Error(
+        `ADO keychain write failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
   if (creds.confluence_api_token) {
-    await keychain.setConfluenceToken(
-      creds.ado_org,
-      creds.ado_project,
-      creds.confluence_api_token,
-    );
+    try {
+      await keychain.setConfluenceToken(
+        creds.ado_org,
+        creds.ado_project,
+        creds.confluence_api_token,
+      );
+    } catch (err) {
+      // Provider-tagged so the wizard distinguishes a Confluence-specific
+      // hang (most common: hidden macOS keychain prompt for the new
+      // confluence:: account) from an ADO-side failure.
+      throw new Error(
+        `Confluence keychain write failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   return { workspaceConfigPath: wsFile, orgProjectChanged };
@@ -3364,10 +3451,33 @@ function getHtmlContent(
         }
       }
 
-      // Validation passed — save.
+      // Validation passed for ADO — now validate Confluence (if filled in)
+      // BEFORE writing to the keychain. Two reasons:
+      //   1. A bad token here used to silently slip through (only ADO was
+      //      validated pre-save), and the user wouldn't find out until a
+      //      later /confluence_read failed.
+      //   2. If the next step (saveCredentials → keychain write) hangs or
+      //      throws, the user gets a clear "Confluence keychain write
+      //      failed" instead of an indistinguishable spinner — which
+      //      matters because hidden macOS keychain prompts on the new
+      //      confluence:: account are a known cause of hangs.
       const baseUrl = document.getElementById('confluence_base_url').value.trim();
       const email = document.getElementById('confluence_email').value.trim();
       const apiToken = document.getElementById('confluence_api_token').value.trim();
+      // Validate only if a NEW token was typed AND the URL+email are present.
+      // (Stored tokens stay valid; partial inputs are saved as the wizard
+      // already handled.)
+      if (apiToken && baseUrl && email) {
+        showStatus('ado-status', 'loading', 'Validating Confluence connection...');
+        const cTest = await fetch('/api/test-confluence', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ baseUrl, email, apiToken }) }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error' }));
+        if (!cTest.success) {
+          showStatus('ado-status', 'error', 'Confluence: ' + (cTest.message || 'Validation failed'), cTest.details);
+          btn.disabled = false; btn.innerHTML = originalLabel;
+          return;
+        }
+      }
+
+      showStatus('ado-status', 'loading', 'Saving credentials to OS keychain...');
       const credentials = {
         ado_pat: patToUse,
         ado_org: org,

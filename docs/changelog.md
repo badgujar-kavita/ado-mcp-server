@@ -25,6 +25,88 @@ QAs frequently need to (a) drop a uniform comment onto every test case linked to
 
 **Docs updated:** this changelog entry, `docs/setup-guide.md` (counts updated to 21 commands / 28 tools; new row for `/vortex-ado/qa-workitem-enrich`).
 
+### 2026-06-10 — Wizard no longer hangs on Confluence keychain write
+
+The Connection wizard's "Validating…" button could spin forever when saving Confluence credentials, even after ADO had already validated. Cause: `keytar.setPassword()` on macOS surfaces a system-level "allow access" dialog the first time a new keychain account is written. If that dialog is hidden behind another window, on a different desktop, suppressed by MDM policy, or the login keychain is locked, the native call blocks indefinitely with no error and no timeout. The wizard awaited that promise inside the `/api/save-connection` HTTP handler, so the response never came back and the UI sat on the loader. ADO worked because its keychain entry was usually written by an earlier release (and so re-saves only update an existing entry, no fresh prompt) — Confluence is the new account.
+
+**Fix.** Three coordinated changes:
+
+1. **Hard timeout on keychain writes** in `src/keychain/keychain.ts`. The shared `set()` chokepoint now wraps `backend.setPassword` with a `Promise.race` against a 10s timer (`SET_PASSWORD_TIMEOUT_MS`). On timeout it throws an explicit error pointing at the most likely cause — hidden access prompt or locked keychain — with steps to recover. The `security set-generic-password-partition-list` ACL widening also gets a 5s `exec` timeout (`ACL_BROADEN_TIMEOUT_MS`) so a wedged `security` call can't block the rest of the save; it remains non-fatal and just logs a warning. Underlying native call is allowed to settle in the background — keytar has no cancellation primitive — but it can no longer keep the HTTP handler open.
+2. **Provider-tagged save errors** in `src/tools/configure-ui.ts` (`saveCredentials`). Each keychain write is wrapped in try/catch that rethrows as `"ADO keychain write failed: …"` or `"Confluence keychain write failed: …"`. The wizard's existing 400-error path surfaces this verbatim, so users immediately see *which* provider's write failed instead of a generic save error.
+3. **Confluence pre-save validation** in the wizard UI (`saveConnection()`). When all three Confluence fields are filled in (URL + email + a freshly typed token), the wizard now calls `/api/test-confluence` BEFORE `/api/save-connection`. A bad Confluence token used to silently slip through (only ADO was validated pre-save), and any subsequent keychain hang would be indistinguishable from an auth failure. With this step, users see "Confluence: Authentication failed" with the same actionable details `confluence_read` already returns — and if validation passes but the next step fails, they know it's a keychain-side problem.
+
+**User-visible change.** A status message ("Saving credentials to OS keychain…") now appears between the Confluence-validation step and the keychain write, so the wait is bounded *and* labeled.
+
+**Action for users currently stuck on the loader:**
+
+1. Open **Keychain Access.app**, search `vortex-ado`, and delete any partial `confluence::…` entry from a previous attempt.
+2. Make sure the **login keychain is unlocked** (Keychain Access → File → Unlock Keychain).
+3. Look behind other windows / on other desktops / in the menu-bar notification stack for a hidden macOS keychain prompt and dismiss it.
+4. Re-run the Connection wizard. With this fix, a hang now surfaces as a clear error in ≤10s instead of an infinite spinner. If it still fails, pre-create the entry from Terminal and retry the wizard with the same token:
+   ```bash
+   security add-generic-password -U \
+     -s vortex-ado \
+     -a "confluence::<your-org>::<your-project>" \
+     -w "<your-confluence-api-token>" \
+     -T ""
+   ```
+
+**Files changed:** `src/keychain/keychain.ts` (timeout constants, `withTimeout` helper, `exec` timeout on ACL widening), `src/tools/configure-ui.ts` (provider-tagged error wrappers in `saveCredentials`; Confluence pre-save validation + bounded "Saving…" status in the inlined `saveConnection()` script).
+
+**Docs updated:** this changelog entry, plus a new Troubleshooting subsection in `docs/setup-guide.md` covering the wizard hang and recovery steps.
+
+### 2026-06-11 — Wizard hang on **re-connect** (keychain read + outbound fetch timeouts)
+
+Follow-up to the [previous day's fix](#2026-06-10--wizard-no-longer-hangs-on-confluence-keychain-write). A user reported the wizard was still spinning indefinitely on **"Validating connection against ADO..."** — but on the *re-connect* path (PAT field blank, "stored in keychain" pill showing). The earlier fix only bounded keychain *writes*; this one is the read-path equivalent plus a parallel network-side guard.
+
+**Two unbounded calls remained in the re-connect path:**
+
+1. `keytar.getPassword()` — `src/keychain/keychain.ts` `get()` was a bare `backend.getPassword(...)`, no `withTimeout` wrapper. macOS Keychain Services prompts on read (not just write) when the calling binary's code signature isn't in the entry's ACL — and entries written before commit `79bd4ac` retain a narrow ACL. A hidden "allow access?" dialog blocks the native call indefinitely. Same blocking semantics as writes; we just hadn't fixed the symmetric case.
+2. `fetch()` against `dev.azure.com` and Atlassian — every server-side `fetch()` in `src/tools/configure-ui.ts` (`testAdoConnection`, `testConfluenceConnection`, `fetchCloudId`, `probeAdoPlans`, `probeAdoFields`, `probeIterationPrefix`) was issued with no `AbortSignal` and no socket timeout. undici ships with no default request timeout, so a stalled corporate proxy, captive portal, or DNS hang produces the same "Validating connection against ADO..." spinner with no error.
+
+The two failure modes are indistinguishable from the user's seat — both keep the wizard's `/api/check-keychain-pat` request open until the browser tab is closed.
+
+**Fix.**
+
+1. **Keychain read timeout** — `get()` in `src/keychain/keychain.ts` is now wrapped with `withTimeout` against a 10s default (`GET_PASSWORD_TIMEOUT_DEFAULT_MS`). Test seam (`__setGetPasswordTimeoutForTests` / `__resetGetPasswordTimeout`) mirrors the existing write-side helpers. New `readTimeoutMessageFor()` builder produces a platform-specific recovery hint pointing at Keychain Access → Access Control → "Allow all applications" as the most direct fix for the most common cause (entries written before the broaden-ACL change). `findCredentials()` is bounded by the same timeout — it walks every entry and reads each, so it's exposed to the same prompt failure mode.
+2. **Surface read failures in callers** — `checkKeychainPat()` in `src/tools/configure-ui.ts` now wraps the `keychain.getAdoToken()` call in try/catch and returns `{ ok: false, message: "Could not read saved PAT: …" }` so the wizard renders the keychain timeout error instead of leaving the route handler hung. `loadExistingCredentials()` (called on first page load) uses a new `readKeychainTokenSafely()` helper that logs and falls back to "not stored" if either provider's read fails — a single bad entry can no longer prevent the form from rendering.
+3. **Bounded outbound fetches** — new `fetchWithTimeout()` helper in `src/tools/configure-ui.ts` wraps every outbound HTTP call with `AbortSignal.timeout(15_000)`. All eight server-side `fetch(` call sites (lines around 152, 197, 213, 228, 248, 339, 407, 466 of the pre-fix file) now go through it; the existing try/catch surfaces the resulting `AbortError` as a clean "Connection failed: TimeoutError" instead of an indefinite spinner. Browser-side `fetch()` calls in the inlined wizard script are *not* changed — those are loopback to the wizard's own server and not exposed to the same hang vectors.
+
+**Action for users still stuck on the spinner:**
+
+The user must redeploy and restart Cursor for these fixes to take effect — the wizard runs in the long-lived MCP child Cursor spawned at session start, against the cached `~/.vortex-ado/dist/index.js`. Saving files in the dev repo or just retrying `/ado-connect` will not pick up the change.
+
+```bash
+# 1. From the dev repo (this checkout), confirm clean and push
+git -C "/Users/kavita.badgujar/AI Projects/ado-mcp-server" status
+git -C "/Users/kavita.badgujar/AI Projects/ado-mcp-server" push origin main
+
+# 2. Re-run the installer (auto-detects upgrade, wipes ~/.vortex-ado, rebuilds dist)
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+
+# 3. Cmd+Q Cursor (full quit, not close-window) and relaunch.
+# 4. Run /vortex-ado/ado-connect.
+```
+
+After upgrade, the spinner will fail in ≤15s with a real error if anything blocks: "Keychain read timed out…" → fix the ACL via Keychain Access; "Connection failed: TimeoutError" → it's network/proxy/VPN, not us.
+
+**Tool-level error: misleading "credentials not configured" on a hung keychain.** Same root cause leaked through to every tool. `ado_story` (and any other ADO tool) would emit:
+
+> `Error: AdoClient proxy: could not resolve credentials for this workspace. Run /vortex-ado/ado-connect to set up <workspace>/.vortex-ado/config.json and store your PAT in the OS keychain.`
+
+…even when the user **had** already run `/ado-connect`, the config file was present, and the keychain entry existed — the keychain read just hung or threw. `loadCredentialsForWorkspace` in `src/credentials.ts` had a single catch-all `try { ... } catch {}` that returned `{ credentials: null, source: null }` for any failure: missing config, missing keychain entry, malformed config, OR a thrown keychain error. The AdoClient proxy then treated all of these as "no credentials" and emitted the run-`/ado-connect` hint. Following that hint just walked the user back into the same hang.
+
+Fixed in three files:
+
+- `src/credentials.ts` — `loadCredentialsForWorkspace` now returns `{ credentials, source, error }` with three distinct outcomes: (a) genuinely unconfigured (`credentials=null, error=null`), (b) malformed config (`error="Could not parse <path>: …"`), (c) keychain read failed (`error="Could not read PAT from OS keychain: …"`). Confluence read failures are logged but don't block ADO resolution — the ADO PAT is the primary credential and the user can still operate ADO tools while Confluence is unavailable.
+- `src/workspace/ado-client-for-call.ts` — return shape is now `{ client, error }` (a new `ResolvedAdoClient` interface). The two resolution branches (roots/list, explicit `workspaceRoot`) propagate the `error` from `loadCredentialsForWorkspace` instead of swallowing it on a thrown URI parse.
+- `src/workspace/ado-client-proxy.ts` — when resolution returns `error`, the proxy throws `AdoClient proxy: <error>` verbatim instead of the generic "could not resolve credentials" hint. Users now see the actual cause (e.g. "Keychain read timed out after 10s for vortex-ado/ado::MarsDevTeam::TPM Product Ecosystem. A macOS allow access? prompt is likely hidden …") and the right recovery path.
+- `src/tools/setup.ts` — `/ado-check` now displays a `⚠ Credential read error: …` line when set, so the diagnostic command also tells the truth instead of saying "(none found)".
+
+**Files changed:** `src/keychain/keychain.ts` (`get()` + `findCredentials()` wrapped in `withTimeout`; `readTimeoutMessageFor()`; `__setGetPasswordTimeoutForTests` / `__resetGetPasswordTimeout` test seams), `src/tools/configure-ui.ts` (`fetchWithTimeout` helper + 8 call-site swaps; `readKeychainTokenSafely` for the GET / page render path; try/catch around the `keychain.getAdoToken()` call in `checkKeychainPat()`), `src/credentials.ts` (return-shape extended with `error`), `src/workspace/ado-client-for-call.ts` (`ResolvedAdoClient` interface, error propagation), `src/workspace/ado-client-proxy.ts` (surface error verbatim), `src/tools/setup.ts` (`/ado-check` shows credential read error). New `src/credentials.test.ts` (7 cases covering each branch of the new return shape).
+
+**Docs updated:** this changelog entry; `docs/setup-guide.md` Troubleshooting subsection extended with the read-side recovery path (delete-and-recreate-via-/ado-connect, Keychain Access → Access Control → Allow all applications).
+
 ### 2026-05-22 — Confluence tiny-URL resolution: offline decode (no network)
 
 The previous tiny-URL resolver ([same-day commit](#2026-05-22--auto-resolve-confluence-tiny-urls-wikixtoken)) followed the server-issued 302 to recover the canonical page URL. That worked in test mocks but **did not** work reliably on real Confluence Cloud tenants: the redirect probe depends on tenant edge-config, scoped-token permissions, and 302-vs-200-to-login behavior. The MARS user's screenshot showed the failure: a Solution Design tiny URL (`/wiki/x/IgB9qAE`) reported `not-found` because the redirect probe didn't return what we expected.

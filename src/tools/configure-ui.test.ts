@@ -556,6 +556,43 @@ test("checkKeychainPat: returns ok=false when config has no ado.org/project", as
   }
 });
 
+test("checkKeychainPat: surfaces keychain read failure as a clean ok=false instead of hanging", async () => {
+  // Simulate a hidden macOS keychain prompt by injecting a backend whose
+  // getPassword throws (the read-side timeout in keychain.ts converts a
+  // hang into a thrown Error). The handler must catch and return JSON.
+  const tmp = mkdtempSync(join(tmpdir(), "ado-keychain-test-"));
+  const throwingBackend: KeychainBackend = {
+    async getPassword() {
+      throw new Error("simulated keychain read timeout");
+    },
+    async setPassword() {},
+    async deletePassword() {
+      return false;
+    },
+    async findCredentials() {
+      return [];
+    },
+  };
+  __setKeychainBackendForTests(throwingBackend);
+  try {
+    mkdirSync(join(tmp, ".vortex-ado"), { recursive: true });
+    writeFileSync(
+      join(tmp, ".vortex-ado", "config.json"),
+      JSON.stringify({
+        version: 1,
+        ado: { url: "https://dev.azure.com/o", org: "o", project: "p" },
+      }),
+    );
+    const result = await checkKeychainPat(tmp);
+    assert.equal(result.ok, false);
+    assert.match(result.message ?? "", /Could not read saved PAT/);
+    assert.match(result.message ?? "", /simulated keychain read timeout/);
+  } finally {
+    __setKeychainBackendForTests(fakeKeychain);
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // ── loadExistingCredentials (Tier 1 backend) ──────────────────────────
 
 test("loadExistingCredentials: returns empty when neither workspace nor legacy file exists", async () => {
@@ -770,6 +807,94 @@ test("saveCredentials: refuses to write into $HOME (safety guard)", async () => 
       ),
     /home directory/i,
   );
+});
+
+test("saveCredentials: keychain failure is rethrown with ADO provider prefix", async () => {
+  keychainStore.clear();
+  const tmp = mkdtempSync(join(tmpdir(), "ado-savecreds-tag-"));
+  // Swap in a backend that throws on the ADO write to verify the
+  // wrapping in saveCredentials surfaces a provider-tagged error.
+  const failingBackend: KeychainBackend = {
+    async getPassword() {
+      return null;
+    },
+    async setPassword(_s, account) {
+      if (account.startsWith("ado::")) throw new Error("simulated failure");
+    },
+    async deletePassword() {
+      return false;
+    },
+    async findCredentials() {
+      return [];
+    },
+  };
+  __setKeychainBackendForTests(failingBackend);
+  try {
+    await assert.rejects(
+      () =>
+        saveCredentials(
+          { ado_pat: "x", ado_org: "o", ado_project: "p" },
+          tmp,
+        ),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        assert.match(msg, /^ADO keychain write failed:/);
+        assert.match(msg, /simulated failure/);
+        return true;
+      },
+    );
+  } finally {
+    __setKeychainBackendForTests(fakeKeychain);
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("saveCredentials: keychain failure is rethrown with Confluence provider prefix", async () => {
+  keychainStore.clear();
+  const tmp = mkdtempSync(join(tmpdir(), "ado-savecreds-tag-"));
+  // ADO write succeeds, Confluence write throws — verifies the wizard
+  // can distinguish which provider's keychain entry hung.
+  const failingBackend: KeychainBackend = {
+    async getPassword() {
+      return null;
+    },
+    async setPassword(_s, account) {
+      if (account.startsWith("confluence::")) throw new Error("simulated failure");
+      // ADO write succeeds silently.
+    },
+    async deletePassword() {
+      return false;
+    },
+    async findCredentials() {
+      return [];
+    },
+  };
+  __setKeychainBackendForTests(failingBackend);
+  try {
+    await assert.rejects(
+      () =>
+        saveCredentials(
+          {
+            ado_pat: "x",
+            ado_org: "o",
+            ado_project: "p",
+            confluence_base_url: "https://example.atlassian.net/wiki",
+            confluence_email: "a@b.com",
+            confluence_api_token: "tok",
+          },
+          tmp,
+        ),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        assert.match(msg, /^Confluence keychain write failed:/);
+        assert.match(msg, /simulated failure/);
+        return true;
+      },
+    );
+  } finally {
+    __setKeychainBackendForTests(fakeKeychain);
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test("saveCredentials: preserves existing convention blocks (suiteStructure, personas)", async () => {

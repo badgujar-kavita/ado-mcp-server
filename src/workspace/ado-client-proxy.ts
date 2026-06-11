@@ -30,9 +30,9 @@
 
 import type { AdoClient as RealAdoClient, BinaryResponse } from "../ado-client.ts";
 import { getCallContext } from "./call-context.ts";
-import { resolveAdoClientForCall } from "./ado-client-for-call.ts";
+import { resolveAdoClientForCall, type ResolvedAdoClient } from "./ado-client-for-call.ts";
 
-const cache = new WeakMap<object, Promise<RealAdoClient | null>>();
+const cache = new WeakMap<object, Promise<ResolvedAdoClient>>();
 // Synchronous mirror of `cache` populated when a resolution promise
 // settles. Used by the synchronous `baseUrl` getter (which can't await).
 const settledCache = new WeakMap<object, RealAdoClient>();
@@ -53,14 +53,21 @@ async function resolveForActiveContext(): Promise<RealAdoClient> {
         // Mirror into the synchronous cache as soon as the promise settles
         // so `baseUrl` (sync getter) can read the real URL on subsequent
         // accesses without an extra await.
-        if (resolved) settledCache.set(ctx, resolved);
+        if (resolved.client) settledCache.set(ctx, resolved.client);
         return resolved;
       },
     );
     cache.set(ctx, pending);
   }
   const resolved = await pending;
-  if (!resolved) {
+  if (!resolved.client) {
+    // Distinguish "not configured" (no error) from "configured but the
+    // read failed" (error populated). The latter is most often a hung
+    // macOS keychain prompt or a malformed config — sending the user to
+    // /ado-connect would just have them re-encounter the same problem.
+    if (resolved.error) {
+      throw new Error(`AdoClient proxy: ${resolved.error}`);
+    }
     throw new Error(
       "AdoClient proxy: could not resolve credentials for this workspace. " +
         "Run /vortex-ado/ado-connect to set up <workspace>/.vortex-ado/config.json " +
@@ -68,7 +75,7 @@ async function resolveForActiveContext(): Promise<RealAdoClient> {
         "step is missing.",
     );
   }
-  return resolved;
+  return resolved.client;
 }
 
 /**

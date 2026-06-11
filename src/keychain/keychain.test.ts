@@ -12,6 +12,10 @@ import {
   keychain,
   __setKeychainBackendForTests,
   __resetKeychainBackend,
+  __setSetPasswordTimeoutForTests,
+  __resetSetPasswordTimeout,
+  __setGetPasswordTimeoutForTests,
+  __resetGetPasswordTimeout,
   type KeychainBackend,
 } from "./keychain.ts";
 
@@ -127,4 +131,204 @@ test("keychain: setAdoToken overwrites existing entry for same key", async () =>
   await keychain.setAdoToken("Org", "Proj", "new");
   assert.equal(await keychain.getAdoToken("Org", "Proj"), "new");
   assert.equal(store.size, 1);
+});
+
+// ── Timeout behavior ──────────────────────────────────────────────────
+//
+// macOS keytar can block forever when its system "allow access" prompt
+// is hidden / the keychain is locked. set() must surface a useful error
+// instead of letting the caller spin.
+
+test("keychain: setAdoToken throws a clear error when setPassword hangs", async () => {
+  // Backend whose setPassword never resolves — simulates a wedged
+  // macOS keychain prompt.
+  const hangingBackend: KeychainBackend = {
+    async getPassword() {
+      return null;
+    },
+    setPassword() {
+      return new Promise(() => {
+        /* never resolves */
+      });
+    },
+    async deletePassword() {
+      return false;
+    },
+    async findCredentials() {
+      return [];
+    },
+  };
+  __setKeychainBackendForTests(hangingBackend);
+  __setSetPasswordTimeoutForTests(50);
+  try {
+    await assert.rejects(
+      () => keychain.setAdoToken("Org", "Proj", "tok"),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        assert.match(msg, /Keychain write timed out/);
+        // Includes the qualified account so users know which entry is stuck.
+        assert.match(msg, /vortex-ado\/ado::Org::Proj/);
+        // Points at the most likely cause and recovery path. The macOS
+        // branch names Keychain Access; other platforms get a more
+        // generic credential-store message.
+        if (process.platform === "darwin") {
+          assert.match(msg, /Keychain Access/);
+        } else {
+          assert.match(msg, /credential store/i);
+        }
+        return true;
+      },
+    );
+  } finally {
+    __resetSetPasswordTimeout();
+    __setKeychainBackendForTests(fakeBackend);
+  }
+});
+
+test("keychain: setConfluenceToken timeout error names the confluence:: account", async () => {
+  const hangingBackend: KeychainBackend = {
+    async getPassword() {
+      return null;
+    },
+    setPassword() {
+      return new Promise(() => {
+        /* never resolves */
+      });
+    },
+    async deletePassword() {
+      return false;
+    },
+    async findCredentials() {
+      return [];
+    },
+  };
+  __setKeychainBackendForTests(hangingBackend);
+  __setSetPasswordTimeoutForTests(50);
+  try {
+    await assert.rejects(
+      () => keychain.setConfluenceToken("Org", "Proj", "tok"),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        assert.match(msg, /vortex-ado\/confluence::Org::Proj/);
+        return true;
+      },
+    );
+  } finally {
+    __resetSetPasswordTimeout();
+    __setKeychainBackendForTests(fakeBackend);
+  }
+});
+
+// ── Read-side timeout (mirrors the write-side cases) ──────────────────
+//
+// Reads must also be bounded — a hidden macOS keychain access dialog
+// blocks getPassword indefinitely. Symmetric to the write fix above.
+
+test("keychain: getAdoToken throws a read-timeout error when getPassword hangs", async () => {
+  const hangingBackend: KeychainBackend = {
+    getPassword() {
+      return new Promise(() => {
+        /* never resolves — simulates hidden allow-access? prompt */
+      });
+    },
+    async setPassword() {},
+    async deletePassword() {
+      return false;
+    },
+    async findCredentials() {
+      return [];
+    },
+  };
+  __setKeychainBackendForTests(hangingBackend);
+  __setGetPasswordTimeoutForTests(50);
+  try {
+    await assert.rejects(
+      () => keychain.getAdoToken("Org", "Proj"),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Read-side message uses the word "read" specifically — distinct
+        // from the write-side timeout message.
+        assert.match(msg, /Keychain read timed out/);
+        assert.match(msg, /vortex-ado\/ado::Org::Proj/);
+        // Recovery hint differs from the write-side: focuses on Access
+        // Control / Allow all applications, not on deleting the entry.
+        if (process.platform === "darwin") {
+          assert.match(msg, /Access Control/);
+        } else {
+          assert.match(msg, /credential store/i);
+        }
+        return true;
+      },
+    );
+  } finally {
+    __resetGetPasswordTimeout();
+    __setKeychainBackendForTests(fakeBackend);
+  }
+});
+
+test("keychain: getConfluenceToken read timeout names the confluence:: account", async () => {
+  const hangingBackend: KeychainBackend = {
+    getPassword() {
+      return new Promise(() => {
+        /* never resolves */
+      });
+    },
+    async setPassword() {},
+    async deletePassword() {
+      return false;
+    },
+    async findCredentials() {
+      return [];
+    },
+  };
+  __setKeychainBackendForTests(hangingBackend);
+  __setGetPasswordTimeoutForTests(50);
+  try {
+    await assert.rejects(
+      () => keychain.getConfluenceToken("Org", "Proj"),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        assert.match(msg, /vortex-ado\/confluence::Org::Proj/);
+        return true;
+      },
+    );
+  } finally {
+    __resetGetPasswordTimeout();
+    __setKeychainBackendForTests(fakeBackend);
+  }
+});
+
+test("keychain: findCredentials is bounded by the same read timeout", async () => {
+  // findCredentials walks every entry under the service and reads each,
+  // so a stuck entry hangs the whole call. Verify the wrapper applies.
+  const hangingBackend: KeychainBackend = {
+    async getPassword() {
+      return null;
+    },
+    async setPassword() {},
+    async deletePassword() {
+      return false;
+    },
+    findCredentials() {
+      return new Promise(() => {
+        /* never resolves */
+      });
+    },
+  };
+  __setKeychainBackendForTests(hangingBackend);
+  __setGetPasswordTimeoutForTests(50);
+  try {
+    await assert.rejects(
+      () => keychain.findCredentials(),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        assert.match(msg, /Keychain read timed out/);
+        assert.match(msg, /findCredentials/);
+        return true;
+      },
+    );
+  } finally {
+    __resetGetPasswordTimeout();
+    __setKeychainBackendForTests(fakeBackend);
+  }
 });

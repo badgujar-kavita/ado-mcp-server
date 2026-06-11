@@ -582,6 +582,45 @@ When `ado_story` or `confluence_read` returns "401 Unauthorized" when fetching S
 
 6. **Restart** — After changing credentials, restart the MCP server (Cursor Settings > MCP > refresh vortex-ado).
 
+### Connection wizard stuck on "Validating…" / "Saving…"
+
+**Symptom.** You enter ADO + Confluence credentials in `/vortex-ado/ado-connect`, click **Validate and Save Connection**, the button changes to a spinner, and it never finishes. The hang shows up in two distinct flows:
+
+- **First-time / new credentials** — usually on the Confluence write (a fresh keychain account).
+- **Re-connect** with both fields blank ("stored in keychain") — usually on the read of the saved PAT, or on the network call to dev.azure.com.
+
+**Cause.** Two separate failure modes look identical from the spinner:
+
+1. **macOS keychain prompt blocked.** Both *writes* (first time) and *reads* (re-connect) can trigger a system "allow access?" dialog. If the dialog is hidden behind another window, on a different desktop, suppressed by MDM/security policy, or your login keychain is locked, the native call blocks indefinitely. Reads are vulnerable when the entry was written by an older build (its ACL doesn't include any post-upgrade Node binary).
+2. **Network call to ADO/Confluence stalled.** A corporate proxy, captive portal, or VPN issue can leave `fetch('https://dev.azure.com/…')` hanging forever — the spinner sits on "Validating connection against ADO…" with no error.
+
+**As of [2026-06-10](changelog.md#2026-06-10--wizard-no-longer-hangs-on-confluence-keychain-write) and [2026-06-11](changelog.md#2026-06-11--wizard-hang-on-re-connect-keychain-read--outbound-fetch-timeouts)** the wizard times out **all** keychain operations (10s) **and** all outbound fetches (15s) and surfaces a clear error in either case.
+
+> **Important:** the wizard runs inside the long-lived MCP child Cursor spawned at session start, not the source tree. Just retrying `/ado-connect` or saving files will not pick up the fix — you must re-run the installer **and** Cmd+Q-relaunch Cursor:
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+> # then fully quit Cursor (Cmd+Q) and relaunch
+> ```
+
+**Recovery steps (post-upgrade, if a hang still surfaces):**
+
+1. **Read the error message.** With the new build the spinner now ends with a real error — read it.
+   - "Keychain read timed out…" / "Keychain write timed out…" → **keychain prompt blocked**, follow steps 2–4 below.
+   - "Connection failed: TimeoutError" or "AbortError" → **network/proxy issue**, follow step 5.
+2. Open **Keychain Access.app**, search for `vortex-ado`. For each matching entry: double-click → **Access Control** tab → select **Allow all applications to access this item** → Save Changes (you'll be prompted for your login password once per entry). This is the standard fix for the read-side prompt loop on entries written by older builds.
+3. If step 2 doesn't help, **delete** every `vortex-ado` entry from Keychain Access and confirm your login keychain is unlocked (File → Unlock Keychain "login"). Re-run `/vortex-ado/ado-connect` and re-enter both PAT and Confluence token from scratch — fresh entries are written with the broadened ACL automatically.
+4. Look behind other windows / on other desktops / in the menu-bar notification stack for a hidden keychain prompt and dismiss it before retrying.
+5. **If the error mentions "TimeoutError" / "AbortError" instead of keychain:** it's a network problem. Check VPN/proxy, captive portal, and that `dev.azure.com` and `your-org.atlassian.net` resolve and are reachable from this machine. Try the wizard while connected to a non-VPN network to confirm.
+6. **Last resort — pre-create entries from Terminal** with an open ACL, then re-run the wizard with the SAME tokens (the wizard updates the existing entry instead of triggering a fresh prompt):
+   ```bash
+   security add-generic-password -U \
+     -s vortex-ado \
+     -a "confluence::<your-org>::<your-project>" \
+     -w "<your-confluence-api-token>" \
+     -T ""
+   ```
+   `-T ""` allows any application; `-U` updates if an entry already exists. Repeat with `-a "ado::<your-org>::<your-project>"` and your PAT for the ADO entry.
+
 ### Tools return "Resource not found" (404)
 
 - Double-check that `ado_project` matches your ADO project name exactly (case-sensitive, spaces included)
