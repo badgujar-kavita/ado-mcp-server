@@ -169,6 +169,50 @@ export class AdoClient {
     return this.request<T>("POST", path, { apiVersion, body, contentType });
   }
 
+  /**
+   * POST raw binary bytes (e.g. attachment uploads). Bypasses the JSON.stringify
+   * path that `request()` applies unconditionally. Used by `qa_tc_attachments_copy`
+   * to upload bytes to `/_apis/wit/attachments`. Response body is parsed as JSON.
+   */
+  async postBinary<T>(
+    path: string,
+    body: ArrayBuffer | Buffer,
+    contentType: string = "application/octet-stream",
+    apiVersion: string = "7.1",
+    queryParams?: Record<string, string>
+  ): Promise<T> {
+    const url = this.buildUrl(path, apiVersion, queryParams);
+    const headers: Record<string, string> = {
+      Authorization: this.authHeader,
+      Accept: "application/json",
+      "Content-Type": contentType,
+    };
+
+    // Wrap raw bytes in a Blob. We always copy into a fresh ArrayBuffer so the
+    // Blob's BlobPart type checks under strict mode (Buffer's underlying buffer
+    // can be a SharedArrayBuffer, which Blob's typing rejects). The
+    // Content-Type header we set above takes precedence over the Blob's own.
+    const view = body instanceof ArrayBuffer
+      ? new Uint8Array(body)
+      : new Uint8Array(body.buffer as ArrayBuffer, body.byteOffset, body.byteLength);
+    const fresh = new ArrayBuffer(view.byteLength);
+    new Uint8Array(fresh).set(view);
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: new Blob([fresh]),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      const message = this.mapError(response.status, errorBody);
+      throw new AdoClientError(message, response.status, response.statusText);
+    }
+
+    if (response.status === 204) return {} as T;
+    return (await response.json()) as T;
+  }
+
   async patch<T>(path: string, body: unknown, contentType?: string, apiVersion?: string): Promise<T> {
     return this.request<T>("PATCH", path, { apiVersion, body, contentType });
   }

@@ -13,6 +13,7 @@ import { buildPrerequisitesHtml } from "../helpers/prerequisites.ts";
 import { buildStepsXml } from "../helpers/steps-builder.ts";
 import { adoWorkItemUrl } from "../helpers/ado-urls.ts";
 import { stripHtml } from "../helpers/strip-html.ts";
+import { runTcPrecheck, type TcPrecheckRecord } from "../helpers/tc-precheck.ts";
 import {
   READ_OUTPUT_SCHEMA,
   type CanonicalReadResult,
@@ -178,107 +179,12 @@ export function registerTestCaseTools(
       const ids = Array.isArray(workItemId) ? workItemId : [workItemId];
       const isBulk = ids.length > 1;
 
-      // ── Step 1: type-verify every ID before touching anything ──
-      // Mirrors qa_tc_delete — refuse non-Test-Case work items so a typo'd ID
-      // can't silently mutate a User Story or Bug.
-      interface PrecheckRecord { id: number; type: string; title: string; parentUsId: number | null; }
-      const prechecks: PrecheckRecord[] = [];
-      const typeRefusals: Array<{ id: number; type: string; title: string }> = [];
-      const fetchFailures: Array<{ id: number; reason: string }> = [];
-
-      for (const id of ids) {
-        try {
-          const wi = await client.get<AdoWorkItem>(
-            `/_apis/wit/workitems/${id}`,
-            "7.0",
-            { "$expand": "relations" }
-          );
-          const type = (wi.fields?.["System.WorkItemType"] as string) ?? "(unknown)";
-          const wiTitle = (wi.fields?.["System.Title"] as string) ?? "(no title)";
-          if (type !== "Test Case") {
-            typeRefusals.push({ id, type, title: wiTitle });
-            continue;
-          }
-          // Find parent US via TestedBy relation (reverse direction on the TC).
-          const rels = wi.relations ?? [];
-          const testedBy = rels.find(
-            (r) => r.rel === "Microsoft.VSTS.Common.TestedBy-Reverse"
-          );
-          let parentUsId: number | null = null;
-          if (testedBy) {
-            const parts = testedBy.url.split("/");
-            const n = parseInt(parts[parts.length - 1], 10);
-            parentUsId = Number.isNaN(n) ? null : n;
-          }
-          prechecks.push({ id, type, title: wiTitle, parentUsId });
-        } catch (err) {
-          if (err instanceof AdoClientError && err.statusCode === 404) {
-            fetchFailures.push({ id, reason: "Work item not found — ID may be wrong or already deleted." });
-          } else if (err instanceof AdoClientError && err.statusCode === 401) {
-            fetchFailures.push({ id, reason: "Authentication failed. Run /vortex-ado/ado-connect to update credentials." });
-          } else if (err instanceof AdoClientError && err.statusCode === 403) {
-            fetchFailures.push({ id, reason: "Insufficient permissions. PAT needs Work Items (Read & Write)." });
-          } else {
-            fetchFailures.push({ id, reason: err instanceof Error ? err.message : String(err) });
-          }
-        }
+      // ── Step 1+2: shared precheck (type-verify, fetch failures, cross-US span) ──
+      const precheck = await runTcPrecheck(client, { ids, acknowledgeCrossUs, operation: "update" });
+      if (!precheck.ok) {
+        return precheck.block!;
       }
-
-      // If any IDs failed precheck or were wrong type, refuse the whole batch — don't
-      // partially mutate when the caller's intent is clearly off (bad ID list).
-      if (typeRefusals.length > 0 || fetchFailures.length > 0) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({
-            status: "needs-input",
-            reason: "precheck-failed",
-            message:
-              `🚫 BLOCK: ${isBulk ? `Batch of ${ids.length} test case update(s)` : `Update for work item ${ids[0]}`} refused — ` +
-              `${typeRefusals.length} ID(s) are not Test Cases, ${fetchFailures.length} could not be fetched. ` +
-              `No changes were made. Review the lists below and re-run with the corrected IDs.`,
-            typeRefusals,
-            fetchFailures,
-            suggestion: isBulk
-              ? "Remove non-Test-Case IDs and unreachable IDs from the list, then re-run /qa-tc-update with the corrected array."
-              : "Double-check the ID. If you intended to update a different work item type, do it directly in the ADO UI — this tool only mutates Test Cases.",
-            resolvedSoFar: { requestedIds: ids, validTcIds: prechecks.map((p) => p.id) },
-          }, null, 2) }],
-          isError: true,
-        };
-      }
-
-      // ── Step 2: cross-US span detection (bulk only) ──
-      if (isBulk) {
-        const byUs = new Map<number | "none", PrecheckRecord[]>();
-        for (const p of prechecks) {
-          const key = p.parentUsId ?? "none";
-          const bucket = byUs.get(key) ?? [];
-          bucket.push(p);
-          byUs.set(key, bucket);
-        }
-        const usCount = byUs.size;
-        if (usCount > 1 && !acknowledgeCrossUs) {
-          const breakdown = [...byUs.entries()].map(([us, items]) => ({
-            parentUsId: us === "none" ? null : us,
-            tcCount: items.length,
-            tcIds: items.map((i) => i.id),
-          }));
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify({
-              status: "needs-confirmation",
-              reason: "cross-us-bulk-update",
-              message:
-                `⚠️ WARN: These ${ids.length} test case(s) belong to ${usCount} different User Stories (or are unlinked). ` +
-                `Applying the same field values across User Stories is valid but unusual — confirm this is intentional.`,
-              breakdown,
-              prompt: `Reply **YES** to apply the update to all ${ids.length} TC(s) across ${usCount} User Stor${usCount === 1 ? "y" : "ies"}, or **no** to cancel.`,
-              onYes: "Re-run qa_tc_update with the same args plus acknowledgeCrossUs: true.",
-              onNo: "Stop. No changes.",
-              resolvedSoFar: { requestedIds: ids, parentUsCount: usCount },
-            }, null, 2) }],
-            isError: true,
-          };
-        }
-      }
+      const prechecks: TcPrecheckRecord[] = precheck.prechecks;
 
       // ── Step 2.5: title-shape validation / reconstruction (when caller targets the title) ──
       // This step decides — per ID — what System.Title value to write, then stores it in
@@ -573,6 +479,329 @@ export function registerTestCaseTools(
           isError: true,
         };
       }
+    }
+  );
+
+  server.registerTool(
+    "qa_tc_comment_add",
+    {
+      title: "Add Comment to Test Case(s)",
+      description:
+        "Post the SAME HTML comment to one or more existing test cases. Accepts a single workItemId (number) or a bulk array (number[]) — applied uniformly. Comment body supports basic HTML (`<a href>`, `<br>`, `<b>`, `<i>`, `<ul>`/`<li>`); script/style/event handlers are sanitized by ADO. Before posting, the tool verifies each ID is a Test Case (refuses User Story/Bug/Task/etc.) and surfaces cross-US span as a `needs-confirmation` response. Set `acknowledgeCrossUs: true` only after the user has explicitly confirmed. Comments land in the work item's Discussion timeline (same surface as the ADO web UI's Discussion box).",
+      inputSchema: {
+        workItemId: z.union([
+          z.number().int().positive(),
+          z.array(z.number().int().positive()).min(1),
+        ]).describe("The test case work item ID, or an array of IDs to receive the same comment"),
+        commentHtml: z.string().min(1).describe("Comment body — plain text or HTML (anchor + basic block/inline tags). Posted verbatim to each TC's Discussion."),
+        acknowledgeCrossUs: z.boolean().optional().describe("Set to true only when the user has seen the per-US breakdown of a cross-US bulk comment and explicitly confirmed. Skipped for single-ID calls. Defaults to false."),
+      },
+    },
+    async ({ workItemId, commentHtml, acknowledgeCrossUs }) => {
+      const ids = Array.isArray(workItemId) ? workItemId : [workItemId];
+      const isBulk = ids.length > 1;
+
+      const precheck = await runTcPrecheck(client, { ids, acknowledgeCrossUs, operation: "comment" });
+      if (!precheck.ok) {
+        return precheck.block!;
+      }
+
+      // POST the same comment to each TC. Continue on per-ID failure — partial success
+      // is reported in the result table for bulk; single-ID returns the legacy error shape.
+      const successes: Array<{ id: number; commentId?: number; webUrl: string; title: string }> = [];
+      const failures: Array<{ id: number; error: string }> = [];
+
+      for (const pre of precheck.prechecks) {
+        try {
+          const resp = await client.post<{ commentId?: number }>(
+            `/_apis/wit/workItems/${pre.id}/comments`,
+            { text: commentHtml },
+            "application/json",
+            "7.0-preview.3"
+          );
+          successes.push({
+            id: pre.id,
+            commentId: resp?.commentId,
+            webUrl: adoWorkItemUrl(client, pre.id),
+            title: pre.title,
+          });
+        } catch (err) {
+          failures.push({ id: pre.id, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
+      if (!isBulk) {
+        if (failures.length > 0) {
+          return {
+            content: [{ type: "text" as const, text: `Error posting comment to test case ${ids[0]}: ${failures[0].error}` }],
+            isError: true,
+          };
+        }
+        const s = successes[0];
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ id: s.id, commentId: s.commentId, url: s.webUrl }, null, 2) }],
+        };
+      }
+
+      const rows = [
+        "| ID | Status | Title |",
+        "| --- | --- | --- |",
+        ...successes.map((s) => `| [${s.id}](${s.webUrl}) | ✅ Comment posted | ${s.title} |`),
+        ...failures.map((f) => `| ${f.id} | ❌ Failed | ${f.error.replace(/\|/g, "\\|")} |`),
+      ].join("\n");
+
+      const headline = failures.length === 0
+        ? `✅ SUCCESS: Posted comment to ${successes.length} test case(s).`
+        : `⚠️ PARTIAL: ${successes.length}/${ids.length} commented, ${failures.length} failed. No retry was attempted — re-run qa_tc_comment_add with the failed IDs only after investigating.`;
+
+      return {
+        content: [{ type: "text" as const, text: `${headline}\n\n${rows}` }],
+        isError: failures.length > 0,
+      };
+    }
+  );
+
+  server.registerTool(
+    "qa_tc_attachments_copy",
+    {
+      title: "Copy Attachments from a Work Item to Test Case(s)",
+      description:
+        "Copy attachments (rel: AttachedFile) from a source work item (typically a User Story) to one or more target test cases. Steps per attachment: download bytes from source → upload to ADO attachment store → link the new attachment to each target via JSON Patch. Bulk targets get the SAME attachments uniformly. Before copying, the tool verifies each target is a Test Case (refuses other types) and surfaces cross-US span as a `needs-confirmation` response. By default, attachments whose filename already exists on a target TC are skipped (set `skipDuplicatesByFilename: false` to force re-copy). Returns a per-target table summarising copied / skipped / failed counts.",
+      inputSchema: {
+        sourceWorkItemId: z.number().int().positive().describe("Work item ID to copy attachments FROM (any type — typically a User Story)."),
+        targetTestCaseIds: z.union([
+          z.number().int().positive(),
+          z.array(z.number().int().positive()).min(1),
+        ]).describe("Target test case ID, or array of IDs. Same attachments are linked to every target."),
+        filenameFilter: z.array(z.string().min(1)).optional().describe("Optional: only copy attachments whose `attributes.name` matches one of these filenames. When omitted, copies ALL attachments on the source."),
+        skipDuplicatesByFilename: z.boolean().optional().default(true).describe("When true (default), skip an attachment on a given target if a relation with the same filename is already linked. When false, always copy (creates a duplicate relation)."),
+        copyComment: z.string().optional().describe("Comment text written into the new relation's `attributes.comment`. Defaults to `Copied from work item #<sourceWorkItemId>`."),
+        acknowledgeCrossUs: z.boolean().optional().describe("Set to true only when the user has seen the per-US breakdown of a cross-US bulk copy and explicitly confirmed. Skipped for single-target calls. Defaults to false."),
+      },
+    },
+    async ({ sourceWorkItemId, targetTestCaseIds, filenameFilter, skipDuplicatesByFilename, copyComment, acknowledgeCrossUs }) => {
+      const targetIds = Array.isArray(targetTestCaseIds) ? targetTestCaseIds : [targetTestCaseIds];
+      const isBulk = targetIds.length > 1;
+      const dedupe = skipDuplicatesByFilename ?? true;
+      const relationComment = copyComment ?? `Copied from work item #${sourceWorkItemId}`;
+
+      const precheck = await runTcPrecheck(client, { ids: targetIds, acknowledgeCrossUs, operation: "attachment-copy" });
+      if (!precheck.ok) {
+        return precheck.block!;
+      }
+
+      // ── Step 1: list source attachments ──
+      let sourceWi: AdoWorkItem;
+      try {
+        sourceWi = await client.get<AdoWorkItem>(
+          `/_apis/wit/workitems/${sourceWorkItemId}`,
+          "7.0",
+          { "$expand": "relations" }
+        );
+      } catch (err) {
+        if (err instanceof AdoClientError && err.statusCode === 404) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({
+              status: "error",
+              reason: "source-not-found",
+              message: `Source work item ${sourceWorkItemId} not found. Verify the ID and re-run.`,
+            }, null, 2) }],
+            isError: true,
+          };
+        }
+        return {
+          content: [{ type: "text" as const, text: `Error fetching source work item ${sourceWorkItemId}: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+
+      const allAttachments = (sourceWi.relations ?? [])
+        .filter((r) => r.rel === "AttachedFile")
+        .map((r) => ({
+          url: r.url,
+          filename: (r.attributes?.["name"] as string | undefined) ?? "attachment",
+        }));
+
+      const wantedAttachments = filenameFilter && filenameFilter.length > 0
+        ? allAttachments.filter((a) => filenameFilter.includes(a.filename))
+        : allAttachments;
+
+      if (wantedAttachments.length === 0) {
+        const reason = allAttachments.length === 0
+          ? `Source work item #${sourceWorkItemId} has no attachments.`
+          : `No source attachments matched the filename filter ${JSON.stringify(filenameFilter)}. Available: ${allAttachments.map((a) => a.filename).join(", ")}`;
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({
+            status: "noop",
+            reason: "no-attachments-to-copy",
+            message: reason,
+            sourceWorkItemId,
+            availableFilenames: allAttachments.map((a) => a.filename),
+          }, null, 2) }],
+        };
+      }
+
+      // ── Step 2: download each source attachment, then upload to the attachment store ──
+      // Upload once per file (not once per target) — the resulting URL is linked to every target.
+      interface UploadedAttachment { filename: string; uploadedUrl: string; bytes: number; }
+      const uploaded: UploadedAttachment[] = [];
+      const uploadFailures: Array<{ filename: string; error: string }> = [];
+
+      for (const att of wantedAttachments) {
+        try {
+          // Strip the source URL to its `/_apis/...` suffix, mirroring extractAndFetchAdoImages.
+          const u = new URL(att.url);
+          const apisIdx = u.pathname.indexOf("/_apis/");
+          const path = apisIdx >= 0 ? u.pathname.slice(apisIdx) : u.pathname;
+          const downloadParams: Record<string, string> = { download: "true", fileName: att.filename };
+          const binary = await client.getBinary(path, "7.1", downloadParams);
+
+          const uploadResp = await client.postBinary<{ id: string; url: string }>(
+            `/_apis/wit/attachments`,
+            binary.buffer,
+            "application/octet-stream",
+            "7.1",
+            { fileName: att.filename, uploadType: "Simple" }
+          );
+          uploaded.push({ filename: att.filename, uploadedUrl: uploadResp.url, bytes: binary.buffer.byteLength });
+        } catch (err) {
+          uploadFailures.push({ filename: att.filename, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
+      if (uploaded.length === 0) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({
+            status: "error",
+            reason: "all-uploads-failed",
+            message: `Could not upload any of the ${wantedAttachments.length} source attachment(s) to the ADO attachment store. No targets were modified.`,
+            uploadFailures,
+          }, null, 2) }],
+          isError: true,
+        };
+      }
+
+      // ── Step 3: per-target — fetch existing relations (for dedupe), build patch, PATCH ──
+      interface TargetResult { id: number; title: string; webUrl: string; copied: string[]; skipped: string[]; failed: string[]; error?: string; }
+      const targetResults: TargetResult[] = [];
+
+      for (const pre of precheck.prechecks) {
+        const result: TargetResult = {
+          id: pre.id,
+          title: pre.title,
+          webUrl: adoWorkItemUrl(client, pre.id),
+          copied: [],
+          skipped: [],
+          failed: [],
+        };
+
+        let existingFilenames = new Set<string>();
+        if (dedupe) {
+          try {
+            const targetWi = await client.get<AdoWorkItem>(
+              `/_apis/wit/workitems/${pre.id}`,
+              "7.0",
+              { "$expand": "relations" }
+            );
+            for (const r of targetWi.relations ?? []) {
+              if (r.rel === "AttachedFile") {
+                const name = r.attributes?.["name"];
+                if (typeof name === "string") existingFilenames.add(name);
+              }
+            }
+          } catch {
+            // Non-fatal — proceed without dedupe info.
+            existingFilenames = new Set<string>();
+          }
+        }
+
+        const ops = [];
+        for (const u of uploaded) {
+          if (dedupe && existingFilenames.has(u.filename)) {
+            result.skipped.push(u.filename);
+            continue;
+          }
+          ops.push({
+            op: "add",
+            path: "/relations/-",
+            value: {
+              rel: "AttachedFile",
+              url: u.uploadedUrl,
+              attributes: { comment: relationComment },
+            },
+          });
+          result.copied.push(u.filename);
+        }
+
+        if (ops.length === 0) {
+          // All filenames were already attached and dedupe is on — nothing to PATCH.
+          targetResults.push(result);
+          continue;
+        }
+
+        try {
+          await client.patch(
+            `/_apis/wit/workitems/${pre.id}`,
+            ops,
+            "application/json-patch+json",
+            "7.0"
+          );
+        } catch (err) {
+          // Move every "copied" filename into "failed" — the PATCH didn't land.
+          result.failed.push(...result.copied);
+          result.copied = [];
+          result.error = err instanceof Error ? err.message : String(err);
+        }
+
+        targetResults.push(result);
+      }
+
+      // ── Step 4: report ──
+      const totalCopied = targetResults.reduce((acc, t) => acc + t.copied.length, 0);
+      const totalSkipped = targetResults.reduce((acc, t) => acc + t.skipped.length, 0);
+      const totalFailed = targetResults.reduce((acc, t) => acc + t.failed.length, 0);
+      const hasAnyFailure = totalFailed > 0 || uploadFailures.length > 0;
+
+      if (!isBulk) {
+        const t = targetResults[0];
+        const body: Record<string, unknown> = {
+          sourceWorkItemId,
+          targetWorkItemId: t.id,
+          targetUrl: t.webUrl,
+          copied: t.copied,
+          skipped: t.skipped,
+          failed: t.failed,
+          uploadFailures,
+        };
+        if (t.error) body.patchError = t.error;
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(body, null, 2) }],
+          isError: hasAnyFailure,
+        };
+      }
+
+      const rows = [
+        "| Target TC | Copied | Skipped (duplicate) | Failed | Notes |",
+        "| --- | --- | --- | --- | --- |",
+        ...targetResults.map((t) => {
+          const note = t.error ? `PATCH failed: ${t.error.replace(/\|/g, "\\|")}` : "";
+          return `| [${t.id}](${t.webUrl}) | ${t.copied.length} | ${t.skipped.length} | ${t.failed.length} | ${note} |`;
+        }),
+      ].join("\n");
+
+      const uploadNote = uploadFailures.length > 0
+        ? `\n\n⚠️ ${uploadFailures.length} source attachment(s) could not be uploaded and were not copied to any target:\n` +
+          uploadFailures.map((u) => `- ${u.filename}: ${u.error}`).join("\n")
+        : "";
+
+      const headline = !hasAnyFailure
+        ? `✅ SUCCESS: Copied ${uploaded.length} attachment(s) from #${sourceWorkItemId} → ${targetResults.length} target(s). Total: ${totalCopied} copied, ${totalSkipped} skipped (duplicate filenames).`
+        : `⚠️ PARTIAL: Source #${sourceWorkItemId} → ${targetResults.length} target(s). Total: ${totalCopied} copied, ${totalSkipped} skipped, ${totalFailed} failed.`;
+
+      return {
+        content: [{ type: "text" as const, text: `${headline}\n\n${rows}${uploadNote}` }],
+        isError: hasAnyFailure,
+      };
     }
   );
 }

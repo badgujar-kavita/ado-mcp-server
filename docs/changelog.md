@@ -6,6 +6,25 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-06-10 — Enrich test cases with comments and copied attachments
+
+QAs frequently need to (a) drop a uniform comment onto every test case linked to a parent User Story (e.g. "FYI, refer the parent US DoD comment for details") and (b) copy attachments (screenshots, specs) from the parent US down to each linked test case. Until now, neither was possible through the MCP — `qa_tc_update` only writes scalar fields. This required manual ADO UI work that scaled badly across 6+ TCs per US.
+
+**New tools.**
+
+1. `qa_tc_comment_add` (action). POSTs the same HTML comment to one or many Test Cases. Endpoint: `POST /_apis/wit/workItems/{id}/comments?api-version=7.0-preview.3` with body `{ text: "<html>" }`. The Comments API renders the body in the Discussion timeline (same surface as the ADO web UI), so anchor + basic block/inline tags render correctly. Inputs: `workItemId: number | number[]`, `commentHtml: string`, optional `acknowledgeCrossUs`.
+2. `qa_tc_attachments_copy` (action). Copies attachments from a source work item (typically a User Story) to one or many Test Cases. Three-step pipeline per source attachment: GET source with `$expand=relations` → filter `rel === "AttachedFile"` → download bytes via `getBinary` → upload to `/_apis/wit/attachments?fileName=...&uploadType=Simple` → PATCH each target with a JSON Patch `add /relations/-` op. Inputs: `sourceWorkItemId`, `targetTestCaseIds: number | number[]`, optional `filenameFilter`, `skipDuplicatesByFilename` (default `true`), `copyComment` (defaults to `Copied from work item #<sourceId>`), `acknowledgeCrossUs`. Per-target table summarises copied / skipped / failed.
+
+**One generic slash command, two tools.** New prompt `/vortex-ado/qa-workitem-enrich` orchestrates both tools behind a single confirmation gate — the user confirms once for the whole package and the agent fans out to whichever tool(s) are needed. Keeps the user-facing surface simple while preserving tool-level discoverability so the agent can also handle "just add a comment to TC 12345" or "copy attachments from US X to TC Y" via natural-language requests.
+
+**Shared precheck helper.** `qa_tc_update`'s 100-line precheck (type-verify each ID is a Test Case, refuse non-TC types, surface cross-US span as `needs-confirmation`) was extracted to `src/helpers/tc-precheck.ts`. All three action tools now share it. Behaviour is unchanged for `qa_tc_update` — same response shape, same `acknowledgeCrossUs` flag.
+
+**`AdoClient.postBinary()`.** New method on `AdoClient` — POSTs raw binary bytes (e.g. attachment uploads) using a Blob wrapper to satisfy strict-mode `BodyInit` typing. Bypasses `request()`'s unconditional `JSON.stringify`. Used only by `qa_tc_attachments_copy`'s upload step.
+
+**Files changed:** `src/ado-client.ts` (new `postBinary` method), `src/helpers/tc-precheck.ts` (new file — shared precheck), `src/tools/test-cases.ts` (refactored `qa_tc_update` to use precheck helper; added `qa_tc_comment_add` and `qa_tc_attachments_copy` registrations), `src/prompts/index.ts` (new `qa-workitem-enrich` prompt), `src/tools/test-cases-comment-attachments.test.ts` (new — 19 tests covering happy paths, precheck refusals, cross-US gates, dedupe, partial failures, source 404, all-uploads-failed).
+
+**Docs updated:** this changelog entry, `docs/setup-guide.md` (counts updated to 21 commands / 28 tools; new row for `/vortex-ado/qa-workitem-enrich`).
+
 ### 2026-05-22 — Confluence tiny-URL resolution: offline decode (no network)
 
 The previous tiny-URL resolver ([same-day commit](#2026-05-22--auto-resolve-confluence-tiny-urls-wikixtoken)) followed the server-issued 302 to recover the canonical page URL. That worked in test mocks but **did not** work reliably on real Confluence Cloud tenants: the redirect probe depends on tenant edge-config, scoped-token permissions, and 302-vs-200-to-login behavior. The MARS user's screenshot showed the failure: a Solution Design tiny URL (`/wiki/x/IgB9qAE`) reported `not-found` because the redirect probe didn't return what we expected.

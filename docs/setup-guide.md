@@ -406,8 +406,8 @@ If you see **READY**, setup is complete.
 
 After deployment, verify:
 
-- **20 slash commands** + **26 MCP tools** (including `ado_fields`, `qa_tc_delete`)
-- **Commands:** `/vortex-ado/qa-tc-delete` (single or batch), `/vortex-ado/qa-tc-update`, `/vortex-ado/ado-fields`
+- **21 slash commands** + **28 MCP tools** (including `ado_fields`, `qa_tc_delete`, `qa_tc_comment_add`, `qa_tc_attachments_copy`)
+- **Commands:** `/vortex-ado/qa-tc-delete` (single or batch), `/vortex-ado/qa-tc-update`, `/vortex-ado/qa-workitem-enrich` (comments + attachments), `/vortex-ado/ado-fields`
 - **Title limit:** Test case titles ≤ 256 characters (ADO constraint)
 
 ---
@@ -436,6 +436,7 @@ You can now use any of the available commands. Type `/vortex-ado` in the chat to
 | `/vortex-ado/qa-tc-update` | Update a test case, or apply the same fields uniformly to many |
 | `/vortex-ado/ado-fields` | List all ADO field definitions — reference names, types, and read-only status |
 | `/vortex-ado/qa-tc-delete` | Delete one or more test cases by ID — moves to Recycle Bin (restorable for 30 days) |
+| `/vortex-ado/qa-workitem-enrich` | Add a comment and/or copy attachments from a source User Story to one or more linked test cases |
 | `/vortex-ado/qa-clone` | Clone and adapt test cases from one User Story to another |
 | `/vortex-ado/confluence-read` | Read a Confluence page by ID — useful for Solution Design reference |
 
