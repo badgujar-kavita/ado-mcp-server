@@ -140,7 +140,40 @@ print_tree_item "$(print_success "Dependencies installed")"
 
 if [ -f "build-dist.mjs" ]; then
     print_tree_item "Compiling TypeScript..."
-    npm run build:dist --silent > /dev/null 2>&1
+    # Capture build output so we can show it on failure. The build was
+    # silently swallowed previously, which masked weeks of broken installs:
+    # - When the build failed, users got an empty dist/ and the bootstrap
+    #   silently fell back to `npx tsx src/index.ts` mode.
+    # - When the build succeeded, the output landed in dist-package/dist/
+    #   instead of dist/ — see the rsync step below — so even a clean
+    #   build couldn't be picked up by the bootstrap.
+    BUILD_LOG="$(mktemp)"
+    if ! npm run build:dist > "$BUILD_LOG" 2>&1; then
+        print_tree_last "$(print_error "Build failed")"
+        echo ""
+        echo -e "${RED}Build output:${NC}"
+        sed 's/^/  /' "$BUILD_LOG"
+        rm -f "$BUILD_LOG"
+        exit 1
+    fi
+    rm -f "$BUILD_LOG"
+
+    # build-dist.mjs writes to dist-package/dist/ for the Vercel-hosted
+    # tarball flow; the local installer's bootstrap (bin/bootstrap.mjs)
+    # looks at <INSTALL_DIR>/dist/index.js. Copy the freshly-built bundle
+    # over so the bootstrap actually finds it. Without this, the bundle
+    # is silently missing and the bootstrap falls back to tsx-mode —
+    # which has worked for some tools and broken others (the wizard
+    # hang on /ado-connect was a symptom of this).
+    if [ -f "dist-package/dist/index.js" ]; then
+        rm -rf dist
+        mkdir -p dist
+        cp dist-package/dist/index.js dist/index.js
+    else
+        print_tree_last "$(print_error "Build produced no dist-package/dist/index.js — refusing to ship a broken install")"
+        exit 1
+    fi
+
     print_tree_last "$(print_success "Build complete")"
 fi
 

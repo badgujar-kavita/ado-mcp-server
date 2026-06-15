@@ -6,6 +6,33 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-06-15 — install.sh: ship the built bundle to the path the bootstrap actually reads
+
+Three QAs reported that re-running `/vortex-ado/ado-connect` did nothing useful and `/ado-check` couldn't resolve workspace credentials. Diagnosis traced it back to **every fresh install since Phase 1** silently failing to ship the compiled bundle to where the bootstrap looks for it.
+
+`build-dist.mjs` writes to `dist-package/dist/index.js` (originally for the Vercel tarball pipeline). The local installer's bootstrap (`bin/bootstrap.mjs:136`) looks at `<INSTALL_DIR>/dist/index.js`. Those paths never matched, so a healthy install left the bootstrap with no bundle to find. It fell through to `npx tsx src/index.ts` mode silently — which "worked" for some tools but produced subtle MCP framing / startup-timing issues for others, including the wizard hang at `/api/save-connection` reported by all three users.
+
+The build step also swallowed all output (`> /dev/null 2>&1`), so even when the build genuinely failed (rare, but possible) it printed `✔ Build complete` and shipped nothing.
+
+**Fix.** Single change to `install.sh`:
+
+1. Stop redirecting `npm run build:dist` to `/dev/null`. Capture into a tempfile and on failure dump it inline before aborting with a non-zero exit. Build failures will now be loud.
+2. After a successful build, copy `dist-package/dist/index.js` → `dist/index.js`. The bootstrap's `existsSync(distEntry)` check at line 137 now succeeds and runs the freshly-built bundle instead of the tsx fallback.
+3. If `dist-package/dist/index.js` is missing post-build, abort with a clear "refusing to ship a broken install" — better to fail at install time than to deliver a broken MCP that hangs in the wizard.
+
+**Why this hid for so long.** tsx-mode actually works for most read-only tools (`ado_story`, `qa_tests`, `confluence_read`), so the breakage looked like "wizard is flaky" rather than "we never compiled." It surfaced clearly only with `/ado-connect`, where the inlined HTTP server has fetch + keychain interactions that surface tsx-mode's stdio framing differences as wizard hangs. The earlier 2026-06-10 / 2026-06-11 changelog entries fixed real bugs in `keychain.ts` and `configure-ui.ts` — but those fixes lived in `dist-package/dist/index.js`, which was never deployed, so users kept hitting the same hangs.
+
+**Verification.** Local `bash install.sh` test confirms `~/.vortex-ado/dist/index.js` now exists post-install with the expected 1.25MB bundle that contains the keychain timeout strings (`GET_PASSWORD_TIMEOUT_DEFAULT_MS`, `Could not read PAT from OS keychain`, `fetchWithTimeout`).
+
+**Action for users.** Re-run the installer; this time `/ado-connect` and `/ado-check` will actually be running today's code. Cmd+Q Cursor afterwards so it respawns the MCP child against the new bundle.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/badgujar-kavita/ado-mcp-server/main/install.sh | bash
+# then Cmd+Q Cursor and relaunch
+```
+
+**Files changed:** `install.sh` (build-output capture, `dist-package/dist/ → dist/` copy, build-failure abort).
+
 ### 2026-06-10 — Enrich test cases with comments and copied attachments
 
 QAs frequently need to (a) drop a uniform comment onto every test case linked to a parent User Story (e.g. "FYI, refer the parent US DoD comment for details") and (b) copy attachments (screenshots, specs) from the parent US down to each linked test case. Until now, neither was possible through the MCP — `qa_tc_update` only writes scalar fields. This required manual ADO UI work that scaled badly across 6+ TCs per US.
