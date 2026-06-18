@@ -18,28 +18,28 @@
  *      explicit-workspace plumbing.
  */
 
-import { fileURLToPath } from "node:url";
 import { resolve as resolvePath } from "node:path";
 import {
   loadConventionsConfig,
   loadConventionsConfigForWorkspace,
 } from "../config.ts";
 import { fetchClientRoots } from "./fetch-roots.ts";
+import { validateClientRoot } from "./validate-root.ts";
 import type { ConventionsConfig } from "../types.ts";
 
 export async function resolveConfigForCall(
   extra: { sendRequest?: unknown } | undefined,
   workspaceRoot?: string | null,
 ): Promise<ConventionsConfig> {
-  // Step 1 — roots/list.
+  // Step 1 — roots/list. Skip junk URIs; see validate-root.ts.
   const roots = await fetchClientRoots(extra ?? {});
   for (const root of roots) {
-    if (!root.uri.startsWith("file://")) continue;
+    const validation = validateClientRoot(root);
+    if ("reason" in validation) continue;
     try {
-      const path = fileURLToPath(root.uri);
-      return loadConventionsConfigForWorkspace(path);
+      return loadConventionsConfigForWorkspace(validation.path);
     } catch {
-      // Malformed file URI or malformed config — try next root.
+      // Malformed config at this root — try next root.
     }
   }
   // Step 2 — explicit arg.

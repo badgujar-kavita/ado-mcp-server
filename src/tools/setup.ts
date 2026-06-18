@@ -12,6 +12,7 @@ import { getCurrentVersion, getLatestChangelogHighlights, isNewerVersion } from 
 import { launchConfigUI } from "./configure-ui.ts";
 import { fetchClientRoots } from "../workspace/fetch-roots.ts";
 import { resolveWorkspace } from "../workspace/resolve.ts";
+import { validateClientRoot } from "../workspace/validate-root.ts";
 import { WorkspaceError } from "../workspace/errors.ts";
 
 const INITIALIZED_FLAG = ".vortex-ado-initialized";
@@ -401,6 +402,13 @@ export function registerSetupTools(server: McpServer) {
       // No fallback path beyond that — without a workspace we can't read
       // any config, and there's no legacy file to fall back to.
       const clientRoots = await fetchClientRoots(extra ?? {});
+      // Validate each root up-front so we can show why each one was
+      // rejected (Cursor builds in the wild sometimes report "file://"
+      // with no body, which converts to "/" and silently fails the
+      // config lookup at /.vortex-ado/config.json).
+      const rejectedRoots = clientRoots
+        .map((r) => validateClientRoot(r))
+        .filter((r): r is { uri: string; reason: string } => "reason" in r);
       let resolvedWorkspace: string | null = null;
       let workspaceResolutionSource: string | null = null;
       try {
@@ -440,6 +448,24 @@ export function registerSetupTools(server: McpServer) {
         lines.push("");
       } else {
         lines.push("Workspace: (not resolved — open a folder in Cursor or pass `workspaceRoot`)");
+        // If Cursor reported roots but every one was rejected, list what
+        // it actually sent so the user can see their MCP client is
+        // misbehaving (rather than chasing a credentials issue that
+        // doesn't exist). The most common cause is `file://` collapsing
+        // to "/" — see workspace/validate-root.ts.
+        if (rejectedRoots.length > 0 && rejectedRoots.length === clientRoots.length) {
+          lines.push("");
+          lines.push("⚠  Cursor reported workspace roots that don't resolve to a real folder:");
+          for (const r of rejectedRoots) {
+            lines.push(`   - "${r.uri}" → ${r.reason}`);
+          }
+          lines.push("");
+          lines.push(
+            "   Workaround: pass `workspaceRoot=/absolute/path/to/your/project` " +
+              "to the tool. If this keeps happening, fully quit Cursor (Cmd+Q) " +
+              "and re-open the project folder via File → Open Folder.",
+          );
+        }
         lines.push("");
       }
 

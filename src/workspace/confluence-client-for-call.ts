@@ -10,11 +10,11 @@
  * No legacy file fallback. No boot-time client. No cwd-based read.
  */
 
-import { fileURLToPath } from "node:url";
 import { resolve as resolvePath } from "node:path";
 import { ConfluenceClient, createConfluenceClient } from "../confluence-client.ts";
 import { loadCredentialsForWorkspace } from "../credentials.ts";
 import { fetchClientRoots } from "./fetch-roots.ts";
+import { validateClientRoot } from "./validate-root.ts";
 
 function buildFromCreds(creds: {
   confluence_base_url?: string;
@@ -35,13 +35,14 @@ export async function resolveConfluenceClientForCall(
   extra: { sendRequest?: unknown } | undefined,
   workspaceRoot: string | null | undefined,
 ): Promise<ConfluenceClient | null> {
-  // Step 1 — roots/list.
+  // Step 1 — roots/list. Skip any junk URIs (empty, non-absolute,
+  // non-existent paths). See validate-root.ts for the rationale.
   const roots = await fetchClientRoots(extra ?? {});
   for (const root of roots) {
-    if (!root.uri.startsWith("file://")) continue;
+    const validation = validateClientRoot(root);
+    if ("reason" in validation) continue;
     try {
-      const path = fileURLToPath(root.uri);
-      const result = await loadCredentialsForWorkspace(path);
+      const result = await loadCredentialsForWorkspace(validation.path);
       if (result.credentials) {
         const built = buildFromCreds(result.credentials);
         if (built) return built;

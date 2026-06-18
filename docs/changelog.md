@@ -6,6 +6,66 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-06-18 — Reject malformed `roots/list` URIs (Cursor's `file://` → `/` collapse)
+
+Three QAs hit the same loop after the install-pipeline fix landed: every save through `/ado-connect` succeeded (config + keychain entries verifiable on disk), but every read through `/ado-check` and `/ado-story` came back **BROKEN — Run /ado-connect**. Re-running `/ado-connect` did nothing because their config was already configured.
+
+Smoking gun, found in the `ado-check` table at the user's request:
+
+```
+Workspace config | ✗ | Not found or incomplete at /.vortex-ado/config.json
+                                              ^^^ leading slash, no project path
+```
+
+That's `join("", ".vortex-ado", "config.json")` — i.e. workspace was resolved to the empty string. Tracing back:
+
+1. Tool calls `roots/list` against the MCP client.
+2. Cursor (specific build) replies with one root: `{ uri: "file://" }` — scheme present, no path body.
+3. Resolver does `fileURLToPath("file://")` — which **does not throw**, returns `"/"`.
+4. Resolver passes `"/"` through validation that only checks "absolute, exists, is directory, writable." `"/"` is all four. ✓
+5. Loader builds `join("/", ".vortex-ado", "config.json")` = `/.vortex-ado/config.json`.
+6. `existsSync` returns false. Loader returns `{ credentials: null, error: null }`.
+7. `ado-check` reports BROKEN with the misleading "Run /ado-connect" hint.
+
+Verified on the affected user's machine: `/vortex-ado/ado-check workspaceRoot=/Users/.../MARS-TCs-ADO` returned HEALTHY immediately, confirming the config + keychain were fine all along.
+
+**Fix.** New `src/workspace/validate-root.ts` exporting `validateClientRoot()` and `malformedRootsMessage()`. The validator rejects:
+
+- Empty / non-file-scheme URIs.
+- URIs that throw on `fileURLToPath`.
+- URIs that convert to empty / non-absolute paths.
+- **URIs that converge to filesystem root** (`/` on POSIX, `C:\` on Windows). Detected by stripping trailing slashes and checking the remainder is ≤ 2 chars. This is the case Cursor's `file://` collapse hits.
+- Paths that don't exist on disk.
+- Paths that are files, not directories.
+
+Wired into the four call sites that consume `roots/list`:
+
+- `src/workspace/ado-client-for-call.ts` — drives `ado_story` and every other ADO tool. Now skips junk roots and, when ALL roots are junk + no explicit `workspaceRoot` was passed, returns a structured error so the AdoClient proxy can surface it instead of the generic "Run /ado-connect."
+- `src/workspace/confluence-client-for-call.ts` — same skip logic for Confluence reads.
+- `src/workspace/config-for-call.ts` — same for conventions config reads.
+- `src/workspace/resolve.ts` — `resolveWorkspace()` (used by `ado_check`) gains the same root-check.
+
+`ado_check` (`src/tools/setup.ts`) was extended to print the rejected URIs and reasons inline when the workspace fails to resolve. Sample output for the bug:
+
+```
+Workspace: (not resolved — open a folder in Cursor or pass `workspaceRoot`)
+
+⚠  Cursor reported workspace roots that don't resolve to a real folder:
+   - "file://" → URI converts to filesystem root ("/"), which can't host a workspace
+
+   Workaround: pass `workspaceRoot=/absolute/path/to/your/project` to the tool.
+   If this keeps happening, fully quit Cursor (Cmd+Q) and re-open the project folder
+   via File → Open Folder.
+```
+
+Now users see what their MCP client actually sent, rather than chasing a credentials problem they don't have.
+
+**Tests.** New `src/workspace/validate-root.test.ts` (9 cases): empty URI, non-file scheme, `file://` (the actual bug), `file:///`, missing path on disk, file-not-directory, real directory accept, `malformedRootsMessage` formatting + recovery hint check, defensive empty-rejections case. Full suite: 603/603 pass.
+
+**Action for affected users.** Re-install with the new release zip (`vortex-ado-v1.0.0-2026-06-18.zip`), Cmd+Q Cursor, relaunch. If `roots/list` still misbehaves on their Cursor build, `ado_check` will now tell them exactly what URI Cursor sent and how to recover via the explicit `workspaceRoot` argument.
+
+**Files changed:** `src/workspace/validate-root.ts` (new), `src/workspace/ado-client-for-call.ts`, `src/workspace/confluence-client-for-call.ts`, `src/workspace/config-for-call.ts`, `src/workspace/resolve.ts` (filesystem-root guard), `src/tools/setup.ts` (rejection list in `ado_check` output), `src/workspace/validate-root.test.ts` (new).
+
 ### 2026-06-15 — install.sh: ship the built bundle to the path the bootstrap actually reads
 
 Three QAs reported that re-running `/vortex-ado/ado-connect` did nothing useful and `/ado-check` couldn't resolve workspace credentials. Diagnosis traced it back to **every fresh install since Phase 1** silently failing to ship the compiled bundle to where the bootstrap looks for it.

@@ -54,6 +54,12 @@ export function resolveWorkspace(opts: ResolveWorkspaceOptions): string {
       if (root.uri.startsWith("file://")) {
         try {
           const path = fileURLToPath(root.uri);
+          // Reject filesystem root ("/" or "C:\\") — fileURLToPath("file://")
+          // returns "/" silently, which is technically a directory but
+          // can't host a workspace. See workspace/validate-root.ts for
+          // the full rationale; same bug, same guard.
+          const trimmed = path.replace(/[\/\\]+$/, "");
+          if (trimmed.length <= 2) continue;
           return validateWorkspacePath(path);
         } catch {
           // Malformed file URI; try next root.

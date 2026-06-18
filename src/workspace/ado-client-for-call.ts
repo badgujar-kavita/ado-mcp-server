@@ -19,20 +19,25 @@
  * Per-workspace config + OS keychain is the only source of truth.
  */
 
-import { fileURLToPath } from "node:url";
 import { resolve as resolvePath } from "node:path";
 import { AdoClient } from "../ado-client.ts";
 import { loadCredentialsForWorkspace } from "../credentials.ts";
 import { fetchClientRoots } from "./fetch-roots.ts";
+import {
+  validateClientRoot,
+  malformedRootsMessage,
+  type RejectedRoot,
+} from "./validate-root.ts";
 
 export interface ResolvedAdoClient {
   client: AdoClient | null;
   /**
    * Populated when the workspace is configured but reading the
-   * credentials failed (e.g. hung keychain). Distinct from "no
-   * credentials configured" — callers that want to differentiate the
-   * "tell user to run /ado-connect" path from the "tell user to fix
-   * their keychain" path should branch on this.
+   * credentials failed (e.g. hung keychain), OR when the MCP client
+   * sent only malformed workspace roots. Distinct from "no credentials
+   * configured" — callers that want to differentiate the "tell user to
+   * run /ado-connect" path from the "fix your keychain / Cursor sent
+   * junk" path should branch on this.
    */
   error: string | null;
 }
@@ -43,16 +48,14 @@ export async function resolveAdoClientForCall(
 ): Promise<ResolvedAdoClient> {
   // Step 1 — roots/list (Cursor's open workspace).
   const roots = await fetchClientRoots(extra ?? {});
+  const rejectedRoots: RejectedRoot[] = [];
   for (const root of roots) {
-    if (!root.uri.startsWith("file://")) continue;
-    let path: string;
-    try {
-      path = fileURLToPath(root.uri);
-    } catch {
-      // Malformed file URI — try the next root.
+    const validation = validateClientRoot(root);
+    if ("reason" in validation) {
+      rejectedRoots.push(validation);
       continue;
     }
-    const result = await loadCredentialsForWorkspace(path);
+    const result = await loadCredentialsForWorkspace(validation.path);
     if (result.credentials) {
       return {
         client: new AdoClient(
@@ -86,6 +89,15 @@ export async function resolveAdoClientForCall(
     if (result.error) {
       return { client: null, error: result.error };
     }
+  }
+
+  // No usable workspace AND no usable credentials. If roots/list returned
+  // ONLY junk URIs, surface that as an explicit error so the user can see
+  // their Cursor is misbehaving — instead of the generic "Run /ado-connect"
+  // hint, which sends them in a loop because /ado-connect writes to the
+  // real folder but every read goes through this path that can't find it.
+  if (roots.length > 0 && rejectedRoots.length === roots.length && !workspaceRoot?.trim()) {
+    return { client: null, error: malformedRootsMessage(rejectedRoots) };
   }
 
   return { client: null, error: null };
