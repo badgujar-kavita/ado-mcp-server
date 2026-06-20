@@ -290,7 +290,7 @@ export function parseTcDraftFromMarkdown(
     const sectionEnd = nextMatch ? sectionStart + nextMatch.index! : mdContent.length;
     const section = mdContent.slice(sectionStart, sectionEnd);
 
-    const adoIdMatch = section.match(/\(ADO #(\d+)\)/);
+    const adoIdMatch = titleLine.match(/\(ADO #(\d+)\)/);
     const priorityStr = parseTableValue(section, "Priority");
     const priority = priorityStr ? parseInt(priorityStr, 10) : config.testCaseDefaults.priority;
     const useCaseSummary = parseTableValue(section, "Use Case") ?? (parsed?.useCaseSummary ?? "");

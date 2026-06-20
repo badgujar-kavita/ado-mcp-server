@@ -6,6 +6,20 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-06-20 — Parser: read TC's ADO ID from the title only, not the whole section
+
+A QA hit `draft-ids-not-linked` on `qa_publish_push` for US 1435557 even though no TC in the draft had been pushed yet and the title lines carried no `(ADO #N)` suffix. The block fired because the draft's TC 2 step text contained `Create base data… (ADO #1446798)` as a prerequisite reference.
+
+Root cause was in `parseTcDraftFromMarkdown` (`src/helpers/tc-draft-parser.ts`): the regex that lifts the TC↔ADO mapping out of the rendered markdown was scanning the **entire TC section** (title + table + steps), not just the title line. Any inline `(ADO #N)` written into a step row matched first and got hoisted into `adoWorkItemId`. `qa_publish_push` then ran the link-check (`adoId ∈ linkedAdoTcs`), found `1446798` was unlinked to US 1435557, and gated the push behind `proceedWithUnlinkedIds`.
+
+**Fix.** One-line change: match against `titleLine` (already captured a few lines above) instead of `section`. The formatter writes the canonical mapping as `(ADO #N)` in the TC's bolded title, so that's the only line the parser should read it from. Inline `(ADO #N)` references in step prose are now safe regardless of whether the TC has been pushed yet.
+
+Regression coverage in `src/helpers/tc-draft-parser-ado-id.test.ts`:
+
+- inline `(ADO #N)` in step text with no title-level ID → `adoWorkItemId` stays `undefined`
+- title-level `(ADO #N)` → `adoWorkItemId` populated
+- both present → title wins
+
 ### 2026-06-18 — Reject malformed `roots/list` URIs (Cursor's `file://` → `/` collapse)
 
 Three QAs hit the same loop after the install-pipeline fix landed: every save through `/ado-connect` succeeded (config + keychain entries verifiable on disk), but every read through `/ado-check` and `/ado-story` came back **BROKEN — Run /ado-connect**. Re-running `/ado-connect` did nothing because their config was already configured.
