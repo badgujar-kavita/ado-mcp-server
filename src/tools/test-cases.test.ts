@@ -268,3 +268,69 @@ test("qa_tc_update bulk partial failure → isError: true, ⚠️ PARTIAL headli
   // All three were attempted (no retry on first failure, but no abort either).
   assert.equal(stub.calls.patch.length, 3);
 });
+
+// ── Generic `fields` bag ────────────────────────────────────────────────
+
+test("qa_tc_update generic fields bag: each key → replace op against /fields/<refName>", async () => {
+  const fixtures = new Map<number, TcFixture>([
+    [1001, { type: "Test Case", title: "TC_100_01", parentUsId: 100 }],
+  ]);
+  const stub = new StubAdoClient(fixtures);
+  const update = registerAndGetUpdate(stub);
+
+  const result = await update({
+    workItemId: 1001,
+    fields: {
+      "Custom.Regression_Needed": "Yes",
+      "Microsoft.VSTS.TCM.AutomationStatus": "Planned",
+    },
+  });
+  assert.equal(result.isError, undefined);
+  assert.equal(stub.calls.patch.length, 1);
+  const ops = stub.calls.patch[0].body as Array<{ op: string; path: string; value: unknown }>;
+  const refNames = ops.map((o) => o.path);
+  assert.ok(refNames.includes("/fields/Custom.Regression_Needed"));
+  assert.ok(refNames.includes("/fields/Microsoft.VSTS.TCM.AutomationStatus"));
+  const regOp = ops.find((o) => o.path === "/fields/Custom.Regression_Needed")!;
+  assert.equal(regOp.op, "replace");
+  assert.equal(regOp.value, "Yes");
+});
+
+test("qa_tc_update fields['System.Title'] is refused — points caller at typed title params", async () => {
+  const fixtures = new Map<number, TcFixture>([
+    [1001, { type: "Test Case", title: "TC_100_01", parentUsId: 100 }],
+  ]);
+  const stub = new StubAdoClient(fixtures);
+  const update = registerAndGetUpdate(stub);
+
+  const result = await update({
+    workItemId: 1001,
+    fields: { "System.Title": "TC_100_01 -> Feature -> New" },
+  });
+  assert.equal(result.isError, true);
+  const body = parseJsonText(result);
+  assert.equal(body.reason, "system-title-in-fields-bag");
+  // No precheck GET, no PATCH — refusal is upfront.
+  assert.equal(stub.calls.get.length, 0);
+  assert.equal(stub.calls.patch.length, 0);
+});
+
+test("qa_tc_update fields bag wins over typed param on collision (last write in JSON Patch order)", async () => {
+  const fixtures = new Map<number, TcFixture>([
+    [1001, { type: "Test Case", title: "TC_100_01", parentUsId: 100 }],
+  ]);
+  const stub = new StubAdoClient(fixtures);
+  const update = registerAndGetUpdate(stub);
+
+  await update({
+    workItemId: 1001,
+    priority: 2,
+    fields: { "Microsoft.VSTS.Common.Priority": 4 },
+  });
+  const ops = stub.calls.patch[0].body as Array<{ op: string; path: string; value: unknown }>;
+  const priorityOps = ops.filter((o) => o.path === "/fields/Microsoft.VSTS.Common.Priority");
+  assert.equal(priorityOps.length, 2);
+  // Typed-param op first, bag op last — ADO applies in order so bag wins.
+  assert.equal(priorityOps[0].value, 2);
+  assert.equal(priorityOps[1].value, 4);
+});

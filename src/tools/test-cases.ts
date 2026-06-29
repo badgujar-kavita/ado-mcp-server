@@ -135,10 +135,11 @@ export function registerTestCaseTools(
         assignedTo: z.string().optional().describe("Updated assigned to"),
         areaPath: z.string().optional().describe("Updated area path"),
         iterationPath: z.string().optional().describe("Updated iteration path"),
+        fields: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe("Generic per-field overrides keyed by ADO reference name (e.g. 'Custom.Regression_Needed', 'Microsoft.VSTS.TCM.AutomationStatus'). Use `ado_fields` to discover valid reference names for your tenant. Each entry emits a JSON Patch replace op alongside the typed-param ops. `System.Title` is rejected here — use `title` or `useCaseSummary` (they carry shape validation). When a key here collides with a typed param (e.g. both `priority` and `fields['Microsoft.VSTS.Common.Priority']` are set), the bag wins because its op is appended last. Picklist / type validation is delegated to ADO; invalid values surface as per-ID partial failures."),
         acknowledgeCrossUs: z.boolean().optional().describe("Set to true only when the user has seen the per-US breakdown of a cross-US bulk update and explicitly confirmed. Skipped for single-ID calls. Defaults to false."),
       },
     },
-    async ({ workItemId, title, useCaseSummary, forceTitleOverwrite, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath, acknowledgeCrossUs }, extra) => {
+    async ({ workItemId, title, useCaseSummary, forceTitleOverwrite, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath, fields, acknowledgeCrossUs }, extra) => {
       const config = await resolveConfigForCall(extra);
       const prereqField = config.prerequisiteFieldRef ?? "System.Description";
 
@@ -158,6 +159,23 @@ export function registerTestCaseTools(
         };
       }
 
+      // The generic `fields` bag is for tenant-specific custom fields and standard
+      // ADO fields not exposed as typed params. Title is special — it has shape
+      // validation on the typed params and the bag would bypass that — so refuse
+      // it explicitly and point the caller at the typed path.
+      if (fields && Object.prototype.hasOwnProperty.call(fields, "System.Title")) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({
+            status: "error",
+            reason: "system-title-in-fields-bag",
+            message:
+              "`fields['System.Title']` is not allowed — the typed `title` / `useCaseSummary` params carry TC title-shape validation that the generic bag would bypass. " +
+              "Re-run with `title` (raw write, optionally with `forceTitleOverwrite: true`) or `useCaseSummary` (preserves the canonical prefix).",
+          }, null, 2) }],
+          isError: true,
+        };
+      }
+
       // Build the non-title JSON Patch ops once — identical for every ID in the batch.
       // Title is appended per-ID later because `useCaseSummary` reconstruction depends
       // on each TC's existing prefix.
@@ -170,6 +188,15 @@ export function registerTestCaseTools(
       if (assignedTo) baseOps.push({ op: "replace", path: "/fields/System.AssignedTo", value: assignedTo });
       if (areaPath) baseOps.push({ op: "replace", path: "/fields/System.AreaPath", value: areaPath });
       if (iterationPath) baseOps.push({ op: "replace", path: "/fields/System.IterationPath", value: iterationPath });
+
+      // Generic field-bag ops. Appended LAST so a collision (e.g. caller passes both
+      // `priority` and `fields['Microsoft.VSTS.Common.Priority']`) resolves to the
+      // bag value — JSON Patch is applied in order, last write wins.
+      if (fields) {
+        for (const [refName, value] of Object.entries(fields)) {
+          baseOps.push({ op: "replace", path: `/fields/${refName}`, value });
+        }
+      }
 
       const titleRequested = title !== undefined || useCaseSummary !== undefined;
       if (baseOps.length === 0 && !titleRequested) {

@@ -6,6 +6,31 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-06-29 — `qa_tc_update` accepts a generic `fields` bag for any ADO field
+
+A QA needed to set `Custom.Regression_Needed` and `Microsoft.VSTS.TCM.AutomationStatus` on a batch of test cases. The tool refused both — its schema only exposed 9 typed params (title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath). Adding two more typed params would have worked for one tenant; the next custom field on the next tenant would have hit the same wall.
+
+**Change.** New optional input `fields: Record<string, string | number | boolean | null>`. Each entry emits a JSON Patch `replace` op keyed by ADO reference name — `Custom.Regression_Needed`, `Microsoft.VSTS.TCM.AutomationStatus`, `Custom.WhateverElse`. Read-side discovery was already generic (`qa_tc_read` returns the full field dictionary, `ado_fields` enumerates definitions); this closes the asymmetry on the write side.
+
+```
+qa_tc_update({
+  workItemId: 1448662,
+  fields: {
+    "Custom.Regression_Needed": "Yes",
+    "Microsoft.VSTS.TCM.AutomationStatus": "Planned",
+  },
+})
+```
+
+Contracts kept narrow on purpose:
+
+- **`System.Title` in the bag → refusal** (`reason: "system-title-in-fields-bag"`). The typed `title` / `useCaseSummary` params carry TC title-shape validation that the bag would bypass.
+- **Collision with a typed param → bag wins.** Bag ops are appended last; JSON Patch applies in order; last write commits. Callers passing both `priority: 2` and `fields["Microsoft.VSTS.Common.Priority"]: 4` end up with `4`. Documented, not an error path.
+- **Validation delegated to ADO.** No client-side picklist check — tenants customize picklists, so validating locally would reject valid values. ADO 400s surface on the existing per-ID partial-failure path.
+- **Precheck unchanged.** Type-verify and cross-US confirmation still gate the batch the same way.
+
+Test coverage in `src/tools/test-cases.test.ts`: bag → correct JSON Patch ops emitted; `System.Title` in bag → refusal with no GET and no PATCH; typed param + bag collision → both ops written, bag value last.
+
 ### 2026-06-29 — Attachment copy: AdoClient proxy forwards `postBinary`
 
 A QA running `qa_tc_attachments_copy` from US 1236615 to 28 child test cases hit `all-uploads-failed`, with every uploaded attachment failing the identical way:
