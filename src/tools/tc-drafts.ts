@@ -779,10 +779,16 @@ export function registerTcDraftTools(server: McpServer, adoClient: AdoClient) {
           };
         }
 
-        // Scenarios 4/12 entry gate: APPROVED + IDs + no repush flag.
+        // Scenarios 4/12 entry gate: APPROVED + ALL TCs have IDs + no repush flag.
         // User ran /qa-publish on an already-pushed draft without explicitly asking for repush.
         // Offer the repush option; don't guess.
-        if (data.status === "APPROVED" && anyHaveAdoIds && !isRepush) {
+        //
+        // Partial-IDs case (some TCs have IDs, some don't — e.g. user added TC_<N+1> after the
+        // initial push) intentionally falls through to Phase B's `mixed-update-create` gate,
+        // which surfaces an explicit updateList/createList plan. Routing it through the repush
+        // gate here would force `repush=true`, which then gets blocked by `repush-missing-ids`
+        // (line ~765) — a dead-end loop.
+        if (data.status === "APPROVED" && allHaveAdoIds && !isRepush) {
           return {
             content: [{ type: "text" as const, text: JSON.stringify({
               status: "needs-confirmation",

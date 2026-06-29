@@ -876,6 +876,55 @@ test("qa_publish_push (Phase B): mixed-update-create — draft has 2 updates + 1
   }
 });
 
+test("qa_publish_push: APPROVED with partial ADO IDs (some TCs missing) falls through to mixed-update-create, not the repush gate", async () => {
+  // Regression: the early `approved-with-ids-no-repush` gate used `anyHaveAdoIds`, which
+  // routed partial-ID drafts (e.g. user added TC_<N+1> after the initial push) into a
+  // dead-end loop: only options were "Repush all" (which then fails with `repush-missing-ids`
+  // because the new TC has no ID) or "Cancel". Phase B's `mixed-update-create` gate
+  // already handles this correctly. Gate must use `allHaveAdoIds`.
+  const { server, handlers } = captureHandlers();
+  const userStoryId = 607;
+  const fixtures = buildAdoFixtures(userStoryId, [
+    { id: 7601, title: `TC_${userStoryId}_01 -> First` },
+    { id: 7602, title: `TC_${userStoryId}_02 -> Second` },
+  ]);
+  const stub = new StubAdoClient(fixtures);
+  registerTcDraftTools(server, stub);
+  const publish = handlers.get("qa_publish_push")!;
+
+  const base = mkdtempSync(join(tmpdir(), "tc-drafts-test-"));
+  try {
+    const data = buildDraftData({
+      userStoryId,
+      status: "APPROVED", // already pushed once
+      testCases: [
+        { tcNumber: 1, featureTags: ["x"], useCaseSummary: "First", priority: 2, steps: [{ action: "x", expectedResult: "y" }], adoWorkItemId: 7601 },
+        { tcNumber: 2, featureTags: ["x"], useCaseSummary: "Second", priority: 2, steps: [{ action: "x", expectedResult: "y" }], adoWorkItemId: 7602 },
+        // TC_03 added after the initial push — no ADO ID yet
+        { tcNumber: 3, featureTags: ["x"], useCaseSummary: "Newly added", priority: 2, steps: [{ action: "x", expectedResult: "y" }] },
+      ],
+    });
+    const tcDraftsDir = writeDraft(base, data);
+    const result = await publish({ userStoryId, draftsPath: tcDraftsDir });
+
+    assert.equal(result.isError, true);
+    const body = parsePublishBody(result);
+    assert.notEqual(
+      body.reason,
+      "approved-with-ids-no-repush",
+      "partial-ID draft must NOT be routed to the repush-only gate",
+    );
+    assert.equal(body.reason, "mixed-update-create");
+    const updateList = body.updateList as Array<{ tcNumber: number; adoId: number }>;
+    const createList = body.createList as Array<{ tcNumber: number }>;
+    assert.equal(updateList.length, 2);
+    assert.equal(createList.length, 1);
+    assert.equal(createList[0]!.tcNumber, 3);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test("qa_publish_push (Phase B): acknowledgeMixedOp skips the mixed-update-create gate", async () => {
   // Scope: verifies that acknowledgeMixedOp: true causes the tool to progress past the
   // mixed-update-create gate. The call will fail downstream at the suite-hierarchy step (no

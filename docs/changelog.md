@@ -20,6 +20,27 @@ The unit tests passed because they exercise `qa_tc_attachments_copy` against an 
 
 **Fix.** Add `postBinary` to the proxy object, mirroring the signature of `post`/`getBinary` (forwards `path`, `body`, `contentType`, `apiVersion`, `queryParams`). Also updated the file's top-comment, which enumerates the proxy's methods.
 
+### 2026-06-20 — Publish: partial-ID drafts no longer dead-end at the repush gate
+
+A QA on US 1435557 added one new TC (TC_10) to a draft whose other 9 TCs were already pushed. Running `/qa-publish` looped them through this dead end:
+
+1. Tool returns `approved-with-ids-no-repush` with two options: A=Repush, B=Cancel.
+2. User picks A → tool re-runs with `repush: true`.
+3. Tool returns `repush-missing-ids` because TC_10 has no `(ADO #N)` suffix.
+4. Suggested workaround "drop repush and use the standard push flow" doesn't work — the standard flow lands back on step 1.
+
+Root cause was a one-condition mismatch in `qa_publish_push` (`src/tools/tc-drafts.ts:785`). The early gate fired on `anyHaveAdoIds`:
+
+```ts
+if (data.status === "APPROVED" && anyHaveAdoIds && !isRepush) { … }
+```
+
+so a draft with even one ID was forced into the repush-only branch. The downstream Phase B `mixed-update-create` gate (line 1052) was already designed to handle this exact case — it surfaces an explicit `updateList` (the 9 existing TCs) + `createList` (TC_10) for one-shot confirmation — but the early gate was intercepting before Phase B could run. The docs (`docs/changelog.md` Phase A table, `docs/implementation.md`, `docs/repush-workflow.md` "Draft has some IDs + some new TCs" row) already described the gate as firing only when "every TC has an ADO ID" — the code was just out of sync with the intended contract.
+
+**Fix.** `anyHaveAdoIds` → `allHaveAdoIds`. Partial-ID drafts now fall through to `mixed-update-create`, which presents one **YES**/**no** prompt with the breakdown of which TCs update vs. which create.
+
+Regression coverage in `src/tools/tc-drafts.test.ts`: APPROVED draft with 2 TCs carrying ADO IDs + 1 newly-added TC without one now reaches `mixed-update-create` (not `approved-with-ids-no-repush`), and `updateList`/`createList` are populated correctly.
+
 ### 2026-06-20 — Parser: read TC's ADO ID from the title only, not the whole section
 
 A QA hit `draft-ids-not-linked` on `qa_publish_push` for US 1435557 even though no TC in the draft had been pushed yet and the title lines carried no `(ADO #N)` suffix. The block fired because the draft's TC 2 step text contained `Create base data… (ADO #1446798)` as a prerequisite reference.
