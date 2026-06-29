@@ -6,6 +6,20 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-06-29 — Attachment copy: AdoClient proxy forwards `postBinary`
+
+A QA running `qa_tc_attachments_copy` from US 1236615 to 28 child test cases hit `all-uploads-failed`, with every uploaded attachment failing the identical way:
+
+```
+client.postBinary is not a function
+```
+
+Root cause was in the lazy `AdoClient` proxy at `src/workspace/ado-client-proxy.ts`. The proxy enumerates the real client's public methods one-by-one (it isn't a `Proxy` object — it's a plain object that hand-forwards each method). When `postBinary` was added to `AdoClient` for attachment uploads (commit `6ec571e`, "feat: qa_tc_comment_add + qa_tc_attachments_copy tools"), the proxy was not updated to mirror it. In production every tool calls through the proxy, so `client.postBinary` resolved to `undefined`; the per-file `try/catch` in `qa_tc_attachments_copy` caught the TypeError and pushed each filename into `uploadFailures`, then the "no uploads succeeded → block" branch fired without ever touching the targets.
+
+The unit tests passed because they exercise `qa_tc_attachments_copy` against an in-process `AdoClient` stub that does have `postBinary`. The proxy isn't on the test path — only the production wiring is.
+
+**Fix.** Add `postBinary` to the proxy object, mirroring the signature of `post`/`getBinary` (forwards `path`, `body`, `contentType`, `apiVersion`, `queryParams`). Also updated the file's top-comment, which enumerates the proxy's methods.
+
 ### 2026-06-20 — Parser: read TC's ADO ID from the title only, not the whole section
 
 A QA hit `draft-ids-not-linked` on `qa_publish_push` for US 1435557 even though no TC in the draft had been pushed yet and the title lines carried no `(ADO #N)` suffix. The block fired because the draft's TC 2 step text contained `Create base data… (ADO #1446798)` as a prerequisite reference.

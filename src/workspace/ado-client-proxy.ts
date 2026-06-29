@@ -3,9 +3,9 @@
  * from the active call context (see `call-context.ts`).
  *
  * Shape: returns an object that implements every public method of the
- * real `AdoClient` (`get`, `post`, `patch`, `delete`, `getBinary`,
- * `listProjectTags`, `clearProjectTagsCache`) plus the public `baseUrl`
- * field. Each method, on first call, resolves the underlying real
+ * real `AdoClient` (`get`, `post`, `postBinary`, `patch`, `delete`,
+ * `getBinary`, `listProjectTags`, `clearProjectTagsCache`) plus the
+ * public `baseUrl` field. Each method, on first call, resolves the underlying real
  * client via `resolveAdoClientForCall(extra, workspaceRoot)` using the
  * active `CallContext`, caches the resolved client for the remainder
  * of the handler invocation, and forwards the call.
@@ -134,6 +134,16 @@ export function createAdoClientProxy(): AdoClientProxy {
     ): Promise<T> {
       const real = await resolveForActiveContext();
       return real.post<T>(path, body, contentType, apiVersion);
+    },
+    async postBinary<T>(
+      path: string,
+      body: ArrayBuffer | Buffer,
+      contentType?: string,
+      apiVersion?: string,
+      queryParams?: Record<string, string>,
+    ): Promise<T> {
+      const real = await resolveForActiveContext();
+      return real.postBinary<T>(path, body, contentType, apiVersion, queryParams);
     },
     async patch<T>(
       path: string,
