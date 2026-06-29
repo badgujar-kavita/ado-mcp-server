@@ -57,15 +57,34 @@ export function registerTestCaseTools(
     },
     async ({ planId, suiteId }) => {
       try {
-        const result = await client.get<{ value: Array<{ testCase: { id: number; name: string } }> }>(
+        // ADO's testplan endpoint returns `{ workItem: { id, name } }` per entry
+        // (see Microsoft docs: "Test Case - Get Test Case List"). Some older suite
+        // types / API versions returned `{ testCase: { id, name } }` instead, so
+        // we read both shapes defensively and skip entries with neither rather
+        // than crashing the whole call on one malformed row.
+        type SuiteTestEntry = {
+          workItem?: { id?: number; name?: string };
+          testCase?: { id?: number; name?: string };
+        };
+        const result = await client.get<{ value: SuiteTestEntry[] }>(
           `/_apis/testplan/Plans/${planId}/Suites/${suiteId}/TestCase`,
           "7.1"
         );
-        const cases = result.value.map((tc) => ({
-          id: tc.testCase.id,
-          name: tc.testCase.name,
-        }));
-        const prose = JSON.stringify(cases, null, 2);
+        const cases: Array<{ id: number; name: string }> = [];
+        const malformed: SuiteTestEntry[] = [];
+        for (const entry of result.value ?? []) {
+          const node = entry.workItem ?? entry.testCase;
+          if (node && typeof node.id === "number") {
+            cases.push({ id: node.id, name: typeof node.name === "string" ? node.name : `TC #${node.id}` });
+          } else {
+            malformed.push(entry);
+          }
+        }
+        const prose = JSON.stringify(
+          malformed.length > 0 ? { cases, malformedEntries: malformed.length } : cases,
+          null,
+          2,
+        );
         const canonical = buildListTestCasesCanonicalResult(planId, suiteId, cases);
         return {
           content: [{ type: "text" as const, text: prose }],

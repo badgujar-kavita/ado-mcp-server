@@ -6,6 +6,20 @@ All notable changes to the VortexADO MCP server are documented here.
 
 ## Unreleased
 
+### 2026-06-29 — `ado_suite_tests`: read the response shape ADO actually returns
+
+`ado_suite_tests` (and any caller depending on it) crashed with `TypeError: Cannot read properties of undefined (reading 'id')` for every suite call that had even one test case in it. Root cause is at `src/tools/test-cases.ts:60`: the code declared and indexed the response as
+
+```ts
+Array<{ testCase: { id: number; name: string } }>
+```
+
+ADO's `GET /_apis/testplan/Plans/{planId}/Suites/{suiteId}/TestCase` actually returns entries shaped `{ workItem: { id, name }, pointAssignments: [...] }` (Microsoft's "Test Case - Get Test Case List" reference). `tc.testCase` was `undefined`, the `.id` access threw, the whole handler returned `Error listing test cases: TypeError…`, and the workaround LLM-side was an unhelpful "share a screenshot."
+
+**Fix.** Read `entry.workItem` first, fall back to `entry.testCase` for legacy shapes, skip entries with neither rather than crashing the whole call. When any entries are skipped, the response includes a `malformedEntries` count so callers can tell something was dropped.
+
+Regression coverage in `src/tools/test-cases-suite-tests.test.ts`: 5 tests — current shape, legacy shape, malformed-entry skipping (no crash), missing-name fallback to `TC #<id>`, empty suite.
+
 ### 2026-06-29 — `qa_tc_update` accepts a generic `fields` bag for any ADO field
 
 A QA needed to set `Custom.Regression_Needed` and `Microsoft.VSTS.TCM.AutomationStatus` on a batch of test cases. The tool refused both — its schema only exposed 9 typed params (title, description, prerequisites, steps, priority, state, assignedTo, areaPath, iterationPath). Adding two more typed params would have worked for one tenant; the next custom field on the next tenant would have hit the same wall.
